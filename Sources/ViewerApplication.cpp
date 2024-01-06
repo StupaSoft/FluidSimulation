@@ -114,8 +114,6 @@ void ViewerApplication::CleanUp()
 {
 	CleanUpSwapChain();
 
-	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) // Since uniform buffers depends on the number of swap chain images
@@ -1220,6 +1218,7 @@ void ViewerApplication::RecreateSwapChain()
 
 	CreateSwapChain();
 	CreateImageViews();
+	CreateGraphicsPipeline();
 	CreateColorResources();
 	CreateDepthResources();
 	CreateFramebuffers();
@@ -1239,6 +1238,8 @@ void ViewerApplication::CleanUpSwapChain()
 	{
 		vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
 	}
+	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
 
 	for (auto &imageView : swapChainImageViews) // Explicitly destroy image views, unlike images
 	{
