@@ -28,7 +28,7 @@
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\FileManager.cpp" />
     <ClCompile Include="Sources\main.cpp" />
-    <ClCompile Include="Sources\SimulatorApp.cpp" />
+    <ClCompile Include="Sources\ViewerApplication.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\backends\imgui_impl_glfw.h" />
@@ -37,7 +37,7 @@
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\FileManager.h" />
-    <ClInclude Include="Sources\SimulatorApp.h" />
+    <ClInclude Include="Sources\ViewerApplication.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

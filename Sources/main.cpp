@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "SimulatorApp.h"
+#include "ViewerApplication.h"
 
 int main()
 {

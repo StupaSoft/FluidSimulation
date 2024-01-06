@@ -16,7 +16,7 @@
     <ClCompile Include="Sources\FileManager.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\SimulatorApp.cpp">
+    <ClCompile Include="Sources\ViewerApplication.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -42,7 +42,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\SimulatorApp.h">
+    <ClInclude Include="Sources\ViewerApplication.h">
       <Filter>sources</Filter>
     </ClInclude>
     <ClInclude Include="Sources\FileManager.h">
