@@ -27,6 +27,10 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+
 #include "FileManager.h"
 
 struct QueueFamilyIndices
@@ -84,16 +88,16 @@ namespace std
 		size_t operator()(Vertex const &vertex) const
 		{
 			return
-				(
-					hash<glm::vec3>()(vertex.pos) ^
-					((hash<glm::vec3>()(vertex.color) << 1) >> 1) ^
-					(hash<glm::vec2>()(vertex.texCoord) << 1)
-				);
+			(
+				hash<glm::vec3>()(vertex.pos) ^
+				((hash<glm::vec3>()(vertex.color) << 1) >> 1) ^
+				(hash<glm::vec2>()(vertex.texCoord) << 1)
+			);
 		}
 	};
 }
 
-class SimulatorApp
+class ViewerApplication
 {
 public:
 	void Run();
@@ -104,8 +108,8 @@ private:
 
 	// Window
 	GLFWwindow *window;
-	const uint32_t WIDTH = 800;
-	const uint32_t HEIGHT = 600;
+	const uint32_t WIDTH = 1920;
+	const uint32_t HEIGHT = 1080;
 
 	// ==================== ValidationLayer ====================
 	// Validation layer
@@ -140,8 +144,6 @@ private:
 	std::vector<VkImage> swapChainImages;
 	VkFormat swapChainImageFormat;
 	VkExtent2D swapChainExtent;
-
-	// ==================== Image views ====================
 	std::vector<VkImageView> swapChainImageViews;
 
 	// ==================== Graphics pipeline ====================
@@ -164,7 +166,7 @@ private:
 	std::vector<VkFence> inFlightFences; // To make sure that only one frame is rendering at a time
 
 	// ==================== Frames in flight ====================
-	const int MAX_FRAMES_IN_FLIGHT = 2; // Limit to 2 so that the CPU doesn't get ahead of the GPU
+	const uint32_t MAX_FRAMES_IN_FLIGHT = 2; // Limit to 2 so that the CPU doesn't get ahead of the GPU
 	uint32_t currentFrame = 0; // To use the right objects every frame
 
 	// ==================== Window resizing ====================
@@ -215,9 +217,18 @@ private:
 	VkDeviceMemory colorImageMemory;
 	VkImageView colorImageView;
 
+	// ==================== ImGui ====================
+	VkDescriptorPool ImGuiDescriptorPool;
+	VkRenderPass ImGuiRenderPass;
+
+	VkCommandPool ImGuiCommandPool;
+	std::vector<VkCommandBuffer> ImGuiCommandBuffers;
+	std::vector<VkFramebuffer> ImGuiFramebuffers;
+
 	// ==================== Basic functions ====================
 	void InitWindow();
 	void InitVulkan();
+	void InitImGui();
 	void MainLoop();
 	void CleanUp();
 
@@ -264,8 +275,8 @@ private:
 	void CreateFramebuffers();
 
 	// ==================== Command buffers ====================
-	void CreateCommandPool();
-	void CreateCommandBuffers();
+	void CreateCommandPool(VkCommandPool *commandPoolToCreate);
+	void CreateCommandBuffers(std::vector<VkCommandBuffer> *commandBuffersToCreate, VkCommandPool fromCommandPool, uint32_t count);
 	void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
 	// ==================== Syncronization objects ====================
@@ -325,4 +336,13 @@ private:
 	// ==================== Multisampling ====================
 	VkSampleCountFlagBits GetMaxUsableSampleCount();
 	void CreateColorResources();
+
+	// ==================== ImGui functions ====================
+	void CreateImGuiDescriptorPool();
+	void CreateImGuiRenderPass();
+	void CreateImGuiFramebuffers();
+	void UpdateImGuiCommandBuffer(uint32_t imageIndex);
+
+	void CleanUpImGui();
+	void RecreateImGuiSwapChainComponents();
 };

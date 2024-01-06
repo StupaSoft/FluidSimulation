@@ -6,15 +6,19 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include <tiny_obj_loader.h>
 
-void SimulatorApp::Run()
+void ViewerApplication::Run()
 {
 	InitWindow();
 	InitVulkan();
+	InitImGui();
+
 	MainLoop();
+
+	CleanUpImGui();
 	CleanUp();
 }
 
-void SimulatorApp::InitWindow()
+void ViewerApplication::InitWindow()
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Do not create an OpenGL context
@@ -26,8 +30,9 @@ void SimulatorApp::InitWindow()
 	glfwSetFramebufferSizeCallback(window, OnFramebufferResized); // Add a callback function to execute when the window is resized
 }
 
-void SimulatorApp::InitVulkan()
+void ViewerApplication::InitVulkan()
 {
+	// Geometry
 	CreateInstance();
 	SetupDebugMessenger();
 	CreateSurface(); // Must be created right after the instance
@@ -38,7 +43,7 @@ void SimulatorApp::InitVulkan()
 	CreateRenderPass();
 	CreateDescriptorSetLayout();
 	CreateGraphicsPipeline();
-	CreateCommandPool();
+	CreateCommandPool(&commandPool);
 	CreateColorResources();
 	CreateDepthResources();
 	CreateFramebuffers();
@@ -51,11 +56,50 @@ void SimulatorApp::InitVulkan()
 	CreateUniformBuffers();
 	CreateDescriptorPool();
 	CreateDescriptorSets();
-	CreateCommandBuffers();
+	CreateCommandBuffers(&commandBuffers, commandPool, MAX_FRAMES_IN_FLIGHT);
 	CreateSyncObjects();
 }
 
-void SimulatorApp::MainLoop()
+void ViewerApplication::InitImGui()
+{
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO &io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable keyboard controls
+
+	ImGui::StyleColorsDark(); // Setup Dear ImGui style
+
+	// Get ready
+	SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
+	CreateImGuiDescriptorPool();
+	CreateImGuiRenderPass();
+
+	// Initialize ImGui
+	ImGui_ImplGlfw_InitForVulkan(window, true);
+	ImGui_ImplVulkan_InitInfo initInfo =
+	{
+		.Instance = instance,
+		.PhysicalDevice = physicalDevice,
+		.Device = logicalDevice,
+		.QueueFamily = FindQueueFamilies(physicalDevice).graphicsFamily.value(),
+		.Queue = graphicsQueue,
+		.PipelineCache = VK_NULL_HANDLE,
+		.DescriptorPool = ImGuiDescriptorPool,
+		.MinImageCount = swapChainSupport.capabilities.minImageCount,
+		.ImageCount = static_cast<uint32_t>(swapChainImages.size()),
+		.Allocator = nullptr,
+		.CheckVkResultFn = nullptr
+	};
+
+	ImGui_ImplVulkan_Init(&initInfo, ImGuiRenderPass);
+
+	// Create ImGui command buffers
+	CreateCommandPool(&ImGuiCommandPool);
+	CreateCommandBuffers(&ImGuiCommandBuffers, ImGuiCommandPool, swapChainImages.size());
+	CreateImGuiFramebuffers();
+}
+
+void ViewerApplication::MainLoop()
 {
 	while (!glfwWindowShouldClose(window))
 	{
@@ -66,17 +110,28 @@ void SimulatorApp::MainLoop()
 	vkDeviceWaitIdle(logicalDevice);
 }
 
-void SimulatorApp::CleanUp()
+void ViewerApplication::CleanUp()
 {
 	CleanUpSwapChain();
+
+	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
+	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) // Since uniform buffers depends on the number of swap chain images
+	{
+		vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
+		vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
+	}
+
+	vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
 
 	vkDestroySampler(logicalDevice, textureSampler, nullptr);
 	vkDestroyImageView(logicalDevice, textureImageView, nullptr);
 
 	vkDestroyImage(logicalDevice, textureImage, nullptr);
 	vkFreeMemory(logicalDevice, textureImageMemory, nullptr);
-
-	vkDestroyDescriptorPool(logicalDevice, descriptorPool, nullptr);
+	
 	vkDestroyDescriptorSetLayout(logicalDevice, descriptorSetLayout, nullptr);
 
 	vkDestroyBuffer(logicalDevice, vertexBuffer, nullptr);
@@ -104,7 +159,7 @@ void SimulatorApp::CleanUp()
 	glfwTerminate();
 }
 
-void SimulatorApp::CreateInstance()
+void ViewerApplication::CreateInstance()
 {
 	// Use validation layers
 	if (enableValidationLayers && !CheckValidationLayerSupport())
@@ -181,7 +236,7 @@ void SimulatorApp::CreateInstance()
 }
 
 // Check whether validation layers are supported
-bool SimulatorApp::CheckValidationLayerSupport()
+bool ViewerApplication::CheckValidationLayerSupport()
 {
 	// Get available layers
 	uint32_t layerCount = 0;
@@ -206,7 +261,7 @@ bool SimulatorApp::CheckValidationLayerSupport()
 	return true;
 }
 
-std::vector<const char *> SimulatorApp::GetRequiredExtensions() // Get extensions required by glfw and the validation layer
+std::vector<const char *> ViewerApplication::GetRequiredExtensions() // Get extensions required by glfw and the validation layer
 {
 	uint32_t glfwExtensionCount = 0;
 	const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -218,7 +273,7 @@ std::vector<const char *> SimulatorApp::GetRequiredExtensions() // Get extension
 }
 
 // Setup debug messenger after the instance is created.
-void SimulatorApp::SetupDebugMessenger()
+void ViewerApplication::SetupDebugMessenger()
 {
 	if (!enableValidationLayers) return;
 
@@ -233,18 +288,18 @@ void SimulatorApp::SetupDebugMessenger()
 }
 
 // Set up a debug callback handle
-void SimulatorApp::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT *createInfo)
+void ViewerApplication::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT *createInfo)
 {
 	*createInfo =
 	{
 		.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
 		.messageSeverity = // Specifies the severity of the messages that will be printed
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
 		.messageType =
-		VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-		VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+			VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+			VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
 		.pfnUserCallback = DebugCallback, // The callback function
 		.pUserData = nullptr
 	};
@@ -252,7 +307,7 @@ void SimulatorApp::PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateI
 
 // Since vkCreateDebugUtilsMessengerEXT is an extension function, it is not loaded automatically.
 // So look up its address manually.
-VkResult SimulatorApp::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger)
+VkResult ViewerApplication::CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger)
 {
 	auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
 	if (func != nullptr)
@@ -266,7 +321,7 @@ VkResult SimulatorApp::CreateDebugUtilsMessengerEXT(VkInstance instance, const V
 }
 
 // Similar to CreateDebugUtilsMessengerEXT, but destroys the handle.
-void SimulatorApp::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator)
+void ViewerApplication::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator)
 {
 	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
 	if (func != nullptr)
@@ -276,14 +331,14 @@ void SimulatorApp::DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUti
 }
 
 // Debug callback for validation layers
-VKAPI_ATTR VkBool32 VKAPI_CALL SimulatorApp::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
+VKAPI_ATTR VkBool32 VKAPI_CALL ViewerApplication::DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
 	std::cerr << "Validation layer: " << pCallbackData->pMessage << std::endl;
 	return VK_FALSE;
 }
 
 // After initializing the Vulkan library through a VkInstance, we need to look for and select a graphics card in the system that supports the features we need.
-void SimulatorApp::PickPhysicalDevice() // Set physicalDevice to a suitable physical device
+void ViewerApplication::PickPhysicalDevice() // Set physicalDevice to a suitable physical device
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -308,7 +363,7 @@ void SimulatorApp::PickPhysicalDevice() // Set physicalDevice to a suitable phys
 }
 
 // Check whether this physical device has a suitable family queue
-bool SimulatorApp::IsSuitableDevice(VkPhysicalDevice device)
+bool ViewerApplication::IsSuitableDevice(VkPhysicalDevice device)
 {
 	QueueFamilyIndices indices = FindQueueFamilies(device);
 	bool extensionsSupported = CheckDeviceExtensionSupport(device);
@@ -328,7 +383,7 @@ bool SimulatorApp::IsSuitableDevice(VkPhysicalDevice device)
 }
 
 // Find queues that support graphics commands
-QueueFamilyIndices SimulatorApp::FindQueueFamilies(VkPhysicalDevice device)
+QueueFamilyIndices ViewerApplication::FindQueueFamilies(VkPhysicalDevice device)
 {
 	QueueFamilyIndices indices{};
 
@@ -351,7 +406,7 @@ QueueFamilyIndices SimulatorApp::FindQueueFamilies(VkPhysicalDevice device)
 }
 
 // Create a logical device as an interface to the physical device
-void SimulatorApp::CreateLogicalDevice()
+void ViewerApplication::CreateLogicalDevice()
 {
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
 
@@ -410,7 +465,7 @@ void SimulatorApp::CreateLogicalDevice()
 	vkGetDeviceQueue(logicalDevice, indices.presentFamily.value(), 0, &presentQueue);
 }
 
-void SimulatorApp::CreateSurface()
+void ViewerApplication::CreateSurface()
 {
 	// glfwCreateWindowSurface creates a window surface regardless of the platform
 	if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
@@ -422,7 +477,7 @@ void SimulatorApp::CreateSurface()
 // Vulkan does not have the concepth of a default framebuffer, hence it requires an infrastructure that will own the buffers we will render to before we visualize them on the screen.
 // This infrastructure is known as the swap chain and must be created explicitly.
 // Ths swap chain is a queue of images that are waiting to be presented to the screen.
-void SimulatorApp::CreateSwapChain()
+void ViewerApplication::CreateSwapChain()
 {
 	SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice);
 
@@ -432,7 +487,7 @@ void SimulatorApp::CreateSwapChain()
 	VkExtent2D extent = ChooseSwapExtent(swapChainSupport.capabilities); // Resolution of the swap chain images
 
 	// Decide how many images we would like to have in the swap chain
-	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+	uint32_t imageCount = swapChainSupport.capabilities.minImageCount;
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
 	{
 		imageCount = swapChainSupport.capabilities.maxImageCount;
@@ -493,7 +548,7 @@ void SimulatorApp::CreateSwapChain()
 }
 
 // Check if all the extensions specified in deviceExtensions are supported by the physical device
-bool SimulatorApp::CheckDeviceExtensionSupport(VkPhysicalDevice device)
+bool ViewerApplication::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 {
 	uint32_t extensionCount = 0;
 	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -510,7 +565,7 @@ bool SimulatorApp::CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	return requiredExtensions.empty();
 }
 
-SwapChainSupportDetails SimulatorApp::QuerySwapChainSupport(VkPhysicalDevice device) // Return supported formats and present modes 
+SwapChainSupportDetails ViewerApplication::QuerySwapChainSupport(VkPhysicalDevice device) // Return supported formats and present modes 
 {
 	SwapChainSupportDetails details;
 
@@ -532,7 +587,7 @@ SwapChainSupportDetails SimulatorApp::QuerySwapChainSupport(VkPhysicalDevice dev
 }
 
 // Choose the right settings for the swap chain
-VkSurfaceFormatKHR SimulatorApp::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)
+VkSurfaceFormatKHR ViewerApplication::ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats)
 {
 	// Check if we can use an SRGB color space and a suitable format
 	for (const auto &availableFormat : availableFormats)
@@ -545,7 +600,7 @@ VkSurfaceFormatKHR SimulatorApp::ChooseSwapSurfaceFormat(const std::vector<VkSur
 }
 
 // Choose among present modes
-VkPresentModeKHR SimulatorApp::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes)
+VkPresentModeKHR ViewerApplication::ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes)
 {
 	for (const auto &availablePresentMode : availablePresentModes)
 	{
@@ -559,7 +614,7 @@ VkPresentModeKHR SimulatorApp::ChooseSwapPresentMode(const std::vector<VkPresent
 }
 
 // Pick a resoultion
-VkExtent2D SimulatorApp::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities)
+VkExtent2D ViewerApplication::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabilities)
 {
 	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) // Allows to differ
 	{
@@ -579,7 +634,7 @@ VkExtent2D SimulatorApp::ChooseSwapExtent(const VkSurfaceCapabilitiesKHR &capabi
 	}
 }
 
-void SimulatorApp::CreateImageViews()
+void ViewerApplication::CreateImageViews()
 {
 	swapChainImageViews.resize(swapChainImages.size()); // Resize the vector to fit all of the image views
 
@@ -589,7 +644,7 @@ void SimulatorApp::CreateImageViews()
 	}
 }
 
-void SimulatorApp::CreateGraphicsPipeline()
+void ViewerApplication::CreateGraphicsPipeline()
 {
 	auto vertShaderCode = ReadFile("Shaders/Vert.spv");
 	auto fragShaderCode = ReadFile("Shaders/Frag.spv");
@@ -789,7 +844,7 @@ void SimulatorApp::CreateGraphicsPipeline()
 	vkDestroyShaderModule(logicalDevice, vertShaderModule, nullptr);
 }
 
-VkShaderModule SimulatorApp::CreateShaderModule(const std::vector<char> &code)
+VkShaderModule ViewerApplication::CreateShaderModule(const std::vector<char> &code)
 {
 	VkShaderModuleCreateInfo createInfo =
 	{
@@ -807,7 +862,7 @@ VkShaderModule SimulatorApp::CreateShaderModule(const std::vector<char> &code)
 	return shaderModule;
 }
 
-void SimulatorApp::CreateRenderPass()
+void ViewerApplication::CreateRenderPass()
 {
 	// Create a single color buffer attachment for MSAA - must be resolved to a regular image before presentation.
 	// The image layout needs be transitioned to specific layouts that are suitable for the operation that they're going to be involved in the next.
@@ -818,7 +873,7 @@ void SimulatorApp::CreateRenderPass()
 		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Clear the values to a constant before rendering
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE, // After the rendering, rendered contents will be stored in memory and can be read later - since we are interested in presenting the image on the screen, specify as this one.
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // Which layout the image will have before the rendering pass begins - doesn't matter here, so specify it as 'undefined'. 
-		.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL // Which layout the image will automatically transition to when the render pass finishes - as a source for presentation on the image
+		.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL // Which layout the image will automatically transition to when the render pass finishes
 	};
 
 	// Subpasses and attachment references
@@ -838,7 +893,7 @@ void SimulatorApp::CreateRenderPass()
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+		.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // This one is not presenting anymore. So, change to VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
 
 	VkAttachmentReference colorAttachmentResolveRef =
@@ -875,18 +930,17 @@ void SimulatorApp::CreateRenderPass()
 		.pDepthStencilAttachment = &depthAttachmentRef
 	};
 
-	// Subpasses in a render pass automatically take care of image layout transitions.
-	// These transitions are controlled by subpass dependencies, which specify memory and execution dependencies between subpasses.
+	// Wait for the geometry to be drawn on the framebuffer before the GUI
 	VkSubpassDependency dependency =
 	{
-		.srcSubpass = VK_SUBPASS_EXTERNAL, // Index of the implicit subpass before the render pass
-		.dstSubpass = 0, // Index of our subpass
+		.srcSubpass = VK_SUBPASS_EXTERNAL, // Create a dependency outside the current render pass
+		.dstSubpass = 0, // Our first and only subpass
 
-		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, // Stages that are being waited for
-		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, // Stages that are waiting
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // Stages that are being waited for (drawing geometry)
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // Stages that are waiting (drawing GUI)
 
-		.srcAccessMask = 0, // Operations to wait on
-		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT // Operations that are waiting
+		.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, // Operations to wait on
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT // Operations that are waiting - drawing GUI
 	};
 
 	// Create the render pass itself with the attachments and the subpass
@@ -908,12 +962,11 @@ void SimulatorApp::CreateRenderPass()
 	}
 }
 
-void SimulatorApp::CreateFramebuffers()
+void ViewerApplication::CreateFramebuffers()
 {
 	swapChainFramebuffers.resize(swapChainImageViews.size());
 
-	auto sz = swapChainImageViews.size();
-	for (decltype(sz) i = 0; i < sz; ++i)
+	for (size_t i = 0; i < swapChainImageViews.size(); ++i)
 	{
 		std::array<VkImageView, 3> attachments = { colorImageView, depthImageView, swapChainImageViews[i] };
 
@@ -935,7 +988,7 @@ void SimulatorApp::CreateFramebuffers()
 	}
 }
 
-void SimulatorApp::CreateCommandPool()
+void ViewerApplication::CreateCommandPool(VkCommandPool *commandPoolToCreate)
 {
 	QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalDevice);
 
@@ -946,31 +999,31 @@ void SimulatorApp::CreateCommandPool()
 		.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value() // Since we want to record commands for drawing
 	};
 
-	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, &commandPool) != VK_SUCCESS)
+	if (vkCreateCommandPool(logicalDevice, &poolInfo, nullptr, commandPoolToCreate) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a command pool.");
 	}
 }
 
-void SimulatorApp::CreateCommandBuffers()
+void ViewerApplication::CreateCommandBuffers(std::vector<VkCommandBuffer> *commandBuffersToCreate, VkCommandPool fromCommandPool, uint32_t count)
 {
-	commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	commandBuffersToCreate->resize(count);
 
 	VkCommandBufferAllocateInfo allocInfo =
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-		.commandPool = commandPool,
+		.commandPool = fromCommandPool,
 		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY, // Can be submitted to a queue for execution, but cannot be called from other command buffers.
 		.commandBufferCount = (uint32_t)commandBuffers.size()
 	};
 
-	if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffers.data()) != VK_SUCCESS)
+	if (vkAllocateCommandBuffers(logicalDevice, &allocInfo, commandBuffersToCreate->data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate command buffers.");
 	}
 }
 
-void SimulatorApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) // The index of the current swapchain image we want to write to
+void ViewerApplication::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex) // The index of the current swapchain image we want to write to
 {
 	// Begin to record a command buffer
 	VkCommandBufferBeginInfo beginInfo =
@@ -986,7 +1039,7 @@ void SimulatorApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
 	}
 
 	// Begin the render pass
-	VkRenderPassBeginInfo renderPassInfo =
+	VkRenderPassBeginInfo renderPassBeginInfo =
 	{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = renderPass, // The render pass itself
@@ -1008,10 +1061,10 @@ void SimulatorApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
 	{
 		.depthStencil = { 1.0f, 0 } // The initial value must be the farthest depth 1.0.
 	};
-	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-	renderPassInfo.pClearValues = clearValues.data();
+	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
+	renderPassBeginInfo.pClearValues = clearValues.data();
 
-	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	// Basic drawing commands
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
@@ -1034,7 +1087,7 @@ void SimulatorApp::RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t i
 	}
 }
 
-void SimulatorApp::CreateSyncObjects()
+void ViewerApplication::CreateSyncObjects()
 {
 	imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
 	renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -1065,7 +1118,7 @@ void SimulatorApp::CreateSyncObjects()
 	}
 }
 
-void SimulatorApp::DrawFrame()
+void ViewerApplication::DrawFrame()
 {
 	vkWaitForFences(logicalDevice, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX); // Wait until the previous frame has finished
 
@@ -1076,6 +1129,10 @@ void SimulatorApp::DrawFrame()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) // The swap chain has become incompatible with the surface; usually after resizing the window
 	{
 		RecreateSwapChain();
+		RecreateImGuiSwapChainComponents();
+
+		currentFrame = 0;
+
 		return;
 	}
 	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // Even if the result is suboptimal, proceed anyway since we have already got an image
@@ -1088,11 +1145,12 @@ void SimulatorApp::DrawFrame()
 	vkResetCommandBuffer(commandBuffers[currentFrame], 0);
 	RecordCommandBuffer(commandBuffers[currentFrame], imageIndex);
 
-	// Submit the command buffer
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; // Wait with writing colors to the image until it's available
-
 	UpdateUniformBuffer();
+	UpdateImGuiCommandBuffer(imageIndex);
 
+	// Submit the command buffer
+	std::vector<VkCommandBuffer> submitCommandBuffers = { commandBuffers[imageIndex], ImGuiCommandBuffers[imageIndex] };
+	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; // Wait with writing colors to the image until it's available
 	VkSubmitInfo submitInfo =
 	{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
@@ -1100,8 +1158,8 @@ void SimulatorApp::DrawFrame()
 		.pWaitSemaphores = &imageAvailableSemaphores[currentFrame],
 		.pWaitDstStageMask = waitStages,
 
-		.commandBufferCount = 1,
-		.pCommandBuffers = &commandBuffers[currentFrame],
+		.commandBufferCount = 2,
+		.pCommandBuffers = submitCommandBuffers.data(),
 
 		.signalSemaphoreCount = 1,
 		.pSignalSemaphores = &renderFinishedSemaphores[currentFrame]
@@ -1128,17 +1186,22 @@ void SimulatorApp::DrawFrame()
 	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized) // If the result is subotpimal, recreate the swap chain because we want the best result
 	{
 		RecreateSwapChain();
+		RecreateImGuiSwapChainComponents();
+
+		currentFrame = -1; // The next frame should be 0
+		framebufferResized = false;
 	}
 	else if (result != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to present a swap chain image.");
 	}
 
+	// Update commands
 	currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 // Called in case the swap chain is invalidated when, for example, the window is resized.
-void SimulatorApp::RecreateSwapChain()
+void ViewerApplication::RecreateSwapChain()
 {
 	// Handle minimization
 	int width = 0;
@@ -1157,18 +1220,12 @@ void SimulatorApp::RecreateSwapChain()
 
 	CreateSwapChain();
 	CreateImageViews();
-	CreateRenderPass();
-	CreateGraphicsPipeline();
-	CreateDepthResources();
+	CreateColorResources();
 	CreateDepthResources();
 	CreateFramebuffers();
-	CreateUniformBuffers();
-	CreateDescriptorPool();
-	CreateDescriptorSets();
-	CreateCommandBuffers();
 }
 
-void SimulatorApp::CleanUpSwapChain()
+void ViewerApplication::CleanUpSwapChain()
 {
 	vkDestroyImageView(logicalDevice, depthImageView, nullptr);
 	vkDestroyImage(logicalDevice, depthImage, nullptr);
@@ -1182,9 +1239,6 @@ void SimulatorApp::CleanUpSwapChain()
 	{
 		vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
 	}
-	vkDestroyPipeline(logicalDevice, graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(logicalDevice, pipelineLayout, nullptr);
-	vkDestroyRenderPass(logicalDevice, renderPass, nullptr);
 
 	for (auto &imageView : swapChainImageViews) // Explicitly destroy image views, unlike images
 	{
@@ -1192,22 +1246,16 @@ void SimulatorApp::CleanUpSwapChain()
 	}
 
 	vkDestroySwapchainKHR(logicalDevice, swapChain, nullptr);
-
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) // Since uniform buffers depends on the number of swap chain images
-	{
-		vkDestroyBuffer(logicalDevice, uniformBuffers[i], nullptr);
-		vkFreeMemory(logicalDevice, uniformBuffersMemory[i], nullptr);
-	}
 }
 
 // Window resize callback
-void SimulatorApp::OnFramebufferResized(GLFWwindow *window, int width, int height)
+void ViewerApplication::OnFramebufferResized(GLFWwindow *window, int width, int height)
 {
-	auto app = reinterpret_cast<SimulatorApp *>(glfwGetWindowUserPointer(window));
+	auto app = reinterpret_cast<ViewerApplication *>(glfwGetWindowUserPointer(window));
 	app->framebufferResized = true;
 }
 
-void SimulatorApp::CreateVertexBuffer()
+void ViewerApplication::CreateVertexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
@@ -1229,7 +1277,7 @@ void SimulatorApp::CreateVertexBuffer()
 }
 
 // Find the relevant type of memory
-uint32_t SimulatorApp::FindMemoryType(uint32_t typeFilter, const VkMemoryPropertyFlags &properties)
+uint32_t ViewerApplication::FindMemoryType(uint32_t typeFilter, const VkMemoryPropertyFlags &properties)
 {
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties); // Query info about the available types of memory
@@ -1245,7 +1293,7 @@ uint32_t SimulatorApp::FindMemoryType(uint32_t typeFilter, const VkMemoryPropert
 	throw std::runtime_error("Failed to find a suitable memory type.");
 }
 
-void SimulatorApp::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer *buffer, VkDeviceMemory *bufferMemory)
+void ViewerApplication::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer *buffer, VkDeviceMemory *bufferMemory)
 {
 	VkBufferCreateInfo bufferInfo =
 	{
@@ -1281,7 +1329,7 @@ void SimulatorApp::CreateBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkM
 	vkBindBufferMemory(logicalDevice, *buffer, *bufferMemory, 0);
 }
 
-void SimulatorApp::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+void ViewerApplication::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 	// Memory transfer operations are executed using command buffers.
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands();
@@ -1296,7 +1344,7 @@ void SimulatorApp::CopyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 	EndSingleTimeCommands(commandBuffer);
 }
 
-void SimulatorApp::CreateIndexBuffer()
+void ViewerApplication::CreateIndexBuffer()
 {
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -1318,7 +1366,7 @@ void SimulatorApp::CreateIndexBuffer()
 	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
 }
 
-void SimulatorApp::CreateDescriptorSetLayout()
+void ViewerApplication::CreateDescriptorSetLayout()
 {
 	// Buffer object descriptor
 	VkDescriptorSetLayoutBinding uboLayoutBinding =
@@ -1355,7 +1403,7 @@ void SimulatorApp::CreateDescriptorSetLayout()
 	}
 }
 
-void SimulatorApp::CreateUniformBuffers()
+void ViewerApplication::CreateUniformBuffers()
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -1368,7 +1416,7 @@ void SimulatorApp::CreateUniformBuffers()
 	}
 }
 
-void SimulatorApp::UpdateUniformBuffer()
+void ViewerApplication::UpdateUniformBuffer()
 {
 	static auto startTime = std::chrono::high_resolution_clock::now();
 
@@ -1392,19 +1440,12 @@ void SimulatorApp::UpdateUniformBuffer()
 }
 
 // Create a descriptor pool from which we can allocate descriptor sets
-void SimulatorApp::CreateDescriptorPool()
+void ViewerApplication::CreateDescriptorPool()
 {
-	std::array<VkDescriptorPoolSize, 2> poolSizes{}; // Which descriptor types descriptor sets are going to contain and how many of them
-
-	poolSizes[0] =
+	std::vector<VkDescriptorPoolSize> poolSizes = // Which descriptor types descriptor sets are going to contain and how many of them
 	{
-		.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
-	};
-	poolSizes[1] =
-	{
-		.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT }
 	};
 
 	VkDescriptorPoolCreateInfo poolInfo =
@@ -1422,7 +1463,7 @@ void SimulatorApp::CreateDescriptorPool()
 }
 
 // Create a descriptor set for each VkBuffer resource to bind it to the uniform buffer descriptor
-void SimulatorApp::CreateDescriptorSets()
+void ViewerApplication::CreateDescriptorSets()
 {
 	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, descriptorSetLayout); // Same descriptor set layout for all descriptor sets
 
@@ -1488,7 +1529,7 @@ void SimulatorApp::CreateDescriptorSets()
 	}
 }
 
-void SimulatorApp::CreateTextureImage()
+void ViewerApplication::CreateTextureImage()
 {
 	// Load a texture image
 	int texWidth = 0;
@@ -1534,7 +1575,7 @@ void SimulatorApp::CreateTextureImage()
 	GenerateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, textureMipLevels);
 }
 
-void SimulatorApp::CreateImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *imageMemory)
+void ViewerApplication::CreateImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *imageMemory)
 {
 	// Create an image object
 	VkImageCreateInfo imageInfo =
@@ -1584,7 +1625,7 @@ void SimulatorApp::CreateImage(uint32_t width, uint32_t height, uint32_t mipLeve
 }
 
 // Start a temporary command buffer
-VkCommandBuffer SimulatorApp::BeginSingleTimeCommands()
+VkCommandBuffer ViewerApplication::BeginSingleTimeCommands()
 {
 	VkCommandBufferAllocateInfo allocInfo =
 	{
@@ -1608,7 +1649,7 @@ VkCommandBuffer SimulatorApp::BeginSingleTimeCommands()
 	return commandBuffer;
 }
 
-void SimulatorApp::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
+void ViewerApplication::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 {
 	vkEndCommandBuffer(commandBuffer);
 
@@ -1627,7 +1668,7 @@ void SimulatorApp::EndSingleTimeCommands(VkCommandBuffer commandBuffer)
 }
 
 // Before we use vkCmdCopyBufferToImage, the image must be in a proper layout.
-void SimulatorApp::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
+void ViewerApplication::TransitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
 {
 	// Image memory barriers are generally used to synchronize access to resources, but it can also be used to transition
 	// image layouts and transfer queue family ownership when VK_SHARING_MODE_EXCLUSIVE is used.
@@ -1703,7 +1744,7 @@ void SimulatorApp::TransitionImageLayout(VkImage image, VkFormat format, VkImage
 	EndSingleTimeCommands(commandBuffer);
 }
 
-void SimulatorApp::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+void ViewerApplication::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
 	VkBufferImageCopy region =
 	{
@@ -1728,12 +1769,12 @@ void SimulatorApp::CopyBufferToImage(VkBuffer buffer, VkImage image, uint32_t wi
 	EndSingleTimeCommands(commandBuffer);
 }
 
-void SimulatorApp::CreateTextureImageView()
+void ViewerApplication::CreateTextureImageView()
 {
 	textureImageView = CreateImageView(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
 }
 
-VkImageView SimulatorApp::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
+VkImageView ViewerApplication::CreateImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
 	VkImageViewCreateInfo viewInfo =
 	{
@@ -1763,7 +1804,7 @@ VkImageView SimulatorApp::CreateImageView(VkImage image, VkFormat format, VkImag
 }
 
 // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
-void SimulatorApp::CreateTextureSampler()
+void ViewerApplication::CreateTextureSampler()
 {
 	VkPhysicalDeviceProperties properties{};
 	vkGetPhysicalDeviceProperties(physicalDevice, &properties);
@@ -1802,7 +1843,7 @@ void SimulatorApp::CreateTextureSampler()
 	}
 }
 
-void SimulatorApp::CreateDepthResources()
+void ViewerApplication::CreateDepthResources()
 {
 	VkFormat depthFormat = FindSupportedFormat({ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT); // Find suitable format for a depth image
 	CreateImage
@@ -1825,7 +1866,7 @@ void SimulatorApp::CreateDepthResources()
 
 }
 
-VkFormat SimulatorApp::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+VkFormat ViewerApplication::FindSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (VkFormat format : candidates)
 	{
@@ -1844,7 +1885,7 @@ VkFormat SimulatorApp::FindSupportedFormat(const std::vector<VkFormat> &candidat
 	throw std::runtime_error("Failed to find a supported format.");
 }
 
-void SimulatorApp::LoadModel()
+void ViewerApplication::LoadModel()
 {
 	tinyobj::attrib_t attrib; // Holds all of the positions, normals, and texture coordinates
 	std::vector<tinyobj::shape_t> shapes; // Contains all of the separate objects and their faces
@@ -1888,7 +1929,7 @@ void SimulatorApp::LoadModel()
 	}
 }
 
-void SimulatorApp::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+void ViewerApplication::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
 	// Check if the image format supports linear blitting
 	VkFormatProperties formatProperties;
@@ -1979,7 +2020,7 @@ void SimulatorApp::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t 
 	EndSingleTimeCommands(commandBuffer);
 }
 
-VkSampleCountFlagBits SimulatorApp::GetMaxUsableSampleCount() // Return min(depth sample count, color sample count)
+VkSampleCountFlagBits ViewerApplication::GetMaxUsableSampleCount() // Return min(depth sample count, color sample count)
 {
 	VkPhysicalDeviceProperties physicalDeviceProperties;
 	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
@@ -1996,7 +2037,7 @@ VkSampleCountFlagBits SimulatorApp::GetMaxUsableSampleCount() // Return min(dept
 
 // Create an offsreen buffer for MSAA
 // Since there is only one ongoing rendering operation, create only one such buffer.
-void SimulatorApp::CreateColorResources()
+void ViewerApplication::CreateColorResources()
 {
 	VkFormat colorFormat = swapChainImageFormat;
 
@@ -2055,4 +2096,192 @@ std::array<VkVertexInputAttributeDescription, 3> Vertex::GetAttributeDescription
 		.offset = offsetof(Vertex, texCoord)
 	};
 	return attributeDescriptions;
+}
+
+void ViewerApplication::CreateImGuiDescriptorPool()
+{
+	std::vector<VkDescriptorPoolSize> poolSizes = // Which descriptor types the descriptor sets are going to contain and how many of them?
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+		.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+		.pPoolSizes = poolSizes.data()
+	};
+
+	if (vkCreateDescriptorPool(logicalDevice, &poolInfo, nullptr, &ImGuiDescriptorPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a ImGui descriptor pool.");
+	}
+}
+
+void ViewerApplication::CreateImGuiRenderPass()
+{
+	VkAttachmentDescription colorAttachment =
+	{
+		.format = swapChainImageFormat,
+		.samples = VK_SAMPLE_COUNT_1_BIT, // ImGui looks fine without MSAA
+		.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD, // Do not clear the the content of the framebuffer - we want the GUI to be drawn over the main rendering!
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE, // It will be read later to be drawn.
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, // We don't need any stencil operations for ImGui
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE, // Same
+		.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // For optimal performance 
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR // Source for the presentation using swap chains
+	};
+
+	VkAttachmentReference colorAttachmentRef =
+	{
+		.attachment = 0, // Index of the color attachment (referenced from the fragment shader with the 'layout(location = 0) out vec4 outColor' directive)
+		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL // Optimal for the attachment to function as a color buffer
+	};
+
+	VkSubpassDescription subpass =
+	{
+		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS, // Graphics subpass, not a compute subpass
+		.colorAttachmentCount = 1,
+		.pColorAttachments = &colorAttachmentRef
+	};
+
+	VkSubpassDependency dependency =
+	{
+		.srcSubpass = VK_SUBPASS_EXTERNAL, // Index of the implicit subpass before the render pass
+		.dstSubpass = 0, // Index of our subpass
+
+		.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, // Stages that are being waited for
+		.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, // Stages that are waiting
+
+		.srcAccessMask = 0, // Operations to wait on
+		.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT // Operations that are waiting
+	};
+
+	VkRenderPassCreateInfo renderPassInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+		.attachmentCount = 1,
+		.pAttachments = &colorAttachment,
+		.subpassCount = 1,
+		.pSubpasses = &subpass,
+		.dependencyCount = 1,
+		.pDependencies = &dependency
+	};
+
+	if (vkCreateRenderPass(logicalDevice, &renderPassInfo, nullptr, &ImGuiRenderPass) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create an ImGui render pass.");
+	}
+}
+
+void ViewerApplication::CreateImGuiFramebuffers()
+{
+	ImGuiFramebuffers.resize(swapChainImageViews.size());
+
+	for (size_t i = 0; i < ImGuiFramebuffers.size(); ++i)
+	{
+		VkFramebufferCreateInfo framebufferInfo =
+		{
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = ImGuiRenderPass,
+			.attachmentCount = 1,
+			.pAttachments = &swapChainImageViews[i],
+			.width = swapChainExtent.width,
+			.height = swapChainExtent.height,
+			.layers = 1
+		};
+
+		if (vkCreateFramebuffer(logicalDevice, &framebufferInfo, nullptr, &ImGuiFramebuffers[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create an ImGui framebuffer.");
+		}
+	}
+}
+
+void ViewerApplication::UpdateImGuiCommandBuffer(uint32_t imageIndex)
+{
+	// Create a frame
+	ImGui_ImplVulkan_NewFrame();
+	ImGui_ImplGlfw_NewFrame(); // Handle user imputs, the screen size etc.
+	ImGui::NewFrame(); // Initialize an actual ImGuiFrame
+
+	ImGui::ShowDemoWindow();
+
+	ImGui::Render();
+	ImDrawData *mainDrawData = ImGui::GetDrawData();
+
+	// Begin the command buffer
+	VkCommandBufferBeginInfo commandBufferBeginInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
+	};
+
+	if (vkBeginCommandBuffer(ImGuiCommandBuffers[imageIndex], &commandBufferBeginInfo) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a command buffer.");
+	}
+
+	// Begin the render pass
+	VkRenderPassBeginInfo renderPassBeginInfo =
+	{
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = ImGuiRenderPass,
+		.framebuffer = ImGuiFramebuffers[imageIndex],
+		.renderArea =
+		{
+			.extent = swapChainExtent
+		}
+	};
+
+	vkCmdBeginRenderPass(ImGuiCommandBuffers[imageIndex], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+	ImGui_ImplVulkan_RenderDrawData(mainDrawData, ImGuiCommandBuffers[imageIndex]); // Add draw calls to the render pass
+	vkCmdEndRenderPass(ImGuiCommandBuffers[imageIndex]);
+
+	// End the command buffer
+	if (vkEndCommandBuffer(ImGuiCommandBuffers[imageIndex]) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to begin a command buffer.");
+	}
+}
+
+void ViewerApplication::CleanUpImGui()
+{
+	for (auto framebuffer : ImGuiFramebuffers)
+	{
+		vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
+	}
+
+	vkDestroyRenderPass(logicalDevice, ImGuiRenderPass, nullptr);
+
+	vkFreeCommandBuffers(logicalDevice, ImGuiCommandPool, static_cast<uint32_t>(ImGuiCommandBuffers.size()), ImGuiCommandBuffers.data());
+	vkDestroyCommandPool(logicalDevice, ImGuiCommandPool, nullptr);
+	
+	ImGui_ImplVulkan_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
+	vkDestroyDescriptorPool(logicalDevice, ImGuiDescriptorPool, nullptr);
+}
+
+void ViewerApplication::RecreateImGuiSwapChainComponents()
+{
+	for (auto &framebuffer : ImGuiFramebuffers)
+	{
+		vkDestroyFramebuffer(logicalDevice, framebuffer, nullptr);
+	}
+
+	CreateImGuiFramebuffers();
 }
