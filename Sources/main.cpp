@@ -4,7 +4,7 @@
 
 int main()
 {
-	ViewerApplication app{};
+	MainApplication app{};
 
 	try
 	{

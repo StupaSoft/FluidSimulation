@@ -40,6 +40,9 @@
     <ClCompile Include="Libraries\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\VulkanCore.cpp">
+      <Filter>sources</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Sources\ViewerApplication.h">
@@ -62,6 +65,9 @@
     </ClInclude>
     <ClInclude Include="Libraries\imgui\backends\imgui_impl_vulkan.h">
       <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\VulkanCore.h">
+      <Filter>sources</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
