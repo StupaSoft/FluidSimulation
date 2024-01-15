@@ -1,8 +1,8 @@
-#include "ViewerApplication.h"
+#include "MainApplication.h"
 
-void MainApplication::Run()
+void WindowApplication::Run()
 {
-	_window = InitWindow(WIDTH, HEIGHT, "Fluid Simulation");
+	_window = InitMainWindow(WIDTH, HEIGHT, "Fluid Simulation");
 
 	_vulkanCore = std::make_unique<VulkanCore>(_window);
 	_vulkanCore->InitVulkan();
@@ -11,7 +11,7 @@ void MainApplication::Run()
 	MainLoop();
 }
 
-GLFWwindow *MainApplication::InitWindow(int width, int height, const std::string &title)
+GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::string &title)
 {
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); // Do not create an OpenGL context
@@ -25,26 +25,32 @@ GLFWwindow *MainApplication::InitWindow(int width, int height, const std::string
 	return window;
 }
 
-void MainApplication::MainLoop()
+void WindowApplication::MainLoop()
 {
-	// Main window
+	static auto prevTime = std::chrono::high_resolution_clock::now();
+
+	// Application loop
 	while (!glfwWindowShouldClose(_window))
 	{
 		glfwPollEvents();
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		float deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
+		prevTime = currentTime;
 
 		_vulkanCore->DrawFrame();
 	}
 }
 
-void MainApplication::Resize()
+void WindowApplication::Resize()
 {
 	_vulkanCore->Resize();
 }
 
 // Window resize callback
-void MainApplication::OnFramebufferResized(GLFWwindow *window, int width, int height)
+void WindowApplication::OnFramebufferResized(GLFWwindow *window, int width, int height)
 {
-	auto app = reinterpret_cast<MainApplication *>(glfwGetWindowUserPointer(window));
+	auto app = reinterpret_cast<WindowApplication *>(glfwGetWindowUserPointer(window));
 	app->Resize();
 }
 

@@ -101,27 +101,31 @@ namespace std
 class VulkanCore
 {
 private:
-	VkInstance _instance;
-
 	GLFWwindow *_window;
+
+	VkInstance _instance; // Connection between the application and the Vulkan library
 
 	// ==================== ValidationLayer ====================
 // Validation layer
-	const std::vector<const char *> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" };
+	const std::vector<const char *> VALIDATION_LAYERS = { "VK_LAYER_KHRONOS_validation" }; // Layer included in the SDK that conducts standard validation
+	// Enable validation only in the debug mode
 #ifdef NDEBUG
-	const bool _enableValidationLayers = false;
+	const bool ENABLE_VALIDATION_LAYERS = false;
 #else
-	const bool _enableValidationLayers = true;
+	const bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
-	VkDebugUtilsMessengerEXT _debugMessenger; // Validation layer handle
+	VkDebugUtilsMessengerEXT _debugMessenger; // Handle to the validation layer
 
 	// ==================== Physical devices and queue families ====================
 	VkPhysicalDevice _physicalDevice;
 
 	// ==================== Logical device and queues ====================
 	VkDevice _logicalDevice;
-	VkQueue _graphicsQueue; // Automatically cleaned up when the device is destroyed
+	
+	// Belongs to the graphics queue
+	// Automatically cleaned up when the device is destroyed
+	VkQueue _graphicsQueue;
 
 	// ==================== Window ====================
 	VkSurfaceKHR _surface; // Abstract type of surface to present rendered images to
@@ -142,7 +146,7 @@ private:
 
 	// ==================== Graphics pipeline ====================
 	VkPipeline _graphicsPipeline;
-	VkPipelineLayout _pipelineLayout; // Pipeline layout
+	VkPipelineLayout _pipelineLayout;
 
 	// ==================== Render pass ====================
 	VkRenderPass _renderPass;
@@ -151,7 +155,7 @@ private:
 	std::vector<VkFramebuffer> _swapChainFramebuffers;
 
 	// ==================== Command buffers ====================
-	VkCommandPool _commandPool; // Manages the memory where command buffers are allocated and command buffers are allocated from them
+	VkCommandPool _commandPool;
 	std::vector<VkCommandBuffer> _commandBuffers;
 
 	// ==================== Syncronization objects ====================
@@ -177,19 +181,22 @@ private:
 	VkDeviceMemory _indexBufferMemory;
 
 	// ==================== Descriptor layout and buffers ====================
-	VkDescriptorSetLayout _descriptorSetLayout;
+	VkDescriptorSetLayout _descriptorSetLayout; // Specifies the type of resources that are going to be accessed by the pipeline
 	std::vector<VkBuffer> _uniformBuffers; // Create multiple buffers for each frame
 	std::vector<VkDeviceMemory> _uniformBuffersMemory;
 
 	// ==================== Descriptor pool and sets ====================
-	VkDescriptorPool _descriptorPool;
-	std::vector<VkDescriptorSet> _descriptorSets;
+	VkDescriptorPool _descriptorPool; // Descriptor sets are allocated from the descriptor pool
+	std::vector<VkDescriptorSet> _descriptorSets; // Specifies the actual buffer or image resources that will be bound to the descriptors
 
 	// ==================== Images ====================
-	VkDeviceMemory _textureImageMemory;
+	VkImage _colorImage;
+	VkDeviceMemory _colorImageMemory;
+	VkImageView _colorImageView;
 
 	// ==================== Image view and sampler ====================
 	VkImageView _textureImageView;
+	VkDeviceMemory _textureImageMemory;
 	VkSampler _textureSampler;
 
 	// ==================== Depth buffering ====================
@@ -204,11 +211,6 @@ private:
 	// ==================== Mipmaps ====================
 	uint32_t _textureMipLevels;
 	VkImage _textureImage;
-
-	// ==================== Multisampling ====================
-	VkImage _colorImage;
-	VkDeviceMemory _colorImageMemory;
-	VkImageView _colorImageView;
 
 	// ==================== ImGui ====================
 	VkDescriptorPool _ImGuiDescriptorPool;
@@ -242,13 +244,13 @@ private:
 	std::vector<const char *> GetRequiredExtensions(bool enableValidationLayers);
 	
 	VkDebugUtilsMessengerEXT CreateDebugMessenger(VkInstance instance, bool enableValidationLayers);
-	void PopulateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT *createInfo);
+	void SpecifyDebugLevel(VkDebugUtilsMessengerCreateInfoEXT *createInfo);
 	VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger);
 	static void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks *pAllocator);
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData);
 	
 	// ==================== Physical devices and queue families ====================
-	VkPhysicalDevice PickPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
+	VkPhysicalDevice SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
 	bool IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
@@ -262,8 +264,8 @@ private:
 	std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window);
 	bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice, const std::vector<const char *> &deviceExtensions);
 	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
-	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats);
-	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes);
+	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats, VkFormat desiredFormat, VkColorSpaceKHR desiredColorSpace);
+	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes, VkPresentModeKHR desiredPresentMode);
 	VkExtent2D ChooseSwapExtent(GLFWwindow *window, const VkSurfaceCapabilitiesKHR &capabilities);
 
 	// ==================== Window resizing ====================
@@ -325,10 +327,9 @@ private:
 
 	// ==================== Images ====================
 	std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath);
-	std::tuple<VkImage, VkDeviceMemory> CreateImageAndBoundMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
+	std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
 	VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool);
-	void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue graphicsQueue);
-	void TransitionImageLayout(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
+	void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
 	void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 	// ==================== Image view and sampler ====================

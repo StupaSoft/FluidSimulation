@@ -16,7 +16,7 @@
     <ClCompile Include="Sources\FileManager.cpp">
       <Filter>sources</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\ViewerApplication.cpp">
+    <ClCompile Include="Sources\MainApplication.cpp">
       <Filter>sources</Filter>
     </ClCompile>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -45,7 +45,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Sources\ViewerApplication.h">
+    <ClInclude Include="Sources\MainApplication.h">
       <Filter>sources</Filter>
     </ClInclude>
     <ClInclude Include="Sources\FileManager.h">

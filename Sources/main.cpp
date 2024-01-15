@@ -1,14 +1,14 @@
 #include <iostream>
 
-#include "ViewerApplication.h"
+#include "MainApplication.h"
 
 int main()
 {
-	MainApplication app{};
+	 std::unique_ptr<WindowApplication> app = std::make_unique<WindowApplication>();;
 
 	try
 	{
-		app.Run();
+		app->Run();
 	}
 	catch (const std::exception &e)
 	{

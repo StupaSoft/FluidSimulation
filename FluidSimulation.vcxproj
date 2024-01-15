@@ -28,7 +28,7 @@
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\FileManager.cpp" />
     <ClCompile Include="Sources\main.cpp" />
-    <ClCompile Include="Sources\ViewerApplication.cpp" />
+    <ClCompile Include="Sources\MainApplication.cpp" />
     <ClCompile Include="Sources\VulkanCore.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -38,7 +38,7 @@
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\FileManager.h" />
-    <ClInclude Include="Sources\ViewerApplication.h" />
+    <ClInclude Include="Sources\MainApplication.h" />
     <ClInclude Include="Sources\VulkanCore.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
