@@ -36,7 +36,12 @@ private:
 	glm::mat4 _rotation = glm::mat4(1.0f);
 
 public:
-	MeshObject(const ModelInitInfo &modelInitInfo);
+	explicit MeshObject(const ModelInitInfo &modelInitInfo);
+	MeshObject(const MeshObject &other) = delete;
+	MeshObject(MeshObject &&other) = default;
+	MeshObject &operator=(const MeshObject &other) = delete;
+	MeshObject &operator=(MeshObject &&other) = default;
+	virtual ~MeshObject() = default;
 
 	std::vector<VkBuffer> GetUniformBuffers();
 	void CleanUp();

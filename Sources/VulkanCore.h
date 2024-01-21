@@ -135,7 +135,11 @@ private:
 	VkImageView _depthImageView;
 
 public:
-	VulkanCore(GLFWwindow *window) : _window(window) {}
+	explicit VulkanCore(GLFWwindow *window) : _window(window) {}
+	VulkanCore(const VulkanCore &other) = delete;
+	VulkanCore(VulkanCore &&other) = default;
+	VulkanCore &operator=(const VulkanCore &other) = delete;
+	VulkanCore &operator=(VulkanCore &&other) = default;
 	virtual ~VulkanCore();
 
 	void InitVulkan();

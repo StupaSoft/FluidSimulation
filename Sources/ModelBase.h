@@ -31,6 +31,11 @@ protected:
 
 public:
 	ModelBase(const ModelInitInfo &modelInitInfo) : _modelInitInfo(modelInitInfo) {}
+	ModelBase(const ModelBase &other) = delete;
+	ModelBase(ModelBase &&other) = default;
+	ModelBase &operator=(const ModelBase &other) = delete;
+	ModelBase &operator=(ModelBase &&other) = default;
+	virtual ~ModelBase() = default;
 
 	virtual void OnCleanUpSwapChain() {};
 	virtual void OnCleanUpOthers() {};

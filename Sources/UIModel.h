@@ -17,7 +17,7 @@ private:
 	VkDescriptorPool _ImGuiDescriptorPool;
 
 public:
-	UIModel(const ModelInitInfo &modelInitInfo);
+	explicit UIModel(const ModelInitInfo &modelInitInfo);
 
 	virtual void OnCleanUpOthers() override;
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;

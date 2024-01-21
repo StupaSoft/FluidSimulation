@@ -68,7 +68,7 @@ private:
 	VkDescriptorPool _descriptorPool;
 
 public:
-	MeshModel(const ModelInitInfo &modelInitInfo);
+	explicit MeshModel(const ModelInitInfo &modelInitInfo);
 
 	virtual void OnCleanUpOthers() override;
 	virtual void OnRecreateSwapChain(const ModelInitInfo &modelInitInfo) override;
