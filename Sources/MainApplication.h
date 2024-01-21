@@ -23,6 +23,11 @@
 #include "VulkanCore.h"
 #include "FileManager.h"
 
+#include "MeshModel.h"
+#include "UIModel.h"
+
+#include "LeftPanel.h"
+
 class WindowApplication
 {
 private:
@@ -33,8 +38,8 @@ public:
 
 private:
 	GLFWwindow *_window;
-	const uint32_t WIDTH = 1920;
-	const uint32_t HEIGHT = 1080;
+	static const uint32_t INIT_WIDTH;
+	static const uint32_t INIT_HEIGHT;
 
 	GLFWwindow *InitMainWindow(int width, int height, const std::string &title);
 	void MainLoop();

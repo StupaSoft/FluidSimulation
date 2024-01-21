@@ -1,12 +1,22 @@
 #include "MainApplication.h"
 
+const uint32_t WindowApplication::INIT_WIDTH = 1920;
+const uint32_t WindowApplication::INIT_HEIGHT = 1080;
+
 void WindowApplication::Run()
 {
-	_window = InitMainWindow(WIDTH, HEIGHT, "Fluid Simulation");
+	_window = InitMainWindow(INIT_WIDTH, INIT_HEIGHT, "Fluid Simulation");
 
 	_vulkanCore = std::make_unique<VulkanCore>(_window);
 	_vulkanCore->InitVulkan();
-	_vulkanCore->InitImGui();
+
+	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
+	meshModel->LoadAssets("Models/M2A1.obj", "Textures/M2A1_diffuse.png", "Shaders/Vert.spv", "Shaders/Frag.spv");
+	meshModel->AddMeshObject();
+	meshModel->AddMeshObject();
+
+	auto uiModel = _vulkanCore->AddModel<UIModel>();
+	uiModel->AddPanel<LeftPanel>();
 
 	MainLoop();
 }

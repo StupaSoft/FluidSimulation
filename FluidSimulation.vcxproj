@@ -27,9 +27,14 @@
     <ClCompile Include="Libraries\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\FileManager.cpp" />
+    <ClCompile Include="Sources\LeftPanel.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MainApplication.cpp" />
+    <ClCompile Include="Sources\MeshModel.cpp" />
+    <ClCompile Include="Sources\MeshObject.cpp" />
+    <ClCompile Include="Sources\UIModel.cpp" />
     <ClCompile Include="Sources\VulkanCore.cpp" />
+    <ClCompile Include="Sources\VulkanUtility.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\backends\imgui_impl_glfw.h" />
@@ -38,8 +43,15 @@
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\FileManager.h" />
+    <ClInclude Include="Sources\LeftPanel.h" />
     <ClInclude Include="Sources\MainApplication.h" />
+    <ClInclude Include="Sources\MeshModel.h" />
+    <ClInclude Include="Sources\MeshObject.h" />
+    <ClInclude Include="Sources\ModelBase.h" />
+    <ClInclude Include="Sources\PanelBase.h" />
+    <ClInclude Include="Sources\UIModel.h" />
     <ClInclude Include="Sources\VulkanCore.h" />
+    <ClInclude Include="Sources\VulkanUtility.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>

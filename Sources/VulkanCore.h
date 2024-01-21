@@ -24,14 +24,16 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-
-#include <imgui.h>
-#include <backends/imgui_impl_glfw.h>
-#include <backends/imgui_impl_vulkan.h>
-
 #include "FileManager.h"
+#include "VulkanUtility.h"
+#include "ModelBase.h"
+
+struct SwapChainSupportDetails
+{
+	VkSurfaceCapabilitiesKHR capabilities;
+	std::vector<VkSurfaceFormatKHR> formats;
+	std::vector<VkPresentModeKHR> presentModes;
+};
 
 struct QueueFamilyIndices
 {
@@ -45,62 +47,14 @@ struct QueueFamilyIndices
 	}
 };
 
-struct SwapChainSupportDetails
-{
-	VkSurfaceCapabilitiesKHR capabilities;
-	std::vector<VkSurfaceFormatKHR> formats;
-	std::vector<VkPresentModeKHR> presentModes;
-};
-
-// Descriptor used in shaders
-// Use alignas to solve alignment issues
-struct UniformBufferObject
-{
-	alignas(16) glm::mat4 model; // mat4 is binary-compatible with the shader's one
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 proj;
-};
-
-struct Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::array<VkVertexInputAttributeDescription, 3> GetAttributeDescriptions();
-};
-
-inline bool operator==(const Vertex &lhs, const Vertex &rhs)
-{
-	return
-	(
-		lhs.color == rhs.color &&
-		lhs.pos == rhs.pos &&
-		lhs.texCoord == rhs.texCoord
-	);
-}
-
-namespace std
-{
-	template<> struct hash<Vertex>
-	{
-		size_t operator()(Vertex const &vertex) const
-		{
-			return
-			(
-				hash<glm::vec3>()(vertex.pos) ^
-				((hash<glm::vec3>()(vertex.color) << 1) >> 1) ^
-				(hash<glm::vec2>()(vertex.texCoord) << 1)
-			);
-		}
-	};
-}
-
 // ==================== Helper functions ====================
 class VulkanCore
 {
 private:
+	// ==================== Model pool ====================
+	std::vector<std::shared_ptr<ModelBase>> _models;
+
+	// ==================== Basic setup ====================
 	GLFWwindow *_window;
 
 	VkInstance _instance; // Connection between the application and the Vulkan library
@@ -144,15 +98,11 @@ private:
 	VkExtent2D _swapChainExtent;
 	std::vector<VkImageView> _swapChainImageViews;
 
-	// ==================== Graphics pipeline ====================
-	VkPipeline _graphicsPipeline;
-	VkPipelineLayout _pipelineLayout;
-
 	// ==================== Render pass ====================
 	VkRenderPass _renderPass;
 
 	// ==================== Framebuffers ====================
-	std::vector<VkFramebuffer> _swapChainFramebuffers;
+	std::vector<VkFramebuffer> _frameBuffers;
 
 	// ==================== Command buffers ====================
 	VkCommandPool _commandPool;
@@ -164,71 +114,69 @@ private:
 	std::vector<VkFence> _inFlightFences; // To make sure that only one frame is rendering at a time
 
 	// ==================== Frames in flight ====================
-	const uint32_t MAX_FRAMES_IN_FLIGHT = 2; // Limit to 2 so that the CPU doesn't get ahead of the GPU
+	static const uint32_t MAX_FRAMES_IN_FLIGHT; // Limit to 2 so that the CPU doesn't get ahead of the GPU
 	uint32_t _currentFrame = 0; // To use the right objects every frame
 
 	// ==================== Window resizing ====================
 	bool _framebufferResized = false;
 
-	// ==================== Vertex input ====================
-	std::vector<Vertex> _vertices;
-	VkBuffer _vertexBuffer;
-	VkDeviceMemory _vertexBufferMemory;
-
-	// ==================== Index buffer ====================
-	std::vector<uint32_t> _indices;
-	VkBuffer _indexBuffer;
-	VkDeviceMemory _indexBufferMemory;
-
-	// ==================== Descriptor layout and buffers ====================
-	VkDescriptorSetLayout _descriptorSetLayout; // Specifies the type of resources that are going to be accessed by the pipeline
+	// ==================== Uniform buffers ====================
 	std::vector<VkBuffer> _uniformBuffers; // Create multiple buffers for each frame
 	std::vector<VkDeviceMemory> _uniformBuffersMemory;
-
-	// ==================== Descriptor pool and sets ====================
-	VkDescriptorPool _descriptorPool; // Descriptor sets are allocated from the descriptor pool
-	std::vector<VkDescriptorSet> _descriptorSets; // Specifies the actual buffer or image resources that will be bound to the descriptors
 
 	// ==================== Images ====================
 	VkImage _colorImage;
 	VkDeviceMemory _colorImageMemory;
 	VkImageView _colorImageView;
 
-	// ==================== Image view and sampler ====================
-	VkImageView _textureImageView;
-	VkDeviceMemory _textureImageMemory;
-	VkSampler _textureSampler;
-
 	// ==================== Depth buffering ====================
 	VkImage _depthImage;
 	VkDeviceMemory _depthImageMemory;
 	VkImageView _depthImageView;
-
-	// ==================== Loading models ====================
-	const std::string MODEL_PATH = "Models/M2A1.obj";
-	const std::string TEXTURE_PATH = "Textures/M2A1_diffuse.png";
-
-	// ==================== Mipmaps ====================
-	uint32_t _textureMipLevels;
-	VkImage _textureImage;
-
-	// ==================== ImGui ====================
-	VkDescriptorPool _ImGuiDescriptorPool;
-	VkRenderPass _ImGuiRenderPass;
-
-	VkCommandPool _ImGuiCommandPool;
-	std::vector<VkCommandBuffer> _ImGuiCommandBuffers;
-	std::vector<VkFramebuffer> _ImGuiFramebuffers;
 
 public:
 	VulkanCore(GLFWwindow *window) : _window(window) {}
 	virtual ~VulkanCore();
 
 	void InitVulkan();
-	void InitImGui();
+
+	template<typename TModel, typename... TArgs>
+	std::shared_ptr<TModel> AddModel(TArgs&&... args)
+	{
+		ModelInitInfo modelInitInfo =
+		{
+			._instance = _instance,
+			._window = _window,
+			._surface = _surface,
+			._queueFamily = FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(),
+			._graphicsQueue = _graphicsQueue,
+			._minImageCount = QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount,
+			._swapChainImageCount = _swapChainImages.size(),
+			._physicalDevice = _physicalDevice,
+			._logicalDevice = _logicalDevice,
+			._renderPass = _renderPass,
+			._swapChainExtent = _swapChainExtent,
+			._commandPool = _commandPool,
+			._maxFramesInFlight = MAX_FRAMES_IN_FLIGHT
+		};
+
+		std::shared_ptr<TModel> model = std::make_shared<TModel>(modelInitInfo, std::forward<TArgs>(args)...);
+		_models.emplace_back(model);
+
+		return model;
+	}
+	void RemoveModel(const std::shared_ptr<ModelBase> &model);
+
+	template<typename TFunc, typename... TArgs>
+	void ForAllModels(TFunc func, TArgs&&... args)
+	{
+		for (auto &model : _models)
+		{
+			((*model).*func)(std::forward<TArgs>(args)...);
+		}
+	}
 
 	void DrawFrame();
-
 	void Resize()
 	{
 		_framebufferResized = true;
@@ -252,10 +200,11 @@ private:
 	// ==================== Physical devices and queue families ====================
 	VkPhysicalDevice SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
 	bool IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
-	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
 	// ==================== Logical device and queues ====================
 	std::tuple<VkDevice, VkQueue, VkQueue> CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
+	// Find queues that support graphics commands
+	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
 
 	// ==================== Window ====================
 	VkSurfaceKHR CreateSurface(VkInstance instance, GLFWwindow *window);
@@ -275,12 +224,8 @@ private:
 	// ==================== Image views ====================
 	std::vector<VkImageView> CreateImageViews(VkDevice logicalDevice, const std::vector<VkImage> &swapChainImages, VkFormat swapChainImageFormat);
 
-	// ==================== Graphics pipeline ====================
-	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, VkDescriptorSetLayout descriptorSetLayout);
-	VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code);
-
 	// ==================== Render pass ====================
-	VkRenderPass CreateRenderPass(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkFormat swapChainImageFormat);
+	VkRenderPass CreateRenderPass(VkFormat swapChainImageFormat);
 
 	// ==================== Framebuffers ====================
 	std::vector<VkFramebuffer> CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<VkImageView> &swapChainImageViews, const std::vector<VkImageView> &additionalImageViews);
@@ -288,74 +233,15 @@ private:
 	// ==================== Command buffers ====================
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
-	void RecordCommandBuffer
-	(
-		VkExtent2D swapChainExtent,
-		VkRenderPass renderPass,
-		VkFramebuffer framebuffer,
-		VkPipelineLayout pipelineLayout,
-		VkPipeline graphicsPipeline,
-		VkCommandBuffer commandBuffer,
-		VkDescriptorSet descriptorSet,
-		VkBuffer vertexBuffer,
-		VkBuffer indexBuffer,
-		const std::vector<uint32_t> &indices
-	);
+	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
 
 	// ==================== Syncronization objects ====================
-	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>> CreateSyncObjects(VkDevice logicalDevice, uint32_t maxFramesInFlight);
-
-	// ==================== Vertex input ====================
-	std::tuple<VkBuffer, VkDeviceMemory> CreateVertexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::vector<Vertex> &vertices);
-	uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, const VkMemoryPropertyFlags &properties);
-
-	// ==================== Staging buffer ====================
-	std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties);
-	void CopyBuffer(VkDevice logicalDevice, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue graphicsQueue);
-
-	// ==================== Index buffer ====================
-	std::tuple<VkBuffer, VkDeviceMemory> CreateIndexBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::vector<uint32_t> &indices);
-
-	// ==================== Descriptor layout and buffers ====================
-	VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice logicalDevice);
-	std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateUniformBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t frameCount);
-
-	// ==================== Descriptor pool and sets ====================
-	VkDescriptorPool CreateDescriptorPool(VkDevice logicalDevice, uint32_t maxFramesInFlight);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDevice logicalDevice, const std::vector<VkBuffer> &uniformBuffers, VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, VkImageView textureImageView, VkSampler textureSampler, uint32_t maxFramesInFlight);
-	void UpdateUniformBuffer();
-
-	// ==================== Images ====================
-	std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath);
-	std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties);
-	VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool);
-	void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
-	void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
-
-	// ==================== Image view and sampler ====================
-	VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-	VkSampler CreateTextureSampler(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t textureMipLevels);
+	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);
 
 	// ==================== Depth buffering ====================
-	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateDepthResources(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkExtent2D swapChainExtent);
+	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateDepthResources(VkExtent2D swapChainExtent);
 	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
-	// ==================== Loading a model ====================
-	std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadModel(const std::string &modelPath);
-
-	// ==================== Mipmaps ====================
-	void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
 	// ==================== Multisampling ====================
-	VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice);
-	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateColorResources(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
-
-	// ==================== ImGui functions ====================
-	VkDescriptorPool CreateImGuiDescriptorPool(VkDevice logicalDevice, uint32_t maxFramesInFlight);
-	VkRenderPass CreateImGuiRenderPass(VkDevice logicalDevice, VkFormat swapChainImageFormat);
-	std::vector<VkFramebuffer> CreateImGuiFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<VkImageView> &swapChainImageViews);
-	void UpdateImGuiCommandBuffer(uint32_t imageIndex);
-
-	void CleanUpImGui();
-	void RecreateImGuiSwapChainComponents();
+	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
 };
