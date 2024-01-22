@@ -9,8 +9,8 @@
 
 const uint32_t MeshModel::MAX_SET_COUNT = 1000;
 
-MeshModel::MeshModel(const ModelInitInfo &modelInitInfo)
-	: ModelBase(modelInitInfo)
+MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
+	: ModelBase(vulkanCore)
 {
 	_descriptorSetLayout = CreateDescriptorSetLayout();
 	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
@@ -33,25 +33,25 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 
 void MeshModel::OnCleanUpOthers()
 {
-	vkDestroyShaderModule(_modelInitInfo._logicalDevice, _fragShaderModule, nullptr);
-	vkDestroyShaderModule(_modelInitInfo._logicalDevice, _vertShaderModule, nullptr);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
 
-	vkDestroyPipeline(_modelInitInfo._logicalDevice, _graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(_modelInitInfo._logicalDevice, _pipelineLayout, nullptr);
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
 	
-	vkDestroySampler(_modelInitInfo._logicalDevice, _textureSampler, nullptr);
-	vkDestroyImageView(_modelInitInfo._logicalDevice, _textureImageView, nullptr);
-	vkDestroyImage(_modelInitInfo._logicalDevice, _textureImage, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, _textureImageMemory, nullptr);
+	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+	vkDestroyImageView(_vulkanCore->GetLogicalDevice(), _textureImageView, nullptr);
+	vkDestroyImage(_vulkanCore->GetLogicalDevice(), _textureImage, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _textureImageMemory, nullptr);
 
-	vkDestroyDescriptorPool(_modelInitInfo._logicalDevice, _descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(_modelInitInfo._logicalDevice, _descriptorSetLayout, nullptr);
+	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
 
-	vkDestroyBuffer(_modelInitInfo._logicalDevice, _vertexBuffer, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, _vertexBufferMemory, nullptr);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _vertexBufferMemory, nullptr);
 
-	vkDestroyBuffer(_modelInitInfo._logicalDevice, _indexBuffer, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, _indexBufferMemory, nullptr);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _indexBufferMemory, nullptr);
 
 	for (auto &objectPair : _objectPairs)
 	{
@@ -60,10 +60,8 @@ void MeshModel::OnCleanUpOthers()
 	}
 }
 
-void MeshModel::OnRecreateSwapChain(const ModelInitInfo &modelInitInfo)
+void MeshModel::OnRecreateSwapChain()
 {
-	_modelInitInfo = modelInitInfo;
-
 	for (auto &objectPair : _objectPairs)
 	{
 		auto object = std::get<0>(objectPair);
@@ -83,8 +81,8 @@ void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &textur
 	_textureSampler = CreateTextureSampler(_textureMipLevels);
 
 	// Create shader modules
-	_vertShaderModule = CreateShaderModule(_modelInitInfo._logicalDevice, ReadFile(vertexShaderPath));
-	_fragShaderModule = CreateShaderModule(_modelInitInfo._logicalDevice, ReadFile(fragmentShaderPath));
+	_vertShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(vertexShaderPath));
+	_fragShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(fragmentShaderPath));
 
 	// Create a graphics pipeline
 	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
@@ -92,7 +90,7 @@ void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &textur
 
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
-	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_modelInitInfo);
+	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetUniformBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
 
@@ -141,7 +139,7 @@ VkDescriptorSetLayout MeshModel::CreateDescriptorSetLayout()
 	};
 
 	VkDescriptorSetLayout descriptorSetLayout;
-	if (vkCreateDescriptorSetLayout(_modelInitInfo._logicalDevice, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout.");
 	}
@@ -167,7 +165,7 @@ VkDescriptorPool MeshModel::CreateDescriptorPool(uint32_t maxSetCount)
 	};
 
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	if (vkCreateDescriptorPool(_modelInitInfo._logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	if (vkCreateDescriptorPool(_vulkanCore->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor pool.");
 	}
@@ -178,25 +176,25 @@ VkDescriptorPool MeshModel::CreateDescriptorPool(uint32_t maxSetCount)
 // Create a descriptor set for each VkBuffer resource to bind it to the uniform buffer descriptor
 std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &uniformBuffers)
 {
-	std::vector<VkDescriptorSetLayout> layouts(_modelInitInfo._maxFramesInFlight, _descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
+	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), _descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
 
 	VkDescriptorSetAllocateInfo allocInfo =
 	{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = _descriptorPool, // Descriptor pool to allocate from
-		.descriptorSetCount = _modelInitInfo._maxFramesInFlight, // The number of descriptor sets to allocate
+		.descriptorSetCount = _vulkanCore->GetMaxFramesInFlight(), // The number of descriptor sets to allocate
 		.pSetLayouts = layouts.data()
 	};
 
-	std::vector<VkDescriptorSet> descriptorSets(_modelInitInfo._maxFramesInFlight);
-	if (vkAllocateDescriptorSets(_modelInitInfo._logicalDevice, &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+	std::vector<VkDescriptorSet> descriptorSets(_vulkanCore->GetMaxFramesInFlight());
+	if (vkAllocateDescriptorSets(_vulkanCore->GetLogicalDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate descriptor sets.");
 	}
 
 	// The configuration of descriptors is updated using the vkUpdateDescriptorSets function, 
 	// which takes an array of VkWriteDescriptorSet structs as parameter.
-	for (size_t i = 0; i < _modelInitInfo._maxFramesInFlight; ++i)
+	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
 		// Specify the buffer and the region within it that contains the data for the descriptor.
 		VkDescriptorBufferInfo bufferInfo =
@@ -239,7 +237,7 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 			}
 		};
 
-		vkUpdateDescriptorSets(_modelInitInfo._logicalDevice, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		vkUpdateDescriptorSets(_vulkanCore->GetLogicalDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
 
 	return descriptorSets;
@@ -262,12 +260,12 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> MeshModel::CreateText
 	// We hire two buffers; one staging buffer in CPU-accessible memory to upload the data and the final buffer in device-local memory.
 	// Then, use a buffer copy command to move the data from the staging buffer to the actual vertex buffer.
 	// Create a buffer in host-visible memory so that we can use vkMapMemory and copy the pixels to it.
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	void *data = nullptr;
-	vkMapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
 	memcpy(data, pixels, static_cast<size_t>(imageSize)); // Copy pixels -> data
-	vkUnmapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory);
 
 	// Clean up the original pixel array
 	stbi_image_free(pixels);
@@ -276,8 +274,8 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> MeshModel::CreateText
 	// Specify VK_IMAGE_USAGE_TRANSFER_SRC_BIT so that it can be used as a blit source
 	auto [textureImage, textureImageMemory] = CreateImageAndMemory
 	(
-		_modelInitInfo._physicalDevice,
-		_modelInitInfo._logicalDevice,
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
 		texWidth,
 		texHeight,
 		textureMipLevels, VK_SAMPLE_COUNT_1_BIT,
@@ -288,7 +286,7 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> MeshModel::CreateText
 		// VK_IMAGE_USAGE_SAMPLED_BIT - The texture will be sampled later
 		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-	VkImageView textureImageView = CreateImageView(_modelInitInfo._logicalDevice, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
+	VkImageView textureImageView = CreateImageView(_vulkanCore->GetLogicalDevice(), textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
 
 	// Before we use vkCmdCopyBufferToImage, the image must be in a proper layout.
 	// Hence, transfer the image layout from undefined to transfer optimal
@@ -323,14 +321,14 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> MeshModel::CreateText
 	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Earliest possible pipeline stage
 	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT; // Pseudo-stage where transfers happen
 
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(_modelInitInfo._logicalDevice, _modelInitInfo._commandPool);
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool());
 	vkCmdPipelineBarrier(commandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-	EndSingleTimeCommands(_modelInitInfo._logicalDevice, _modelInitInfo._commandPool, commandBuffer, _modelInitInfo._graphicsQueue);
+	EndSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), commandBuffer, _vulkanCore->GetGraphicsQueue());
 
 	// Now copy the buffer to the image
-	CopyBufferToImage(_modelInitInfo._logicalDevice, _modelInitInfo._commandPool, _modelInitInfo._graphicsQueue, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-	vkDestroyBuffer(_modelInitInfo._logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, nullptr);
+	CopyBufferToImage(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, nullptr);
 
 	// Generate mipmaps
 	// Will be transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
@@ -342,7 +340,7 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> MeshModel::CreateText
 VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 {
 	VkPhysicalDeviceProperties properties{};
-	vkGetPhysicalDeviceProperties(_modelInitInfo._physicalDevice, &properties);
+	vkGetPhysicalDeviceProperties(_vulkanCore->GetPhysicalDevice(), &properties);
 
 	// Specify filters and transformations to apply
 	VkSamplerCreateInfo samplerInfo =
@@ -373,7 +371,7 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 	};
 
 	VkSampler textureSampler = VK_NULL_HANDLE;
-	if (vkCreateSampler(_modelInitInfo._logicalDevice, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	if (vkCreateSampler(_vulkanCore->GetLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a texture sampler.");
 	}
@@ -386,19 +384,19 @@ std::tuple<VkBuffer, VkDeviceMemory> MeshModel::CreateVertexBuffer(const std::ve
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
 	// Temporary, host-visible buffer that resides on the CPU
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// Map the buffer memory into the CPU accessible memory
 	void *data;
-	vkMapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, vertices.data(), (size_t)bufferSize); // Copy vertex data to the mapped memory
-	vkUnmapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory);
 
-	auto [vertexBuffer, vertexBufferMemory] = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	CopyBuffer(_modelInitInfo._logicalDevice, stagingBuffer, vertexBuffer, bufferSize, _modelInitInfo._commandPool, _modelInitInfo._graphicsQueue);
+	auto [vertexBuffer, vertexBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	CopyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, vertexBuffer, bufferSize, _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue());
 
-	vkDestroyBuffer(_modelInitInfo._logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, nullptr);
 
 	return std::make_tuple(vertexBuffer, vertexBufferMemory);
 }
@@ -409,19 +407,19 @@ std::tuple<VkBuffer, VkDeviceMemory> MeshModel::CreateIndexBuffer(const std::vec
 
 	// Allocate separate buffer, one on the CPU and the other on the GPU.
 	// Temporary, host-visible buffer that resides on the CPU
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// Map the buffer memory into CPU accessible memory
 	void *data;
-	vkMapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
 	memcpy(data, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	vkUnmapMemory(_modelInitInfo._logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory);
 
-	auto [indexBuffer, indexBufferMemory] = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	CopyBuffer(_modelInitInfo._logicalDevice, stagingBuffer, indexBuffer, bufferSize, _modelInitInfo._commandPool, _modelInitInfo._graphicsQueue);
+	auto [indexBuffer, indexBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	CopyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, indexBuffer, bufferSize, _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue());
 
-	vkDestroyBuffer(_modelInitInfo._logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(_modelInitInfo._logicalDevice, stagingBufferMemory, nullptr);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, nullptr);
 
 	return std::make_tuple(indexBuffer, indexBufferMemory);
 }
@@ -474,8 +472,8 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	{
 		.x = 0.0f,
 		.y = 0.0f,
-		.width = (float)_modelInitInfo._swapChainExtent.width, // Can differ from the extent of the window
-		.height = (float)_modelInitInfo._swapChainExtent.height,
+		.width = (float)_vulkanCore->GetExtent().width, // Can differ from the extent of the window
+		.height = (float)_vulkanCore->GetExtent().height,
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f
 	};
@@ -484,7 +482,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	VkRect2D scissor =
 	{
 		.offset = {0, 0},
-		.extent = _modelInitInfo._swapChainExtent
+		.extent = _vulkanCore->GetExtent()
 	};
 
 	VkPipelineViewportStateCreateInfo viewportState =
@@ -513,7 +511,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	VkPipelineMultisampleStateCreateInfo multisampling =
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = GetMaxUsableSampleCount(_modelInitInfo._physicalDevice),
+		.rasterizationSamples = GetMaxUsableSampleCount(_vulkanCore->GetPhysicalDevice()),
 		.sampleShadingEnable = VK_TRUE, // Enable sample shading in the pipeline
 		.minSampleShading = 1.0f, // Minimum fraction for sample shading; closer to one is smoother
 		.pSampleMask = nullptr,
@@ -578,7 +576,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	if (vkCreatePipelineLayout(_modelInitInfo._logicalDevice, &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(_vulkanCore->GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a pipeline layout.");
 	}
@@ -606,7 +604,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 		.layout = pipelineLayout,
 
 		// Any graphics pipeline is bound to a specific subpass of a render pass
-		.renderPass = _modelInitInfo._renderPass,
+		.renderPass = _vulkanCore->GetRenderPass(),
 		.subpass = 0,
 
 		.basePipelineHandle = VK_NULL_HANDLE,
@@ -614,7 +612,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-	if (vkCreateGraphicsPipelines(_modelInitInfo._logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(_vulkanCore->GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a graphics pipeline.");
 	}
@@ -675,7 +673,7 @@ void MeshModel::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
 {
 	// Check if the image format supports linear blitting
 	VkFormatProperties formatProperties;
-	vkGetPhysicalDeviceFormatProperties(_modelInitInfo._physicalDevice, imageFormat, &formatProperties);
+	vkGetPhysicalDeviceFormatProperties(_vulkanCore->GetPhysicalDevice(), imageFormat, &formatProperties);
 
 	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
 	{
@@ -683,7 +681,7 @@ void MeshModel::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
 	}
 
 	// repeatedly blit a source image to a smaller one
-	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(_modelInitInfo._logicalDevice, _modelInitInfo._commandPool);
+	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool());
 
 	VkImageMemoryBarrier barrier =
 	{
@@ -761,7 +759,7 @@ void MeshModel::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
 
 	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 
-	EndSingleTimeCommands(_modelInitInfo._logicalDevice, _modelInitInfo._commandPool, commandBuffer, _modelInitInfo._graphicsQueue);
+	EndSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), commandBuffer, _vulkanCore->GetGraphicsQueue());
 }
 
 VkVertexInputBindingDescription Vertex::GetBindingDescription()

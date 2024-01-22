@@ -1,7 +1,7 @@
 #include "UIModel.h"
 
-UIModel::UIModel(const ModelInitInfo &modelInitInfo) :
-	ModelBase(modelInitInfo)
+UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
+	ModelBase(vulkanCore)
 {
 	// Get ready
 	_ImGuiDescriptorPool = CreateImGuiDescriptorPool();
@@ -14,24 +14,24 @@ UIModel::UIModel(const ModelInitInfo &modelInitInfo) :
 
 	ImGui::StyleColorsDark(); // Setup Dear ImGui style
 
-	ImGui_ImplGlfw_InitForVulkan(_modelInitInfo._window, true);
+	ImGui_ImplGlfw_InitForVulkan(_vulkanCore->GetWindow(), true);
 	ImGui_ImplVulkan_InitInfo initInfo =
 	{
-		.Instance = _modelInitInfo._instance,
-		.PhysicalDevice = _modelInitInfo._physicalDevice,
-		.Device = _modelInitInfo._logicalDevice,
-		.QueueFamily = _modelInitInfo._queueFamily,
-		.Queue = _modelInitInfo._graphicsQueue,
+		.Instance = _vulkanCore->GetInstance(),
+		.PhysicalDevice = _vulkanCore->GetPhysicalDevice(),
+		.Device = _vulkanCore->GetLogicalDevice(),
+		.QueueFamily = _vulkanCore->GetGraphicsFamily(),
+		.Queue = _vulkanCore->GetGraphicsQueue(),
 		.PipelineCache = VK_NULL_HANDLE,
 		.DescriptorPool = _ImGuiDescriptorPool,
-		.MinImageCount = _modelInitInfo._minImageCount,
-		.ImageCount = static_cast<uint32_t>(_modelInitInfo._swapChainImageCount),
+		.MinImageCount = _vulkanCore->GetMinImageCount(),
+		.ImageCount = static_cast<uint32_t>(_vulkanCore->GetMinImageCount()),
 		.MSAASamples = VK_SAMPLE_COUNT_8_BIT,
 		.Allocator = nullptr,
 		.CheckVkResultFn = nullptr
 	};
 
-	ImGui_ImplVulkan_Init(&initInfo, _modelInitInfo._renderPass);
+	ImGui_ImplVulkan_Init(&initInfo, _vulkanCore->GetRenderPass());
 }
 
 void UIModel::OnCleanUpOthers()
@@ -40,7 +40,7 @@ void UIModel::OnCleanUpOthers()
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
-	vkDestroyDescriptorPool(_modelInitInfo._logicalDevice, _ImGuiDescriptorPool, nullptr);
+	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _ImGuiDescriptorPool, nullptr);
 }
 
 void UIModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
@@ -81,13 +81,13 @@ VkDescriptorPool UIModel::CreateImGuiDescriptorPool()
 	{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-		.maxSets = _modelInitInfo._maxFramesInFlight,
+		.maxSets = _vulkanCore->GetMaxFramesInFlight(),
 		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
 		.pPoolSizes = poolSizes.data()
 	};
 
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	if (vkCreateDescriptorPool(_modelInitInfo._logicalDevice, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	if (vkCreateDescriptorPool(_vulkanCore->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a ImGui descriptor pool.");
 	}

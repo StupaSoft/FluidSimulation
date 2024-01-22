@@ -1,7 +1,7 @@
 #include "MeshObject.h"
 
-MeshObject::MeshObject(const ModelInitInfo &modelInitInfo) :
-	_modelInitInfo(modelInitInfo)
+MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
+	_vulkanCore(vulkanCore)
 {
 	std::tie(_uniformBuffers, _uniformBuffersMemory) = CreateUniformBuffers();
 
@@ -18,8 +18,8 @@ void MeshObject::CleanUp()
 {
 	for (size_t i = 0; i < _uniformBuffers.size(); ++i)
 	{
-		vkDestroyBuffer(_modelInitInfo._logicalDevice, _uniformBuffers[i], nullptr);
-		vkFreeMemory(_modelInitInfo._logicalDevice, _uniformBuffersMemory[i], nullptr);
+		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _uniformBuffers[i], nullptr);
+		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], nullptr);
 	}
 }
 
@@ -56,12 +56,12 @@ std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::Creat
 {
 	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-	std::vector<VkBuffer> uniformBuffers(_modelInitInfo._maxFramesInFlight);
-	std::vector<VkDeviceMemory> uniformBuffersMemory(_modelInitInfo._maxFramesInFlight);
+	std::vector<VkBuffer> uniformBuffers(_vulkanCore->GetMaxFramesInFlight());
+	std::vector<VkDeviceMemory> uniformBuffersMemory(_vulkanCore->GetMaxFramesInFlight());
 
-	for (size_t i = 0; i < _modelInitInfo._maxFramesInFlight; ++i)
+	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
-		std::tie(uniformBuffers[i], uniformBuffersMemory[i]) = CreateBuffer(_modelInitInfo._physicalDevice, _modelInitInfo._logicalDevice, bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+		std::tie(uniformBuffers[i], uniformBuffersMemory[i]) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	}
 
 	return std::make_tuple(uniformBuffers, uniformBuffersMemory);
@@ -69,13 +69,13 @@ std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::Creat
 
 void MeshObject::ApplyTransformations()
 {
-	for (size_t i = 0; i < _modelInitInfo._maxFramesInFlight; ++i)
+	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
 		UniformBufferObject ubo =
 		{
 			.model = _rotation * _position, // Identity matrix * rotation, axis
 			.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)), // Eye position, target center position, up axis
-			.proj = glm::perspective(glm::radians(45.0f), _modelInitInfo._swapChainExtent.width / (float)_modelInitInfo._swapChainExtent.height, 0.1f, 10.0f) // Vertical field of view, aspect ratio, clipping planes
+			.proj = glm::perspective(glm::radians(45.0f), _vulkanCore->GetExtent().width / (float)_vulkanCore->GetExtent().height, 0.1f, 10.0f) // Vertical field of view, aspect ratio, clipping planes
 		};
 
 		// glm was originally designed for OpenGL, where the Y coordinate of the clip coordinates is inverted.
@@ -83,8 +83,8 @@ void MeshObject::ApplyTransformations()
 		ubo.proj[1][1] *= -1;
 
 		void *data;
-		vkMapMemory(_modelInitInfo._logicalDevice, _uniformBuffersMemory[i], 0, sizeof(ubo), 0, &data);
+		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], 0, sizeof(ubo), 0, &data);
 		memcpy(data, &ubo, sizeof(ubo));
-		vkUnmapMemory(_modelInitInfo._logicalDevice, _uniformBuffersMemory[i]);
+		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
 	}
 }

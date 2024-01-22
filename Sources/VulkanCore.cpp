@@ -328,7 +328,8 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanCore::DebugCallback(VkDebugUtilsMessageSeve
 }
 
 // After initializing the Vulkan library through a VkInstance, we need to look for and select a graphics card in the system that supports the features we need.
-VkPhysicalDevice VulkanCore::SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions) // Set physicalDevice to a suitable physical device
+// Set physicalDevice to a suitable physical device
+VkPhysicalDevice VulkanCore::SelectPhysicalDevice(VkInstance instance, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions)
 {
 	uint32_t deviceCount = 0;
 	vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -441,7 +442,7 @@ std::tuple<VkDevice, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(VkPhysica
 }
 
 // Find queues that support graphics commands
-QueueFamilyIndices VulkanCore::FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface)
+QueueFamilyIndices VulkanCore::FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) const
 {
 	QueueFamilyIndices indices{};
 
@@ -570,7 +571,8 @@ bool VulkanCore::CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice, co
 	return requiredExtensions.empty();
 }
 
-SwapChainSupportDetails VulkanCore::QuerySwapChainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) // Return supported formats and present modes 
+// Return supported formats and present modes 
+SwapChainSupportDetails VulkanCore::QuerySwapChainSupport(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) const
 {
 	SwapChainSupportDetails details;
 
@@ -662,24 +664,7 @@ void VulkanCore::RecreateSwapChain()
 	std::tie(_depthImage, _depthImageMemory, _depthImageView) = CreateDepthResources(_swapChainExtent);
 	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImageViews, { _depthImageView, _colorImageView });
 
-	ModelInitInfo modelInitInfo =
-	{
-		._instance = _instance,
-		._window = _window,
-		._surface = _surface,
-		._queueFamily = FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(),
-		._graphicsQueue = _graphicsQueue,
-		._minImageCount = QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount,
-		._swapChainImageCount = _swapChainImages.size(),
-		._physicalDevice = _physicalDevice,
-		._logicalDevice = _logicalDevice,
-		._renderPass = _renderPass,
-		._swapChainExtent = _swapChainExtent,
-		._commandPool = _commandPool,
-		._maxFramesInFlight = MAX_FRAMES_IN_FLIGHT
-	};
-
-	ForAllModels(&ModelBase::OnRecreateSwapChain, modelInitInfo);
+	ForAllModels(&ModelBase::OnRecreateSwapChain);
 }
 
 void VulkanCore::CleanUpSwapChain()

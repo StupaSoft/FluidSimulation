@@ -48,7 +48,7 @@ struct QueueFamilyIndices
 };
 
 // ==================== Helper functions ====================
-class VulkanCore
+class VulkanCore : public std::enable_shared_from_this<VulkanCore>
 {
 private:
 	// ==================== Model pool ====================
@@ -143,32 +143,18 @@ public:
 	virtual ~VulkanCore();
 
 	void InitVulkan();
+	void DrawFrame();
+	void Resize() { _framebufferResized = true; }
 
 	template<typename TModel, typename... TArgs>
 	std::shared_ptr<TModel> AddModel(TArgs&&... args)
 	{
-		ModelInitInfo modelInitInfo =
-		{
-			._instance = _instance,
-			._window = _window,
-			._surface = _surface,
-			._queueFamily = FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(),
-			._graphicsQueue = _graphicsQueue,
-			._minImageCount = QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount,
-			._swapChainImageCount = _swapChainImages.size(),
-			._physicalDevice = _physicalDevice,
-			._logicalDevice = _logicalDevice,
-			._renderPass = _renderPass,
-			._swapChainExtent = _swapChainExtent,
-			._commandPool = _commandPool,
-			._maxFramesInFlight = MAX_FRAMES_IN_FLIGHT
-		};
-
-		std::shared_ptr<TModel> model = std::make_shared<TModel>(modelInitInfo, std::forward<TArgs>(args)...);
+		std::shared_ptr<TModel> model = std::make_shared<TModel>(shared_from_this(), std::forward<TArgs>(args)...);
 		_models.emplace_back(model);
 
 		return model;
 	}
+
 	void RemoveModel(const std::shared_ptr<ModelBase> &model);
 
 	template<typename TFunc, typename... TArgs>
@@ -180,11 +166,21 @@ public:
 		}
 	}
 
-	void DrawFrame();
-	void Resize()
-	{
-		_framebufferResized = true;
-	}
+	// ==================== Getters ====================
+	GLFWwindow *GetWindow() const { return _window; }
+	VkInstance GetInstance() const { return _instance; }
+	VkPhysicalDevice GetPhysicalDevice() const { return _physicalDevice; }
+	VkDevice GetLogicalDevice() const { return _logicalDevice; }
+	VkSurfaceKHR GetSurface() const { return _surface; }
+	uint32_t GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
+	uint32_t GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(); }
+	VkQueue GetGraphicsQueue() const { return _graphicsQueue; }
+	uint32_t GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
+	size_t GetSwapChainImageCount() const { return _swapChainImages.size(); }
+	VkRenderPass GetRenderPass() const { return _renderPass; }
+	VkExtent2D GetExtent() const { return _swapChainExtent; }
+	VkCommandPool GetCommandPool() const { return _commandPool; }
+	uint32_t GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
 
 private:
 	// ==================== Setup / Cleanup ====================
@@ -208,7 +204,7 @@ private:
 	// ==================== Logical device and queues ====================
 	std::tuple<VkDevice, VkQueue, VkQueue> CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
 	// Find queues that support graphics commands
-	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) const;
 
 	// ==================== Window ====================
 	VkSurfaceKHR CreateSurface(VkInstance instance, GLFWwindow *window);
@@ -216,7 +212,7 @@ private:
 	// ==================== Swap chain ====================
 	std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window);
 	bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice, const std::vector<const char *> &deviceExtensions);
-	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
+	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) const;
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats, VkFormat desiredFormat, VkColorSpaceKHR desiredColorSpace);
 	VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> &availablePresentModes, VkPresentModeKHR desiredPresentMode);
 	VkExtent2D ChooseSwapExtent(GLFWwindow *window, const VkSurfaceCapabilitiesKHR &capabilities);

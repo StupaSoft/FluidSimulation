@@ -7,7 +7,7 @@ void WindowApplication::Run()
 {
 	_window = InitMainWindow(INIT_WIDTH, INIT_HEIGHT, "Fluid Simulation");
 
-	_vulkanCore = std::make_unique<VulkanCore>(_window);
+	_vulkanCore = std::make_shared<VulkanCore>(_window);
 	_vulkanCore->InitVulkan();
 
 	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp

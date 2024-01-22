@@ -25,7 +25,7 @@ struct UniformBufferObject
 class MeshObject
 {
 private:
-	ModelInitInfo _modelInitInfo;
+	std::shared_ptr<VulkanCore> _vulkanCore;
 
 	// ==================== Vulkan resources ====================
 	std::vector<VkBuffer> _uniformBuffers; // Create multiple buffers for each frame
@@ -36,7 +36,7 @@ private:
 	glm::mat4 _rotation = glm::mat4(1.0f);
 
 public:
-	explicit MeshObject(const ModelInitInfo &modelInitInfo);
+	explicit MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore);
 	MeshObject(const MeshObject &other) = delete;
 	MeshObject(MeshObject &&other) = default;
 	MeshObject &operator=(const MeshObject &other) = delete;

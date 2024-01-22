@@ -68,10 +68,10 @@ private:
 	VkDescriptorPool _descriptorPool;
 
 public:
-	explicit MeshModel(const ModelInitInfo &modelInitInfo);
+	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
 	virtual void OnCleanUpOthers() override;
-	virtual void OnRecreateSwapChain(const ModelInitInfo &modelInitInfo) override;
+	virtual void OnRecreateSwapChain() override;
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	
 	void LoadAssets(const std::string &OBJPath, const std::string &texturePath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath);

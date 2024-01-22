@@ -17,7 +17,7 @@ private:
 	VkDescriptorPool _ImGuiDescriptorPool;
 
 public:
-	explicit UIModel(const ModelInitInfo &modelInitInfo);
+	explicit UIModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
 	virtual void OnCleanUpOthers() override;
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;

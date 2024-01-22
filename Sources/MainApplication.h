@@ -31,7 +31,7 @@
 class WindowApplication
 {
 private:
-	std::unique_ptr<VulkanCore> _vulkanCore;
+	std::shared_ptr<VulkanCore> _vulkanCore;
 
 public:
 	void Run();
