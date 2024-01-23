@@ -12,6 +12,21 @@ const uint32_t MeshModel::MAX_SET_COUNT = 1000;
 MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 	: ModelBase(vulkanCore)
 {
+	_vulkanCore->OnCleanUpOthers().AddListener
+	(
+		[this]()
+		{
+			OnCleanUpOthers();
+		}
+	);
+	_vulkanCore->OnRecreateSwapChain().AddListener
+	(
+		[this]()
+		{
+			OnRecreateSwapChain();
+		}
+	);
+
 	_descriptorSetLayout = CreateDescriptorSetLayout();
 	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
 }

@@ -197,7 +197,7 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 void VulkanCore::CleanUp()
 {
 	CleanUpSwapChain();
-	ForAllModels(&ModelBase::OnCleanUpOthers);
+	_onCleanUpSwapChain.Invoke();
 
 	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
 
@@ -664,12 +664,12 @@ void VulkanCore::RecreateSwapChain()
 	std::tie(_depthImage, _depthImageMemory, _depthImageView) = CreateDepthResources(_swapChainExtent);
 	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImageViews, { _depthImageView, _colorImageView });
 
-	ForAllModels(&ModelBase::OnRecreateSwapChain);
+	_onRecreateSwapChain.Invoke();
 }
 
 void VulkanCore::CleanUpSwapChain()
 {
-	ForAllModels(&ModelBase::OnCleanUpSwapChain);
+	_onCleanUpSwapChain.Invoke();
 
 	vkDestroyImageView(_logicalDevice, _depthImageView, nullptr);
 	vkDestroyImage(_logicalDevice, _depthImage, nullptr);

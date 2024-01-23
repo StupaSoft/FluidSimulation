@@ -19,7 +19,6 @@ private:
 public:
 	explicit UIModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
-	virtual void OnCleanUpOthers() override;
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 
 	template<typename TPanel, typename... TArgs>

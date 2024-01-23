@@ -27,6 +27,7 @@
 #include "FileManager.h"
 #include "VulkanUtility.h"
 #include "ModelBase.h"
+#include "Delegate.h"
 
 struct SwapChainSupportDetails
 {
@@ -134,6 +135,11 @@ private:
 	VkDeviceMemory _depthImageMemory;
 	VkImageView _depthImageView;
 
+	// ==================== Events ====================
+	Delegate<void()> _onCleanUpSwapChain;
+	Delegate<void()> _onCleanUpOthers;
+	Delegate<void()> _onRecreateSwapChain;
+
 public:
 	explicit VulkanCore(GLFWwindow *window) : _window(window) {}
 	VulkanCore(const VulkanCore &other) = delete;
@@ -167,20 +173,24 @@ public:
 	}
 
 	// ==================== Getters ====================
-	GLFWwindow *GetWindow() const { return _window; }
-	VkInstance GetInstance() const { return _instance; }
-	VkPhysicalDevice GetPhysicalDevice() const { return _physicalDevice; }
-	VkDevice GetLogicalDevice() const { return _logicalDevice; }
-	VkSurfaceKHR GetSurface() const { return _surface; }
-	uint32_t GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
-	uint32_t GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(); }
-	VkQueue GetGraphicsQueue() const { return _graphicsQueue; }
-	uint32_t GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
-	size_t GetSwapChainImageCount() const { return _swapChainImages.size(); }
-	VkRenderPass GetRenderPass() const { return _renderPass; }
-	VkExtent2D GetExtent() const { return _swapChainExtent; }
-	VkCommandPool GetCommandPool() const { return _commandPool; }
-	uint32_t GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
+	auto *GetWindow() const { return _window; }
+	auto GetInstance() const { return _instance; }
+	auto GetPhysicalDevice() const { return _physicalDevice; }
+	auto GetLogicalDevice() const { return _logicalDevice; }
+	auto GetSurface() const { return _surface; }
+	auto GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
+	auto GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(); }
+	auto GetGraphicsQueue() const { return _graphicsQueue; }
+	auto GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
+	auto GetSwapChainImageCount() const { return _swapChainImages.size(); }
+	auto GetRenderPass() const { return _renderPass; }
+	auto GetExtent() const { return _swapChainExtent; }
+	auto GetCommandPool() const { return _commandPool; }
+	auto GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
+
+	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
+	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
+	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
 
 private:
 	// ==================== Setup / Cleanup ====================

@@ -3,6 +3,18 @@
 UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	ModelBase(vulkanCore)
 {
+	vulkanCore->OnCleanUpOthers().AddListener
+	(
+		[this]()
+		{
+			ImGui_ImplVulkan_Shutdown();
+			ImGui_ImplGlfw_Shutdown();
+			ImGui::DestroyContext();
+
+			vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _ImGuiDescriptorPool, nullptr);
+		}
+	);
+
 	// Get ready
 	_ImGuiDescriptorPool = CreateImGuiDescriptorPool();
 
@@ -32,15 +44,6 @@ UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	};
 
 	ImGui_ImplVulkan_Init(&initInfo, _vulkanCore->GetRenderPass());
-}
-
-void UIModel::OnCleanUpOthers()
-{
-	ImGui_ImplVulkan_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-
-	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _ImGuiDescriptorPool, nullptr);
 }
 
 void UIModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)

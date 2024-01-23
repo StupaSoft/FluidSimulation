@@ -123,5 +123,8 @@
     <ClInclude Include="Sources\ModelBase.h">
       <Filter>sources\Models</Filter>
     </ClInclude>
+    <ClInclude Include="Sources\Delegate.h">
+      <Filter>sources\Utility</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

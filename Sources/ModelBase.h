@@ -22,9 +22,5 @@ public:
 	ModelBase &operator=(ModelBase &&other) = default;
 	virtual ~ModelBase() = default;
 
-	virtual void OnCleanUpSwapChain() {};
-	virtual void OnCleanUpOthers() {};
-	virtual void OnRecreateSwapChain() {};
-
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) = 0;
 };

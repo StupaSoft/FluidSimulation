@@ -70,8 +70,6 @@ private:
 public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
-	virtual void OnCleanUpOthers() override;
-	virtual void OnRecreateSwapChain() override;
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	
 	void LoadAssets(const std::string &OBJPath, const std::string &texturePath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
@@ -91,6 +89,9 @@ private:
 	std::tuple<VkBuffer, VkDeviceMemory> CreateIndexBuffer(const std::vector<uint32_t> &indices);
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
+
+	void OnRecreateSwapChain();
+	void OnCleanUpOthers();
 
 	void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 
