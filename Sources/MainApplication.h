@@ -21,7 +21,6 @@
 #include <backends/imgui_impl_vulkan.h>
 
 #include "VulkanCore.h"
-#include "FileManager.h"
 
 #include "MeshModel.h"
 #include "UIModel.h"

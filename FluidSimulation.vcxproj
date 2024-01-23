@@ -26,7 +26,6 @@
     <ClCompile Include="Libraries\imgui\imgui_draw.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="Sources\FileManager.cpp" />
     <ClCompile Include="Sources\LeftPanel.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MainApplication.cpp" />
@@ -43,7 +42,6 @@
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\Delegate.h" />
-    <ClInclude Include="Sources\FileManager.h" />
     <ClInclude Include="Sources\LeftPanel.h" />
     <ClInclude Include="Sources\MainApplication.h" />
     <ClInclude Include="Sources\MeshModel.h" />

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
 #include <vector>
 #include <set>
 #include <cstdint>
@@ -37,3 +38,5 @@ VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool co
 void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
 
 VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code);
+
+std::vector<char> ReadFile(const std::string &fileName);

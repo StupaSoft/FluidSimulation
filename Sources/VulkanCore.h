@@ -24,7 +24,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "FileManager.h"
 #include "VulkanUtility.h"
 #include "ModelBase.h"
 #include "Delegate.h"

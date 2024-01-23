@@ -8,23 +8,17 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
     </Filter>
-    <Filter Include="sources\UI">
-      <UniqueIdentifier>{e67e732e-7e23-49f6-82bc-b74c3990d933}</UniqueIdentifier>
-    </Filter>
     <Filter Include="sources\Main">
       <UniqueIdentifier>{7f1e109c-9a5d-49cc-8cdd-343b53296288}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="sources\Vulkan">
-      <UniqueIdentifier>{b16d67f4-c733-4193-9a53-c9768707f2e5}</UniqueIdentifier>
     </Filter>
     <Filter Include="sources\Utility">
       <UniqueIdentifier>{19e41620-9e21-4c73-b7d2-6e2e684ad5f5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="sources\Mesh">
-      <UniqueIdentifier>{377f4d89-b794-44eb-b895-facd330d9ada}</UniqueIdentifier>
+    <Filter Include="sources\Panels">
+      <UniqueIdentifier>{e67e732e-7e23-49f6-82bc-b74c3990d933}</UniqueIdentifier>
     </Filter>
-    <Filter Include="sources\Models">
-      <UniqueIdentifier>{8c565af5-d098-461e-ad9b-bd338f67c9e7}</UniqueIdentifier>
+    <Filter Include="sources\Render">
+      <UniqueIdentifier>{b16d67f4-c733-4193-9a53-c9768707f2e5}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -50,7 +44,7 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="Sources\LeftPanel.cpp">
-      <Filter>sources\UI</Filter>
+      <Filter>sources\Panels</Filter>
     </ClCompile>
     <ClCompile Include="Sources\MainApplication.cpp">
       <Filter>sources\Main</Filter>
@@ -59,22 +53,19 @@
       <Filter>sources\Main</Filter>
     </ClCompile>
     <ClCompile Include="Sources\VulkanCore.cpp">
-      <Filter>sources\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Sources\VulkanUtility.cpp">
-      <Filter>sources\Vulkan</Filter>
-    </ClCompile>
-    <ClCompile Include="Sources\FileManager.cpp">
-      <Filter>sources\Utility</Filter>
+      <Filter>sources\Render</Filter>
     </ClCompile>
     <ClCompile Include="Sources\MeshObject.cpp">
-      <Filter>sources\Mesh</Filter>
-    </ClCompile>
-    <ClCompile Include="Sources\MeshModel.cpp">
-      <Filter>sources\Models</Filter>
+      <Filter>sources\Render</Filter>
     </ClCompile>
     <ClCompile Include="Sources\UIModel.cpp">
-      <Filter>sources\Models</Filter>
+      <Filter>sources\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MeshModel.cpp">
+      <Filter>sources\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\VulkanUtility.cpp">
+      <Filter>sources\Utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -94,36 +85,33 @@
       <Filter>imgui</Filter>
     </ClInclude>
     <ClInclude Include="Sources\LeftPanel.h">
-      <Filter>sources\UI</Filter>
+      <Filter>sources\Panels</Filter>
     </ClInclude>
     <ClInclude Include="Sources\PanelBase.h">
-      <Filter>sources\UI</Filter>
+      <Filter>sources\Panels</Filter>
     </ClInclude>
     <ClInclude Include="Sources\MainApplication.h">
       <Filter>sources\Main</Filter>
     </ClInclude>
     <ClInclude Include="Sources\VulkanCore.h">
-      <Filter>sources\Vulkan</Filter>
+      <Filter>sources\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\VulkanUtility.h">
-      <Filter>sources\Vulkan</Filter>
-    </ClInclude>
-    <ClInclude Include="Sources\FileManager.h">
+    <ClInclude Include="Sources\Delegate.h">
       <Filter>sources\Utility</Filter>
     </ClInclude>
     <ClInclude Include="Sources\MeshObject.h">
-      <Filter>sources\Mesh</Filter>
-    </ClInclude>
-    <ClInclude Include="Sources\MeshModel.h">
-      <Filter>sources\Models</Filter>
+      <Filter>sources\Render</Filter>
     </ClInclude>
     <ClInclude Include="Sources\UIModel.h">
-      <Filter>sources\Models</Filter>
+      <Filter>sources\Render</Filter>
     </ClInclude>
     <ClInclude Include="Sources\ModelBase.h">
-      <Filter>sources\Models</Filter>
+      <Filter>sources\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\Delegate.h">
+    <ClInclude Include="Sources\MeshModel.h">
+      <Filter>sources\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\VulkanUtility.h">
       <Filter>sources\Utility</Filter>
     </ClInclude>
   </ItemGroup>
