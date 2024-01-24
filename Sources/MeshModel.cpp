@@ -216,7 +216,7 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 		{
 			.buffer = uniformBuffers[i],
 			.offset = 0,
-			.range = sizeof(UniformBufferObject)
+			.range = sizeof(MVPMatrix)
 		};
 
 		VkDescriptorImageInfo imageInfo =

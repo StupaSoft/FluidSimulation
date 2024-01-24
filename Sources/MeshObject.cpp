@@ -54,7 +54,7 @@ void MeshObject::Rotate(glm::vec3 axis, float angle)
 
 std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::CreateUniformBuffers()
 {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	VkDeviceSize bufferSize = sizeof(MVPMatrix);
 
 	std::vector<VkBuffer> uniformBuffers(_vulkanCore->GetMaxFramesInFlight());
 	std::vector<VkDeviceMemory> uniformBuffersMemory(_vulkanCore->GetMaxFramesInFlight());
@@ -71,7 +71,7 @@ void MeshObject::ApplyTransformations()
 {
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
-		UniformBufferObject ubo =
+		MVPMatrix ubo =
 		{
 			.model = _rotation * _position, // Identity matrix * rotation, axis
 			.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)), // Eye position, target center position, up axis

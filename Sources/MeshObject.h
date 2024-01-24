@@ -15,7 +15,7 @@
 
 // Descriptor used in shaders
 // Use alignas to solve alignment issues
-struct UniformBufferObject
+struct MVPMatrix
 {
 	alignas(16) glm::mat4 model; // mat4 is binary-compatible with the shader's one
 	alignas(16) glm::mat4 view;
