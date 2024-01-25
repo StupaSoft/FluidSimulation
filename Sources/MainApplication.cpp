@@ -12,8 +12,11 @@ void WindowApplication::Run()
 
 	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
 	meshModel->LoadAssets("Models/M2A1.obj", "Textures/M2A1_diffuse.png", "Shaders/Vert.spv", "Shaders/Frag.spv");
-	meshModel->AddMeshObject();
-	meshModel->AddMeshObject();
+	for (int i = 0; i < 10; ++i)
+	{
+		auto meshObject = meshModel->AddMeshObject();
+		meshObject->Translate(glm::vec3(0.1f * i, 0.0f, 0.0f));
+	}
 
 	auto uiModel = _vulkanCore->AddModel<UIModel>();
 	uiModel->AddPanel<LeftPanel>();
@@ -37,18 +40,18 @@ GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::
 
 void WindowApplication::MainLoop()
 {
-	static auto prevTime = std::chrono::high_resolution_clock::now();
-
 	// Application loop
 	while (!glfwWindowShouldClose(_window))
 	{
+		auto prevTime = std::chrono::high_resolution_clock::now();
+
 		glfwPollEvents();
+		_vulkanCore->DrawFrame();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
-		prevTime = currentTime;
 
-		_vulkanCore->DrawFrame();
+		std::cout << 1.0f / deltaSecond << std::endl;
 	}
 }
 
