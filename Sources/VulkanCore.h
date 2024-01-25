@@ -26,6 +26,7 @@
 
 #include "VulkanUtility.h"
 #include "ModelBase.h"
+#include "Camera.h"
 #include "Delegate.h"
 
 struct SwapChainSupportDetails
@@ -134,10 +135,15 @@ private:
 	VkDeviceMemory _depthImageMemory;
 	VkImageView _depthImageView;
 
+	// ==================== Camera ====================
+	std::shared_ptr<Camera> _mainCamera;
+	float _fovy = glm::radians(45.0f);
+
 	// ==================== Events ====================
 	Delegate<void()> _onCleanUpSwapChain;
 	Delegate<void()> _onCleanUpOthers;
 	Delegate<void()> _onRecreateSwapChain;
+	Delegate<void(const glm::mat4 &view, const glm::mat4 &project)> _onTransformMainCamera;
 
 public:
 	explicit VulkanCore(GLFWwindow *window) : _window(window) {}
@@ -159,8 +165,9 @@ public:
 
 		return model;
 	}
-
 	void RemoveModel(const std::shared_ptr<ModelBase> &model);
+
+	void RefreshCamera();
 
 	template<typename TFunc, typename... TArgs>
 	void ForAllModels(TFunc func, TArgs&&... args)
@@ -190,6 +197,7 @@ public:
 	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
 	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
+	auto &OnTransformMainCamera() { return _onTransformMainCamera; }
 
 private:
 	// ==================== Setup / Cleanup ====================

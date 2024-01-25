@@ -62,8 +62,8 @@ private:
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
 
-	void OnRecreateSwapChain();
 	void OnCleanUpOthers();
+	void OnTransformCamera(const glm::mat4 &model, const glm::mat4 &project);
 
 	void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
 

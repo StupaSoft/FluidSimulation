@@ -23,7 +23,22 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 	(
 		[this]()
 		{
-			OnRecreateSwapChain();
+			for (auto &objectPair : _objectPairs)
+			{
+				auto object = std::get<0>(objectPair);
+				object->ApplyModelTransformation();
+			}
+		}
+	);
+	_vulkanCore->OnTransformMainCamera().AddListener
+	(
+		[this](const glm::mat4 &view, const glm::mat4 &projection)
+		{
+			for (auto &objectPair : _objectPairs)
+			{
+				auto object = std::get<0>(objectPair);
+				object->SetCameraTransformation(view, projection);
+			}
 		}
 	);
 
@@ -75,15 +90,6 @@ void MeshModel::OnCleanUpOthers()
 	}
 }
 
-void MeshModel::OnRecreateSwapChain()
-{
-	for (auto &objectPair : _objectPairs)
-	{
-		auto object = std::get<0>(objectPair);
-		object->ApplyTransformations();
-	}
-}
-
 void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &texturePath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
 {
 	// Load OBJ
@@ -108,6 +114,8 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetUniformBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
+
+	_vulkanCore->RefreshCamera(); // Apply camera transformation
 
 	return meshObject;
 }

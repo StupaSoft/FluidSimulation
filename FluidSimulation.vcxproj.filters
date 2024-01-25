@@ -73,6 +73,9 @@
     <ClCompile Include="Sources\VulkanCore.cpp">
       <Filter>sources\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\Camera.cpp">
+      <Filter>sources\Render</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">
@@ -122,6 +125,9 @@
     </ClInclude>
     <ClInclude Include="Sources\VulkanCore.h">
       <Filter>sources\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\Camera.h">
+      <Filter>sources\Render</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

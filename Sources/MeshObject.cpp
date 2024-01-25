@@ -26,13 +26,13 @@ void MeshObject::CleanUp()
 void MeshObject::SetPosition(glm::vec3 position)
 {
 	_position = glm::translate(glm::mat4(1.0f), position);
-	ApplyTransformations();
+	ApplyModelTransformation();
 }
 
 void MeshObject::Translate(glm::vec3 offset)
 {
 	_position = glm::translate(_position, offset);
-	ApplyTransformations();
+	ApplyModelTransformation();
 }
 
 void MeshObject::SetRotation(glm::vec3 rotation)
@@ -43,13 +43,13 @@ void MeshObject::SetRotation(glm::vec3 rotation)
 	rotationMat = glm::rotate(rotationMat, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	_rotation = std::move(rotationMat);
-	ApplyTransformations();
+	ApplyModelTransformation();
 }
 
 void MeshObject::Rotate(glm::vec3 axis, float angle)
 {
 	_rotation = glm::rotate(_rotation, glm::radians(angle), axis);
-	ApplyTransformations();
+	ApplyModelTransformation();
 }
 
 std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::CreateUniformBuffers()
@@ -67,24 +67,41 @@ std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::Creat
 	return std::make_tuple(uniformBuffers, uniformBuffersMemory);
 }
 
-void MeshObject::ApplyTransformations()
+void MeshObject::ApplyModelTransformation()
 {
+	MVPMatrix matrix
+	{
+		.model = _rotation * _position
+	};
+
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
-		MVPMatrix ubo =
-		{
-			.model = _rotation * _position, // Identity matrix * rotation, axis
-			.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f)), // Eye position, target center position, up axis
-			.proj = glm::perspective(glm::radians(45.0f), _vulkanCore->GetExtent().width / (float)_vulkanCore->GetExtent().height, 0.1f, 10.0f) // Vertical field of view, aspect ratio, clipping planes
-		};
-
-		// glm was originally designed for OpenGL, where the Y coordinate of the clip coordinates is inverted.
-		// Compensate this inversion.
-		ubo.proj[1][1] *= -1;
+		auto copyOffset = 0;
+		auto copySize = sizeof(MVPMatrix::model);
 
 		void *data;
-		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], 0, sizeof(ubo), 0, &data);
-		memcpy(data, &ubo, sizeof(ubo));
+		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
+		memcpy(data, &matrix, copySize);
+		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
+	}
+}
+
+void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection)
+{
+	MVPMatrix matrix
+	{
+		.view = view,
+		.project = projection
+	};
+
+	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
+	{
+		auto copyOffset = offsetof(MVPMatrix, view);
+		auto copySize = sizeof(matrix) - copyOffset;
+
+		void *data;
+		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
+		memcpy(data, &matrix.view, copySize);
 		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
 	}
 }
