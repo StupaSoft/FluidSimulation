@@ -2,35 +2,7 @@
 
 #include "ModelBase.h"
 #include "MeshObject.h"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/hash.hpp>
-
-struct Vertex
-{
-	glm::vec3 pos;
-	glm::vec3 color;
-	glm::vec2 texCoord;
-
-	static VkVertexInputBindingDescription GetBindingDescription();
-	static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
-};
-
-inline bool operator==(const Vertex &lhs, const Vertex &rhs)
-{
-	return lhs.color == rhs.color && lhs.pos == rhs.pos && lhs.texCoord == rhs.texCoord;
-}
-
-namespace std
-{
-	template<> struct hash<Vertex>
-	{
-		size_t operator()(const Vertex &vertex) const
-		{
-			return hash<glm::vec3>()(vertex.pos) ^ ((hash<glm::vec3>()(vertex.color) << 1) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-		}
-	};
-}
+#include "Vertex.h"
 
 class MeshModel : public ModelBase
 {
