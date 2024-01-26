@@ -17,17 +17,19 @@
 #include <unordered_map>
 
 #define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #define GLM_FORCE_RADIANS // Force glm to use radian as arguments
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Force glm to project z into the range [0.0, 1.0]
-#include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "VulkanUtility.h"
 #include "ModelBase.h"
-#include "Camera.h"
 #include "Delegate.h"
+#include "Camera.h"
+#include "DirectionalLight.h"
 
 struct SwapChainSupportDetails
 {
@@ -136,14 +138,16 @@ private:
 	VkImageView _depthImageView;
 
 	// ==================== Camera ====================
-	std::shared_ptr<Camera> _mainCamera;
-	float _fovy = glm::radians(45.0f);
+	std::unique_ptr<Camera> _mainCamera;
+	const float FOV_Y = glm::radians(45.0f);
+
+	// ==================== Light ====================
+	std::unique_ptr<DirectionalLight> _mainLight;
 
 	// ==================== Events ====================
 	Delegate<void()> _onCleanUpSwapChain;
 	Delegate<void()> _onCleanUpOthers;
 	Delegate<void()> _onRecreateSwapChain;
-	Delegate<void(const glm::mat4 &view, const glm::mat4 &project)> _onTransformMainCamera;
 
 public:
 	explicit VulkanCore(GLFWwindow *window) : _window(window) {}
@@ -157,6 +161,8 @@ public:
 	void DrawFrame();
 	void Resize() { _framebufferResized = true; }
 
+	void SetUpScene(); // Temp
+
 	template<typename TModel, typename... TArgs>
 	std::shared_ptr<TModel> AddModel(TArgs&&... args)
 	{
@@ -166,8 +172,6 @@ public:
 		return model;
 	}
 	void RemoveModel(const std::shared_ptr<ModelBase> &model);
-
-	void RefreshCamera();
 
 	template<typename TFunc, typename... TArgs>
 	void ForAllModels(TFunc func, TArgs&&... args)
@@ -193,11 +197,11 @@ public:
 	auto GetExtent() const { return _swapChainExtent; }
 	auto GetCommandPool() const { return _commandPool; }
 	auto GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
+	auto &GetMainCamera() const { return _mainCamera; }
 
 	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
 	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
-	auto &OnTransformMainCamera() { return _onTransformMainCamera; }
 
 private:
 	// ==================== Setup / Cleanup ====================

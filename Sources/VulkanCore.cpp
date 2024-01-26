@@ -22,9 +22,6 @@ void VulkanCore::InitVulkan()
 	std::tie(_swapChain, _swapChainImages, _swapChainImageFormat, _swapChainExtent) = CreateSwapChain(_physicalDevice, _logicalDevice, _surface, _window);
 	_swapChainImageViews = CreateImageViews(_logicalDevice, _swapChainImages, _swapChainImageFormat);
 
-	_mainCamera = std::make_shared<Camera>(_fovy, _swapChainExtent.width, _swapChainExtent.height);
-	RefreshCamera();
-
 	_renderPass = CreateRenderPass(_swapChainImageFormat);
 
 	std::tie(_colorImage, _colorImageMemory, _colorImageView) = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
@@ -39,11 +36,6 @@ void VulkanCore::InitVulkan()
 void VulkanCore::RemoveModel(const std::shared_ptr<ModelBase> &model)
 {
 	auto it = std::find(_models.begin(), _models.end(), model);
-}
-
-void VulkanCore::RefreshCamera()
-{
-	_onTransformMainCamera.Invoke(_mainCamera->GetViewMatrix(), _mainCamera->GetProjectionMatrix());
 }
 
 void VulkanCore::DrawFrame()
@@ -119,6 +111,12 @@ void VulkanCore::DrawFrame()
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
 	vkDeviceWaitIdle(_logicalDevice);
+}
+
+void VulkanCore::SetUpScene()
+{
+	_mainCamera = std::make_unique<Camera>(glm::vec3(5.0f, 5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
+	_mainLight = std::make_unique<DirectionalLight>(glm::vec3(-1.0f, -1.0f, -0.5f), glm::vec3(0.8f, 0.8f, 0.8f), 1.0f);
 }
 
 // ======================================== Internal logics ========================================
@@ -668,9 +666,8 @@ void VulkanCore::RecreateSwapChain()
 	std::tie(_swapChain, _swapChainImages, _swapChainImageFormat, _swapChainExtent) = CreateSwapChain(_physicalDevice, _logicalDevice, _surface, _window);
 	_swapChainImageViews = CreateImageViews(_logicalDevice, _swapChainImages, _swapChainImageFormat);
 
-	_mainCamera->SetFOV(_fovy);
+	_mainCamera->SetFOV(FOV_Y);
 	_mainCamera->SetExtent(_swapChainExtent.width, _swapChainExtent.height);
-	RefreshCamera();
 
 	std::tie(_colorImage, _colorImageMemory, _colorImageView) = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
 	std::tie(_depthImage, _depthImageMemory, _depthImageView) = CreateDepthResources(_swapChainExtent);

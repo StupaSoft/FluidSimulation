@@ -71,13 +71,13 @@ void MeshObject::ApplyModelTransformation()
 {
 	MVPMatrix matrix
 	{
-		.model = _rotation * _position
+		._model = _rotation * _position
 	};
 
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
 		auto copyOffset = 0;
-		auto copySize = sizeof(MVPMatrix::model);
+		auto copySize = sizeof(MVPMatrix::_model);
 
 		void *data;
 		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
@@ -90,18 +90,18 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 {
 	MVPMatrix matrix
 	{
-		.view = view,
-		.project = projection
+		._view = view,
+		._project = projection
 	};
 
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
-		auto copyOffset = offsetof(MVPMatrix, view);
+		auto copyOffset = offsetof(MVPMatrix, _view);
 		auto copySize = sizeof(matrix) - copyOffset;
 
 		void *data;
 		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
-		memcpy(data, &matrix.view, copySize);
+		memcpy(data, &matrix._view, copySize);
 		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
 	}
 }

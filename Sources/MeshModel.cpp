@@ -30,14 +30,14 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 			}
 		}
 	);
-	_vulkanCore->OnTransformMainCamera().AddListener
+	_vulkanCore->GetMainCamera()->OnChanged().AddListener
 	(
-		[this](const glm::mat4 &view, const glm::mat4 &projection)
+		[this](const Camera &camera)
 		{
 			for (auto &objectPair : _objectPairs)
 			{
 				auto object = std::get<0>(objectPair);
-				object->SetCameraTransformation(view, projection);
+				object->SetCameraTransformation(camera.GetViewMatrix(), camera.GetProjectionMatrix());
 			}
 		}
 	);
@@ -115,7 +115,9 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetUniformBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
 
-	_vulkanCore->RefreshCamera(); // Apply camera transformation
+	// Set initial camera transformation
+	auto &mainCamera = _vulkanCore->GetMainCamera();
+	meshObject->SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
 
 	return meshObject;
 }

@@ -18,9 +18,9 @@
 // Use alignas to solve alignment issues
 struct MVPMatrix
 {
-	alignas(16) glm::mat4 model; // mat4 is binary-compatible with the shader's one
-	alignas(16) glm::mat4 view;
-	alignas(16) glm::mat4 project;
+	alignas(16) glm::mat4 _model; // mat4 is binary-compatible with the shader's one
+	alignas(16) glm::mat4 _view;
+	alignas(16) glm::mat4 _project;
 };
 
 class MeshObject

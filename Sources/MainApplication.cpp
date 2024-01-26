@@ -9,13 +9,14 @@ void WindowApplication::Run()
 
 	_vulkanCore = std::make_shared<VulkanCore>(_window);
 	_vulkanCore->InitVulkan();
+	_vulkanCore->SetUpScene();
 
 	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
 	meshModel->LoadAssets("Models/M2A1.obj", "Textures/M2A1_diffuse.png", "Shaders/Vert.spv", "Shaders/Frag.spv");
 	for (int i = 0; i < 10; ++i)
 	{
 		auto meshObject = meshModel->AddMeshObject();
-		meshObject->Translate(glm::vec3(0.1f * i, 0.0f, 0.0f));
+		meshObject->Translate(glm::vec3(0.5f * i, 0.0f, 0.0f));
 	}
 
 	auto uiModel = _vulkanCore->AddModel<UIModel>();
