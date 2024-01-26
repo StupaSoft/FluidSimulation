@@ -19,28 +19,6 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 			OnCleanUpOthers();
 		}
 	);
-	_vulkanCore->OnRecreateSwapChain().AddListener
-	(
-		[this]()
-		{
-			for (auto &objectPair : _objectPairs)
-			{
-				auto object = std::get<0>(objectPair);
-				object->ApplyModelTransformation();
-			}
-		}
-	);
-	_vulkanCore->GetMainCamera()->OnChanged().AddListener
-	(
-		[this](const Camera &camera)
-		{
-			for (auto &objectPair : _objectPairs)
-			{
-				auto object = std::get<0>(objectPair);
-				object->SetCameraTransformation(camera.GetViewMatrix(), camera.GetProjectionMatrix());
-			}
-		}
-	);
 
 	_descriptorSetLayout = CreateDescriptorSetLayout();
 	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
@@ -114,10 +92,6 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetUniformBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
-
-	// Set initial camera transformation
-	auto &mainCamera = _vulkanCore->GetMainCamera();
-	meshObject->SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
 
 	return meshObject;
 }

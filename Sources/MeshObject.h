@@ -23,6 +23,13 @@ struct MVPMatrix
 	alignas(16) glm::mat4 _project;
 };
 
+struct Light
+{
+	alignas(16) glm::vec3 _direction;
+	alignas(16) glm::vec3 _color;
+	alignas(4) float _intensity;
+};
+
 class MeshObject
 {
 private:
@@ -51,10 +58,10 @@ public:
 	void SetRotation(glm::vec3);
 	void Translate(glm::vec3 offset);
 	void Rotate(glm::vec3 axis, float angle);
-	void ApplyModelTransformation();
-	void SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection);
 
 private:
 	std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateUniformBuffers();
 	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &uniformBuffers);
+	void ApplyModelTransformation();
+	void SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection);
 };

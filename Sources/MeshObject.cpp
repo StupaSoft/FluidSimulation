@@ -7,6 +7,24 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 	SetPosition(glm::vec3());
 	SetRotation(glm::vec3());
+
+	_vulkanCore->OnRecreateSwapChain().AddListener
+	(
+		[this]()
+		{
+			ApplyModelTransformation();
+		}
+	);
+
+	auto &camera = _vulkanCore->GetMainCamera();
+	SetCameraTransformation(camera->GetViewMatrix(), camera->GetProjectionMatrix());
+	_vulkanCore->GetMainCamera()->OnChanged().AddListener
+	(
+		[this](const Camera &camera)
+		{
+			SetCameraTransformation(camera.GetViewMatrix(), camera.GetProjectionMatrix());
+		}
+	);
 }
 
 std::vector<VkBuffer> MeshObject::GetUniformBuffers()

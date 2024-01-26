@@ -1,33 +1,43 @@
 #include "Camera.h"
 
-void Camera::SetFOV(float fovy)
-{
-	_fovy = fovy;
+void Camera::SetPosition(glm::vec3 position) 
+{ 
+	_position = position;
+
+	_onChanged.Invoke(*this);
 }
+
+void Camera::SetDirection(glm::vec3 direction) 
+{ 
+	_direction = direction;
+
+	_onChanged.Invoke(*this);
+}
+
+void Camera::SetFOV(float fovy)
+{ 
+	_fovy = fovy;
+
+	_onChanged.Invoke(*this);
+};
 
 void Camera::SetExtent(uint32_t width, uint32_t height)
 {
 	_width = width;
 	_height = height;
+
+	_onChanged.Invoke(*this);
 }
 
-glm::mat4 Camera::GetViewMatrix()
+glm::mat4 Camera::GetViewMatrix() const
 {
-	// Temp
-
-	// The coordinate system for these vectors is same as that of OpenGL.
-	// Y-up right coordinate system
-	auto eyePos = glm::vec3(5.0f, 5.0f, 5.0f);
-	auto lookTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-	auto up = glm::vec3(0.0f, 1.0f, 0.0f);
-
 	// Eye position, target center position, up axis
-	glm::mat4 view = glm::lookAt(eyePos, lookTarget, up);
+	glm::mat4 view = glm::lookAt(_position, _direction, glm::vec3(0.0f, 1.0f, 0.0f));
 	
 	return view;
 }
 
-glm::mat4 Camera::GetProjectionMatrix()
+glm::mat4 Camera::GetProjectionMatrix() const
 {
 	// Vertical field of view, aspect ratio, clipping planes
 	glm::mat4 projection = glm::perspective(_fovy, _width / (float)_height, 0.1f, 10.0f);
