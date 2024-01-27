@@ -16,18 +16,12 @@
 
 // Descriptor used in shaders
 // Use alignas to solve alignment issues
-struct MVPMatrix
+struct MVP
 {
+	// MVP matrices
 	alignas(16) glm::mat4 _model; // mat4 is binary-compatible with the shader's one
 	alignas(16) glm::mat4 _view;
-	alignas(16) glm::mat4 _project;
-};
-
-struct Light
-{
-	alignas(16) glm::vec3 _direction;
-	alignas(16) glm::vec3 _color;
-	alignas(4) float _intensity;
+	alignas(16) glm::mat4 _projection;
 };
 
 class MeshObject
@@ -36,8 +30,8 @@ private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 
 	// ==================== Vulkan resources ====================
-	std::vector<VkBuffer> _uniformBuffers; // Create multiple buffers for each frame
-	std::vector<VkDeviceMemory> _uniformBuffersMemory;
+	std::vector<VkBuffer> _mvpBuffers; // Create multiple buffers for each frame
+	std::vector<VkDeviceMemory> _mvpBuffersMemory;
 
 	// ==================== Transform ====================
 	glm::mat4 _position = glm::mat4(1.0f);
@@ -51,7 +45,7 @@ public:
 	MeshObject &operator=(MeshObject &&other) = default;
 	virtual ~MeshObject() = default;
 
-	std::vector<VkBuffer> GetUniformBuffers();
+	std::vector<VkBuffer> GetMVPBuffers();
 	void CleanUp();
 
 	void SetPosition(glm::vec3 position);
@@ -60,8 +54,6 @@ public:
 	void Rotate(glm::vec3 axis, float angle);
 
 private:
-	std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateUniformBuffers();
-	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &uniformBuffers);
 	void ApplyModelTransformation();
 	void SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection);
 };

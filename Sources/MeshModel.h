@@ -4,6 +4,13 @@
 #include "MeshObject.h"
 #include "Vertex.h"
 
+struct Light
+{
+	alignas(16) glm::vec4 _direction; // Use vec4 instead of vec3 so that it can match the shader alignment
+	alignas(16) glm::vec4 _color; // Ditto
+	alignas(4) float _intensity;
+};
+
 class MeshModel : public ModelBase
 {
 private:
@@ -39,6 +46,9 @@ private:
 	VkDescriptorSetLayout _descriptorSetLayout;
 	VkDescriptorPool _descriptorPool;
 
+	std::vector<VkBuffer> _lightBuffers;
+	std::vector<VkDeviceMemory> _lightBuffersMemory;
+
 public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
@@ -52,7 +62,7 @@ public:
 private:
 	VkDescriptorSetLayout CreateDescriptorSetLayout();
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &uniformBuffers);
+	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers, const std::vector<VkBuffer> &lightBuffers);
 
 	std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(const std::string &texturePath);
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
@@ -66,6 +76,8 @@ private:
 	void OnTransformCamera(const glm::mat4 &model, const glm::mat4 &project);
 
 	void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+
+	void SetLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 
 	std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJPath);
 };

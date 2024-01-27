@@ -28,6 +28,7 @@
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\LeftPanel.cpp" />
+    <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MainApplication.cpp" />
     <ClCompile Include="Sources\MeshModel.cpp" />
@@ -46,6 +47,7 @@
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\LeftPanel.h" />
+    <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />
     <ClInclude Include="Sources\MeshModel.h" />
     <ClInclude Include="Sources\MeshObject.h" />

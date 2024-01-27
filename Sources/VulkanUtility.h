@@ -40,3 +40,6 @@ void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, Vk
 VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code);
 
 std::vector<char> ReadFile(const std::string &fileName);
+
+std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateBuffersAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty);
+void CopyToBuffer(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *memory, VkDeviceSize copyOffset, VkDeviceSize copySize);

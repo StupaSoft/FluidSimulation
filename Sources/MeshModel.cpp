@@ -12,6 +12,21 @@ const uint32_t MeshModel::MAX_SET_COUNT = 1000;
 MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 	: ModelBase(vulkanCore)
 {
+	// Create resources
+	std::tie(_lightBuffers, _lightBuffersMemory) = CreateBuffersAndMemory
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(Light),
+		_vulkanCore->GetMaxFramesInFlight(),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
+	_descriptorSetLayout = CreateDescriptorSetLayout();
+	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
+
+	// Initialize & add callbacks
 	_vulkanCore->OnCleanUpOthers().AddListener
 	(
 		[this]()
@@ -20,8 +35,15 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 		}
 	);
 
-	_descriptorSetLayout = CreateDescriptorSetLayout();
-	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
+	auto &mainLight = _vulkanCore->GetMainLight();
+	SetLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
+	mainLight->OnChanged().AddListener
+	(
+		[this](const DirectionalLight &light)
+		{
+			SetLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
+		}
+	);
 }
 
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
@@ -41,6 +63,12 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 
 void MeshModel::OnCleanUpOthers()
 {
+	for (auto &objectPair : _objectPairs)
+	{
+		auto object = std::get<0>(objectPair);
+		object->CleanUp();
+	}
+
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
 
@@ -61,10 +89,10 @@ void MeshModel::OnCleanUpOthers()
 	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer, nullptr);
 	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _indexBufferMemory, nullptr);
 
-	for (auto &objectPair : _objectPairs)
+	for (size_t i = 0; i < _lightBuffers.size(); ++i)
 	{
-		auto object = std::get<0>(objectPair);
-		object->CleanUp();
+		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffers[i], nullptr);
+		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory[i], nullptr);
 	}
 }
 
@@ -90,7 +118,7 @@ void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &textur
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
-	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetUniformBuffers());
+	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers(), _lightBuffers);
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
 
 	return meshObject;
@@ -109,26 +137,35 @@ VkDescriptorSetLayout MeshModel::CreateDescriptorSetLayout()
 	// just like a render pass specifies the types of attachments that will be accessed.
 
 	// Buffer object descriptor
-	VkDescriptorSetLayoutBinding uboLayoutBinding =
+	VkDescriptorSetLayoutBinding mvpLayoutBinding =
 	{
-		.binding = 0, // 'binding' in the shader - layout(binding = 0) uniform UniformBufferObject
+		.binding = 0, // 'binding' in the shader - layout(binding = 0) uniform MVPMatrix
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 		.descriptorCount = 1, // The number of values in the array of uniform buffer objects - only uniform buffer
 		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, // In which shader stages the descriptor is going to be referenced
 		.pImmutableSamplers = nullptr
 	};
 
+	VkDescriptorSetLayoutBinding lightLayoutBinding =
+	{
+		.binding = 1,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.pImmutableSamplers = nullptr
+	};
+
 	// Combined texture sampler descriptor
 	VkDescriptorSetLayoutBinding samplerLayoutBinding =
 	{
-		.binding = 1,
+		.binding = 2,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 		.pImmutableSamplers = nullptr
 	};
 
-	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { mvpLayoutBinding, lightLayoutBinding, samplerLayoutBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo =
 	{
@@ -173,7 +210,7 @@ VkDescriptorPool MeshModel::CreateDescriptorPool(uint32_t maxSetCount)
 }
 
 // Create a descriptor set for each VkBuffer resource to bind it to the uniform buffer descriptor
-std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &uniformBuffers)
+std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers, const std::vector<VkBuffer> &lightBuffers)
 {
 	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), _descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
 
@@ -196,11 +233,18 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
 		// Specify the buffer and the region within it that contains the data for the descriptor.
-		VkDescriptorBufferInfo bufferInfo =
+		VkDescriptorBufferInfo mvpInfo =
 		{
-			.buffer = uniformBuffers[i],
+			.buffer = mvpBuffers[i],
 			.offset = 0,
-			.range = sizeof(MVPMatrix)
+			.range = sizeof(MVP)
+		};
+
+		VkDescriptorBufferInfo lightInfo =
+		{
+			.buffer = lightBuffers[i],
+			.offset = 0,
+			.range = sizeof(Light)
 		};
 
 		VkDescriptorImageInfo imageInfo =
@@ -221,12 +265,23 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 				.descriptorCount = 1, // The number of array elements to update 
 				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 
-				.pBufferInfo = &bufferInfo, // Array with descriptorCount structs that actually configure the descriptors
+				.pBufferInfo = &mvpInfo, // Array with descriptorCount structs that actually configure the descriptors
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSets[i],
+				.dstBinding = 1,
+				.dstArrayElement = 0,
+
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+
+				.pBufferInfo = &lightInfo,
 			},
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.dstSet = descriptorSets[i], // Descriptor set to update
-				.dstBinding = 1, // Binding index of the texture sampler; 1
+				.dstBinding = 2, // Binding index of the texture sampler; 1
 				.dstArrayElement = 0, // Array is not used, so it is set to just 0.
 
 				.descriptorCount = 1, // The number of array elements to update 
@@ -624,6 +679,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> MeshModel::LoadOBJ(const 
 	tinyobj::attrib_t attribute; // Holds all of the positions, normals, and texture coordinates
 	std::vector<tinyobj::shape_t> shapes; // Contains all of the separate objects and their faces
 	std::vector<tinyobj::material_t> materials;
+
 	std::string warn;
 	std::string err;
 
@@ -761,4 +817,16 @@ void MeshModel::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
 	EndSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), commandBuffer, _vulkanCore->GetGraphicsQueue());
 }
 
+void MeshModel::SetLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity)
+{
+	Light light
+	{
+		._direction = glm::vec4(direction, 1.0f),
+		._color = glm::vec4(color, 1.0f),
+		._intensity = intensity
+	};
 
+	auto copyOffset = 0;
+	auto copySize = sizeof(Light);
+	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory, &light, copyOffset, copySize);
+}

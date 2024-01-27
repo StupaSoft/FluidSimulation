@@ -273,4 +273,34 @@ std::vector<char> ReadFile(const std::string &fileName)
 	return buffer;
 }
 
+std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateBuffersAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty)
+{
+	VkDeviceSize bufferSize = objectSize;
+
+	std::vector<VkBuffer> buffers(maxFramesInFlight);
+	std::vector<VkDeviceMemory> buffersMemory(maxFramesInFlight);
+
+	for (size_t i = 0; i < maxFramesInFlight; ++i)
+	{
+		std::tie(buffers[i], buffersMemory[i]) = CreateBuffer(physicalDevice, logicalDevice, bufferSize, usage, memoryProperty);
+	}
+
+	return std::make_tuple(buffers, buffersMemory);
+}
+
+void CopyToBuffer(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *memory, VkDeviceSize copyOffset, VkDeviceSize copySize)
+{
+	std::byte *offsetPtr = reinterpret_cast<std::byte *>(memory) + copyOffset;
+	void *source = offsetPtr;
+
+	for (size_t i = 0; i < buffersMemory.size(); ++i)
+	{
+		void *data;
+		vkMapMemory(logicalDevice, buffersMemory[i], copyOffset, copySize, 0, &data);
+		memcpy(data, source, copySize);
+		vkUnmapMemory(logicalDevice, buffersMemory[i]);
+	}
+}
+
+
 

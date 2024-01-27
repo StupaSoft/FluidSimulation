@@ -3,7 +3,15 @@
 MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	_vulkanCore(vulkanCore)
 {
-	std::tie(_uniformBuffers, _uniformBuffersMemory) = CreateUniformBuffers();
+	std::tie(_mvpBuffers, _mvpBuffersMemory) = CreateBuffersAndMemory
+	(
+		_vulkanCore->GetPhysicalDevice(), 
+		_vulkanCore->GetLogicalDevice(), 
+		sizeof(MVP),
+		_vulkanCore->GetMaxFramesInFlight(), 
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
 
 	SetPosition(glm::vec3());
 	SetRotation(glm::vec3());
@@ -16,9 +24,9 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
 		}
 	);
 
-	auto &camera = _vulkanCore->GetMainCamera();
-	SetCameraTransformation(camera->GetViewMatrix(), camera->GetProjectionMatrix());
-	_vulkanCore->GetMainCamera()->OnChanged().AddListener
+	auto &mainCamera = _vulkanCore->GetMainCamera();
+	SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
+	mainCamera->OnChanged().AddListener
 	(
 		[this](const Camera &camera)
 		{
@@ -27,17 +35,17 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	);
 }
 
-std::vector<VkBuffer> MeshObject::GetUniformBuffers()
+std::vector<VkBuffer> MeshObject::GetMVPBuffers()
 {
-	return _uniformBuffers;
+	return _mvpBuffers;
 }
 
 void MeshObject::CleanUp()
 {
-	for (size_t i = 0; i < _uniformBuffers.size(); ++i)
+	for (size_t i = 0; i < _mvpBuffers.size(); ++i)
 	{
-		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _uniformBuffers[i], nullptr);
-		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], nullptr);
+		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffers[i], nullptr);
+		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory[i], nullptr);
 	}
 }
 
@@ -70,56 +78,27 @@ void MeshObject::Rotate(glm::vec3 axis, float angle)
 	ApplyModelTransformation();
 }
 
-std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> MeshObject::CreateUniformBuffers()
-{
-	VkDeviceSize bufferSize = sizeof(MVPMatrix);
-
-	std::vector<VkBuffer> uniformBuffers(_vulkanCore->GetMaxFramesInFlight());
-	std::vector<VkDeviceMemory> uniformBuffersMemory(_vulkanCore->GetMaxFramesInFlight());
-
-	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
-	{
-		std::tie(uniformBuffers[i], uniformBuffersMemory[i]) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	}
-
-	return std::make_tuple(uniformBuffers, uniformBuffersMemory);
-}
-
 void MeshObject::ApplyModelTransformation()
 {
-	MVPMatrix matrix
+	MVP mvp
 	{
 		._model = _rotation * _position
 	};
 
-	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
-	{
-		auto copyOffset = 0;
-		auto copySize = sizeof(MVPMatrix::_model);
-
-		void *data;
-		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
-		memcpy(data, &matrix, copySize);
-		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
-	}
+	auto copyOffset = 0;
+	auto copySize = sizeof(MVP::_model);
+	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
 }
 
 void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection)
 {
-	MVPMatrix matrix
+	MVP mvp
 	{
 		._view = view,
-		._project = projection
+		._projection = projection
 	};
 
-	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
-	{
-		auto copyOffset = offsetof(MVPMatrix, _view);
-		auto copySize = sizeof(matrix) - copyOffset;
-
-		void *data;
-		vkMapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i], copyOffset, copySize, 0, &data);
-		memcpy(data, &matrix._view, copySize);
-		vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _uniformBuffersMemory[i]);
-	}
+	auto copyOffset = offsetof(MVP, _view);
+	auto copySize = sizeof(MVP) - copyOffset;
+	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
 }
