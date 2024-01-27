@@ -27,7 +27,7 @@ std::vector<VkVertexInputAttributeDescription> Vertex::GetAttributeDescriptions(
 			.location = 1,
 			.binding = 0,
 			.format = VK_FORMAT_R32G32B32_SFLOAT,
-			.offset = offsetof(Vertex, color)
+			.offset = offsetof(Vertex, normal)
 		},
 		{
 			.location = 2,

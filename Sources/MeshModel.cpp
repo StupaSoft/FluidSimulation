@@ -23,6 +23,16 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
+	std::tie(_materialBuffers, _materialBuffersMemory) = CreateBuffersAndMemory
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(Material),
+		_vulkanCore->GetMaxFramesInFlight(),
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+	);
+
 	_descriptorSetLayout = CreateDescriptorSetLayout();
 	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
 
@@ -35,13 +45,15 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 		}
 	);
 
+	ApplyMaterialAdjustment();
+
 	auto &mainLight = _vulkanCore->GetMainLight();
-	SetLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
+	ApplyLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
 	mainLight->OnChanged().AddListener
 	(
 		[this](const DirectionalLight &light)
 		{
-			SetLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
+			ApplyLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
 		}
 	);
 }
@@ -91,6 +103,9 @@ void MeshModel::OnCleanUpOthers()
 
 	for (size_t i = 0; i < _lightBuffers.size(); ++i)
 	{
+		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _materialBuffers[i], nullptr);
+		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory[i], nullptr);
+
 		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffers[i], nullptr);
 		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory[i], nullptr);
 	}
@@ -115,10 +130,22 @@ void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &textur
 	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
 }
 
+void MeshModel::SetMaterial(const Material &material)
+{
+	_material = material;
+	ApplyMaterialAdjustment();
+}
+
+void MeshModel::SetMaterial(Material &&material)
+{
+	_material = std::move(material);
+	ApplyMaterialAdjustment();
+}
+
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
-	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers(), _lightBuffers);
+	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
 
 	return meshObject;
@@ -155,17 +182,26 @@ VkDescriptorSetLayout MeshModel::CreateDescriptorSetLayout()
 		.pImmutableSamplers = nullptr
 	};
 
+	VkDescriptorSetLayoutBinding materialLayoutBinding =
+	{
+		.binding = 2,
+		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorCount = 1,
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.pImmutableSamplers = nullptr
+	};
+
 	// Combined texture sampler descriptor
 	VkDescriptorSetLayoutBinding samplerLayoutBinding =
 	{
-		.binding = 2,
+		.binding = 3,
 		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 		.descriptorCount = 1,
 		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
 		.pImmutableSamplers = nullptr
 	};
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings = { mvpLayoutBinding, lightLayoutBinding, samplerLayoutBinding };
+	std::vector<VkDescriptorSetLayoutBinding> bindings = { mvpLayoutBinding, lightLayoutBinding, materialLayoutBinding, samplerLayoutBinding };
 
 	VkDescriptorSetLayoutCreateInfo layoutInfo =
 	{
@@ -210,7 +246,7 @@ VkDescriptorPool MeshModel::CreateDescriptorPool(uint32_t maxSetCount)
 }
 
 // Create a descriptor set for each VkBuffer resource to bind it to the uniform buffer descriptor
-std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers, const std::vector<VkBuffer> &lightBuffers)
+std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers)
 {
 	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), _descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
 
@@ -242,9 +278,16 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 
 		VkDescriptorBufferInfo lightInfo =
 		{
-			.buffer = lightBuffers[i],
+			.buffer = _lightBuffers[i],
 			.offset = 0,
 			.range = sizeof(Light)
+		};
+
+		VkDescriptorBufferInfo materialInfo =
+		{
+			.buffer = _materialBuffers[i],
+			.offset = 0,
+			.range = sizeof(Material)
 		};
 
 		VkDescriptorImageInfo imageInfo =
@@ -280,8 +323,19 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 			},
 			{
 				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+				.dstSet = descriptorSets[i],
+				.dstBinding = 2,
+				.dstArrayElement = 0,
+
+				.descriptorCount = 1,
+				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+
+				.pBufferInfo = &materialInfo,
+			},
+			{
+				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 				.dstSet = descriptorSets[i], // Descriptor set to update
-				.dstBinding = 2, // Binding index of the texture sampler; 1
+				.dstBinding = 3, // Binding index of the texture sampler; 3
 				.dstArrayElement = 0, // Array is not used, so it is set to just 0.
 
 				.descriptorCount = 1, // The number of array elements to update 
@@ -691,7 +745,6 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> MeshModel::LoadOBJ(const 
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 
-	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
 	for (const auto &shape : shapes)
 	{
 		for (const auto &index : shape.mesh.indices)
@@ -704,20 +757,21 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> MeshModel::LoadOBJ(const 
 					attribute.vertices[3 * index.vertex_index + 1],
 					attribute.vertices[3 * index.vertex_index + 2]
 				},
-				.color = { 1.0f, 1.0f, 1.0f },
+				.normal =
+				{
+					attribute.normals[3 * index.normal_index + 0],
+					attribute.normals[3 * index.normal_index + 1],
+					attribute.normals[3 * index.normal_index + 2]
+				},
 				.texCoord =
 				{
 					attribute.texcoords[2 * index.texcoord_index + 0],
-					1.0f - attribute.texcoords[2 * index.texcoord_index + 1] // Difference between the texture coordinate system
+					1.0f - attribute.texcoords[2 * index.texcoord_index + 1] // Reflect the difference between the texture coordinate system
 				}
 			};
 
-			if (!uniqueVertices.contains(vertex))
-			{
-				uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-				vertices.push_back(vertex);
-			}
-			indices.push_back(uniqueVertices[vertex]);
+			indices.push_back(static_cast<uint32_t>(vertices.size()));
+			vertices.push_back(vertex);
 		}
 	}
 
@@ -817,11 +871,11 @@ void MeshModel::GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t tex
 	EndSingleTimeCommands(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), commandBuffer, _vulkanCore->GetGraphicsQueue());
 }
 
-void MeshModel::SetLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity)
+void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity)
 {
 	Light light
 	{
-		._direction = glm::vec4(direction, 1.0f),
+		._direction = glm::vec4(-direction, 0.0f), // Negate the direction because shaders usually require the direction toward the light
 		._color = glm::vec4(color, 1.0f),
 		._intensity = intensity
 	};
@@ -829,4 +883,11 @@ void MeshModel::SetLightAdjustment(glm::vec3 direction, glm::vec3 color, float i
 	auto copyOffset = 0;
 	auto copySize = sizeof(Light);
 	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory, &light, copyOffset, copySize);
+}
+
+void MeshModel::ApplyMaterialAdjustment()
+{
+	auto copyOffset = 0;
+	auto copySize = sizeof(Material);
+	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory, &_material, copyOffset, copySize);
 }

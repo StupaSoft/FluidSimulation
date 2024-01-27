@@ -12,23 +12,9 @@
 struct Vertex
 {
 	glm::vec3 pos;
-	glm::vec3 color;
+	glm::vec3 normal;
 	glm::vec2 texCoord;
 
 	static VkVertexInputBindingDescription GetBindingDescription();
 	static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();
-};
-
-inline bool operator==(const Vertex &lhs, const Vertex &rhs)
-{
-	return lhs.color == rhs.color && lhs.pos == rhs.pos && lhs.texCoord == rhs.texCoord;
-}
-
-template<> 
-struct std::hash<Vertex>
-{
-	size_t operator()(const Vertex &vertex) const
-	{
-		return hash<glm::vec3>()(vertex.pos) ^ ((hash<glm::vec3>()(vertex.color) << 1) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
-	}
 };

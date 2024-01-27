@@ -40,6 +40,8 @@ private:
 	static const uint32_t INIT_WIDTH;
 	static const uint32_t INIT_HEIGHT;
 
+	std::shared_ptr<MeshObject> meshObject; // Temp
+
 	GLFWwindow *InitMainWindow(int width, int height, const std::string &title);
 	void MainLoop();
 

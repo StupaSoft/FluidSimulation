@@ -40,7 +40,7 @@ glm::mat4 Camera::GetViewMatrix() const
 glm::mat4 Camera::GetProjectionMatrix() const
 {
 	// Vertical field of view, aspect ratio, clipping planes
-	glm::mat4 projection = glm::perspective(_fovy, _width / (float)_height, 0.1f, 10.0f);
+	glm::mat4 projection = glm::perspective(_fovy, _width / (float)_height, 0.1f, 100.0f);
 
 	// glm was originally designed for OpenGL, where the Y coordinate of the clip coordinates is inverted.
 	// Compensate this inversion.

@@ -13,11 +13,7 @@ void WindowApplication::Run()
 
 	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
 	meshModel->LoadAssets("Models/M2A1.obj", "Textures/M2A1_diffuse.png", "Shaders/Vert.spv", "Shaders/Frag.spv");
-	for (int i = 0; i < 10; ++i)
-	{
-		auto meshObject = meshModel->AddMeshObject();
-		meshObject->Translate(glm::vec3(0.5f * i, 0.0f, 0.0f));
-	}
+	meshObject = meshModel->AddMeshObject();
 
 	auto uiModel = _vulkanCore->AddModel<UIModel>();
 	uiModel->AddPanel<LeftPanel>();
@@ -52,7 +48,7 @@ void WindowApplication::MainLoop()
 		auto currentTime = std::chrono::high_resolution_clock::now();
 		float deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 
-		std::cout << 1.0f / deltaSecond << std::endl;
+		meshObject->Rotate(glm::vec3(0.0f, 1.0f, 0.0f), 10.0f * deltaSecond);
 	}
 }
 
