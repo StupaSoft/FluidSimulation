@@ -36,10 +36,18 @@ private:
 	VkBuffer _vertexBuffer;
 	VkDeviceMemory _vertexBufferMemory;
 
+	void *_vertexOnHost;
+	VkBuffer _vertexStagingBuffer;
+	VkDeviceMemory _vertexStagingBufferMemory;
+
 	// ==================== Index input ====================
 	std::vector<uint32_t> _indices;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
+
+	void *_indexOnHost;
+	VkBuffer _indexStagingBuffer;
+	VkDeviceMemory _indexStagingBufferMemory;
 
 	// ==================== Texture ====================
 	VkImage _textureImage;
@@ -68,9 +76,12 @@ public:
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	
-	void LoadAssets(const std::string &OBJPath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath, const std::string &texturePath = std::string());
+	void LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath = std::string());
 	void SetMaterial(const Material &material);
 	void SetMaterial(Material &&material);
+
+	void UpdateVertexBuffer(const std::vector<Vertex> &vertices);
+	void UpdateIndexBuffer(const std::vector<uint32_t> &indices);
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);
@@ -81,9 +92,6 @@ private:
 	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers);
 
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
-
-	std::tuple<VkBuffer, VkDeviceMemory> CreateVertexBuffer(const std::vector<Vertex> &vertices);
-	std::tuple<VkBuffer, VkDeviceMemory> CreateIndexBuffer(const std::vector<uint32_t> &indices);
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
 

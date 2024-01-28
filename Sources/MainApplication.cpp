@@ -12,7 +12,8 @@ void WindowApplication::Run()
 	_vulkanCore->SetUpScene();
 
 	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
-	meshModel->LoadAssets("Models/M2A1.obj", "Shaders/Vert.spv", "Shaders/Frag.spv", "Textures/M2A1_diffuse.png");
+	auto M2A1 = LoadOBJ("Models/M2A1.obj");
+	meshModel->LoadAssets(std::get<0>(M2A1), std::get<1>(M2A1), "Shaders/Vert.spv", "Shaders/Frag.spv", "Textures/M2A1_diffuse.png");
 	meshObject = meshModel->AddMeshObject();
 
 	auto uiModel = _vulkanCore->AddModel<UIModel>();

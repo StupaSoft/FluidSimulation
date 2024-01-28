@@ -75,6 +75,14 @@ void MeshModel::OnCleanUpOthers()
 		object->CleanUp();
 	}
 
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory, nullptr);
+
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory);
+	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer, nullptr);
+	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, nullptr);
+
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
 
@@ -105,12 +113,27 @@ void MeshModel::OnCleanUpOthers()
 	}
 }
 
-void MeshModel::LoadAssets(const std::string &OBJPath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath, const std::string &texturePath)
+void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath)
 {
-	// Load OBJ
-	std::tie(_vertices, _indices) = LoadOBJ(OBJPath);
-	std::tie(_vertexBuffer, _vertexBufferMemory) = CreateVertexBuffer(_vertices);
-	std::tie(_indexBuffer, _indexBufferMemory) = CreateIndexBuffer(_indices);
+	// Create a vertex (creation, update)
+	uint32_t vertexBufferSize = sizeof(vertices[0]) * vertices.size();
+	std::tie(_vertexBuffer, _vertexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	// Allocate separate buffer, one on the CPU and the other on the GPU.
+	// Temporary, host-visible buffer that resides on the CPU
+	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory, 0, vertexBufferSize, 0, &_vertexOnHost);
+	UpdateVertexBuffer(vertices);
+
+	// Create an index buffer
+	uint32_t indexBufferSize = sizeof(indices[0]) * indices.size();
+	std::tie(_indexBuffer, _indexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, 0, indexBufferSize, 0, &_indexOnHost);
+	UpdateIndexBuffer(indices);
 
 	// Load a texture
 	std::string targetTexturePath = texturePath;
@@ -389,49 +412,24 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 	return textureSampler;
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> MeshModel::CreateVertexBuffer(const std::vector<Vertex> &vertices)
+void MeshModel::UpdateVertexBuffer(const std::vector<Vertex> &vertices)
 {
+	_vertices = vertices;
+
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-	// Temporary, host-visible buffer that resides on the CPU
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	// Map the buffer memory into the CPU accessible memory
-	void *data;
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, vertices.data(), (size_t)bufferSize); // Copy vertex data to the mapped memory
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory);
-
-	auto [vertexBuffer, vertexBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	CopyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, vertexBuffer, bufferSize, _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue());
-
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, nullptr);
-
-	return std::make_tuple(vertexBuffer, vertexBufferMemory);
+	memcpy(_vertexOnHost, vertices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
+	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, bufferSize);
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> MeshModel::CreateIndexBuffer(const std::vector<uint32_t> &indices)
+void MeshModel::UpdateIndexBuffer(const std::vector<uint32_t> &indices)
 {
+	_indices = indices;
+
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-	// Allocate separate buffer, one on the CPU and the other on the GPU.
-	// Temporary, host-visible buffer that resides on the CPU
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	// Map the buffer memory into CPU accessible memory
-	void *data;
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, 0, bufferSize, 0, &data);
-	memcpy(data, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory);
-
-	auto [indexBuffer, indexBufferMemory] = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	CopyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, indexBuffer, bufferSize, _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue());
-
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), stagingBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), stagingBufferMemory, nullptr);
-
-	return std::make_tuple(indexBuffer, indexBufferMemory);
+	memcpy(_indexOnHost, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
+	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, bufferSize);
 }
 
 std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)

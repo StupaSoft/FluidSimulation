@@ -63,7 +63,7 @@ std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevic
 	return std::make_tuple(buffer, bufferMemory);
 }
 
-void CopyBuffer(VkDevice logicalDevice, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkCommandPool commandPool, VkQueue graphicsQueue)
+void CopyBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
 {
 	// Memory transfer operations are executed using command buffers.
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
