@@ -14,18 +14,19 @@
 #include "VulkanCore.h"
 #include "Camera.h"
 
-// Descriptor used in shaders
-// Use alignas to solve alignment issues
-struct MVP
-{
-	// MVP matrices
-	alignas(16) glm::mat4 _model; // mat4 is binary-compatible with the shader's one
-	alignas(16) glm::mat4 _view;
-	alignas(16) glm::mat4 _projection;
-};
-
 class MeshObject
 {
+public:
+	// Descriptor used in shaders
+	// Use alignas to solve alignment issues
+	struct MVP
+	{
+		// MVP matrices
+		alignas(16) glm::mat4 _model; // mat4 is binary-compatible with the shader's one
+		alignas(16) glm::mat4 _view;
+		alignas(16) glm::mat4 _projection;
+	};
+
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 

@@ -273,7 +273,7 @@ std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<V
 		{
 			.buffer = mvpBuffers[i],
 			.offset = 0,
-			.range = sizeof(MVP)
+			.range = sizeof(MeshObject::MVP)
 		};
 
 		VkDescriptorBufferInfo lightInfo =
