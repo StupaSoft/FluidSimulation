@@ -45,7 +45,7 @@ private:
 	VkImage _textureImage;
 	VkDeviceMemory _textureImageMemory;
 	VkImageView _textureImageView;
-	uint32_t _textureMipLevels;
+	uint32_t _textureMipLevels = 0;
 
 	VkSampler _textureSampler; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
 
@@ -68,7 +68,7 @@ public:
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	
-	void LoadAssets(const std::string &OBJPath, const std::string &texturePath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
+	void LoadAssets(const std::string &OBJPath, const std::string &vertexShaderPath, const std::string &fragmentShaderPath, const std::string &texturePath = std::string());
 	void SetMaterial(const Material &material);
 	void SetMaterial(Material &&material);
 
@@ -80,7 +80,6 @@ private:
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount);
 	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers);
 
-	std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(const std::string &texturePath);
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
 
 	std::tuple<VkBuffer, VkDeviceMemory> CreateVertexBuffer(const std::vector<Vertex> &vertices);
@@ -90,10 +89,6 @@ private:
 
 	void OnCleanUpOthers();
 
-	void GenerateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
-
 	void ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 	void ApplyMaterialAdjustment();
-
-	std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJPath);
 };
