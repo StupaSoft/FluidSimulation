@@ -167,7 +167,18 @@ public:
 	std::shared_ptr<TModel> AddModel(TArgs&&... args)
 	{
 		std::shared_ptr<TModel> model = std::make_shared<TModel>(shared_from_this(), std::forward<TArgs>(args)...);
-		_models.emplace_back(model);
+
+		bool inserted = false;
+		for (auto it = _models.begin(); it != _models.end(); ++it)
+		{
+			if (model->GetOrder() < (*it)->GetOrder())
+			{
+				_models.insert(it, model);
+				inserted = true;
+				break;
+			}
+		}
+		if (!inserted) _models.emplace_back(model);
 
 		return model;
 	}

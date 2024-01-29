@@ -22,7 +22,7 @@
 
 #include "VulkanCore.h"
 
-#include "MeshModel.h"
+#include "SimulatedScene.h"
 #include "UIModel.h"
 
 #include "LeftPanel.h"
@@ -31,6 +31,7 @@ class WindowApplication
 {
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
+	std::shared_ptr<SimulatedScene> _simulatedScene;
 
 public:
 	void Run();
@@ -39,8 +40,6 @@ private:
 	GLFWwindow *_window;
 	static const uint32_t INIT_WIDTH;
 	static const uint32_t INIT_HEIGHT;
-
-	std::shared_ptr<MeshObject> meshObject; // Temp
 
 	GLFWwindow *InitMainWindow(int width, int height, const std::string &title);
 	void MainLoop();

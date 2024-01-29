@@ -23,4 +23,5 @@ public:
 	virtual ~ModelBase() = default;
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) = 0;
+	virtual uint32_t GetOrder() = 0;
 };

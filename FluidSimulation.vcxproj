@@ -33,6 +33,8 @@
     <ClCompile Include="Sources\MainApplication.cpp" />
     <ClCompile Include="Sources\MeshModel.cpp" />
     <ClCompile Include="Sources\MeshObject.cpp" />
+    <ClCompile Include="Sources\Particle.cpp" />
+    <ClCompile Include="Sources\SimulatedScene.cpp" />
     <ClCompile Include="Sources\UIModel.cpp" />
     <ClCompile Include="Sources\Vertex.cpp" />
     <ClCompile Include="Sources\VulkanCore.cpp" />
@@ -53,6 +55,8 @@
     <ClInclude Include="Sources\MeshObject.h" />
     <ClInclude Include="Sources\ModelBase.h" />
     <ClInclude Include="Sources\PanelBase.h" />
+    <ClInclude Include="Sources\Particle.h" />
+    <ClInclude Include="Sources\SimulatedScene.h" />
     <ClInclude Include="Sources\UIModel.h" />
     <ClInclude Include="Sources\Vertex.h" />
     <ClInclude Include="Sources\VulkanCore.h" />
@@ -146,6 +150,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>Libraries\stb_image;Libraries\imgui;Libraries\tiny_obj_loader;Libraries\glfw\include;Libraries\glm;C:\VulkanSDK\1.3.268.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -164,6 +169,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>Libraries\stb_image;Libraries\imgui;Libraries\tiny_obj_loader;Libraries\glfw\include;Libraries\glm;C:\VulkanSDK\1.3.268.0\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

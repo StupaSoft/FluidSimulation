@@ -23,6 +23,9 @@
     <Filter Include="sources\Core">
       <UniqueIdentifier>{4b9713f1-e0a0-44de-adc8-e639e04a8c14}</UniqueIdentifier>
     </Filter>
+    <Filter Include="sources\Simulation">
+      <UniqueIdentifier>{ede57f02-9691-4eb2-844e-1d66b4d22a83}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -79,6 +82,12 @@
     <ClCompile Include="Sources\DirectionalLight.cpp">
       <Filter>sources\Render</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\SimulatedScene.cpp">
+      <Filter>sources\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\Particle.cpp">
+      <Filter>sources\Simulation</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">
@@ -134,6 +143,12 @@
     </ClInclude>
     <ClInclude Include="Sources\DirectionalLight.h">
       <Filter>sources\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\SimulatedScene.h">
+      <Filter>sources\Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\Particle.h">
+      <Filter>sources\Simulation</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

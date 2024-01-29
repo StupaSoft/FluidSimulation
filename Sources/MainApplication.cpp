@@ -11,13 +11,12 @@ void WindowApplication::Run()
 	_vulkanCore->InitVulkan();
 	_vulkanCore->SetUpScene();
 
-	auto meshModel = _vulkanCore->AddModel<MeshModel>(); // Temp
-	auto M2A1 = LoadOBJ("Models/M2A1.obj");
-	meshModel->LoadAssets(std::get<0>(M2A1), std::get<1>(M2A1), "Shaders/Vert.spv", "Shaders/Frag.spv", "Textures/M2A1_diffuse.png");
-	meshObject = meshModel->AddMeshObject();
-
 	auto uiModel = _vulkanCore->AddModel<UIModel>();
 	uiModel->AddPanel<LeftPanel>();
+
+	_simulatedScene = std::make_shared<SimulatedScene>(_vulkanCore);
+	_simulatedScene->AddLevel("Models/M2A1.obj", "Textures/M2A1.png");  // Temp
+	_simulatedScene->InitializeParticles(0.1f, 0.02f, 0.05f, {-2.0f, 2.0f}, {2.0f, 3.0f}, {-2.0f, 2.0f}); // Temp
 
 	MainLoop();
 }
@@ -39,17 +38,18 @@ GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::
 void WindowApplication::MainLoop()
 {
 	// Application loop
+	float deltaSecond = 0.01f;
 	while (!glfwWindowShouldClose(_window))
 	{
 		auto prevTime = std::chrono::high_resolution_clock::now();
 
 		glfwPollEvents();
+
+		_simulatedScene->Update(deltaSecond);
 		_vulkanCore->DrawFrame();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
-		float deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
-
-		meshObject->Rotate(glm::vec3(0.0f, 1.0f, 0.0f), 10.0f * deltaSecond);
+		deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 	}
 }
 
@@ -64,7 +64,3 @@ void WindowApplication::OnFramebufferResized(GLFWwindow *window, int width, int 
 	auto app = reinterpret_cast<WindowApplication *>(glfwGetWindowUserPointer(window));
 	app->Resize();
 }
-
-
-
-

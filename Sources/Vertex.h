@@ -11,9 +11,9 @@
 
 struct Vertex
 {
-	glm::vec3 pos;
-	glm::vec3 normal;
-	glm::vec2 texCoord;
+	glm::vec3 pos{};
+	glm::vec3 normal = glm::vec3(0.0f, 0.0f, 1.0f);
+	glm::vec2 texCoord{};
 
 	static VkVertexInputBindingDescription GetBindingDescription();
 	static std::vector<VkVertexInputAttributeDescription> GetAttributeDescriptions();

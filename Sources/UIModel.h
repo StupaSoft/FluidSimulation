@@ -20,6 +20,7 @@ public:
 	explicit UIModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
+	virtual uint32_t GetOrder() override { return 2000; }
 
 	template<typename TPanel, typename... TArgs>
 	std::shared_ptr<TPanel> AddPanel(TArgs&&... args)

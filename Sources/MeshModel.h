@@ -75,6 +75,7 @@ public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
+	virtual uint32_t GetOrder() override { return 1000; }
 	
 	void LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath = std::string());
 	void SetMaterial(const Material &material);

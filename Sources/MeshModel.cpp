@@ -116,7 +116,7 @@ void MeshModel::OnCleanUpOthers()
 void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath)
 {
 	// Create a vertex (creation, update)
-	uint32_t vertexBufferSize = sizeof(vertices[0]) * vertices.size();
+	uint32_t vertexBufferSize = static_cast<uint32_t>(sizeof(vertices[0]) * vertices.size());
 	std::tie(_vertexBuffer, _vertexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -127,7 +127,7 @@ void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vecto
 	UpdateVertexBuffer(vertices);
 
 	// Create an index buffer
-	uint32_t indexBufferSize = sizeof(indices[0]) * indices.size();
+	uint32_t indexBufferSize = static_cast < uint32_t>(sizeof(indices[0]) * indices.size());
 	std::tie(_indexBuffer, _indexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
