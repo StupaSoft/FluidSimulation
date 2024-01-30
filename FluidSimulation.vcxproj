@@ -27,6 +27,7 @@
     <ClCompile Include="Libraries\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
+    <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\LeftPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
@@ -48,6 +49,7 @@
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\Delegate.h" />
+    <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\LeftPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />

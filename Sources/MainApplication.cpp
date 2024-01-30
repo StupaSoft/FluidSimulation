@@ -38,7 +38,7 @@ GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::
 void WindowApplication::MainLoop()
 {
 	// Application loop
-	float deltaSecond = 0.01f;
+	float deltaSecond = 0.01f; // To add initial force to particles
 	while (!glfwWindowShouldClose(_window))
 	{
 		auto prevTime = std::chrono::high_resolution_clock::now();

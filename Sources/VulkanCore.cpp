@@ -115,8 +115,8 @@ void VulkanCore::DrawFrame()
 
 void VulkanCore::SetUpScene()
 {
-	_mainCamera = std::make_unique<Camera>(glm::vec3(5.0f, 5.0f, 5.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
-	_mainLight = std::make_unique<DirectionalLight>(glm::vec3(-1.0f, -5.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), 2.0f);
+	_mainCamera = std::make_unique<Camera>(glm::vec3(10.0f, 10.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
+	_mainLight = std::make_unique<DirectionalLight>(glm::vec3(-1.0f, -5.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), 2.0f);	
 }
 
 // ======================================== Internal logics ========================================
