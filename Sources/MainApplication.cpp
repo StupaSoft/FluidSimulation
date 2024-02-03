@@ -16,7 +16,7 @@ void WindowApplication::Run()
 
 	_simulatedScene = std::make_shared<SimulatedScene>(_vulkanCore);
 	_simulatedScene->AddLevel("Models/M2A1.obj", "Textures/M2A1.png");  // Temp
-	_simulatedScene->InitializeParticles(0.1f, 0.02f, 0.05f, {-2.0f, 2.0f}, {2.0f, 3.0f}, {-2.0f, 2.0f}); // Temp
+	_simulatedScene->InitializeParticles(0.1f, 0.02f, 0.05f, 500.0f, {-2.0f, 2.0f}, {2.0f, 3.0f}, {-2.0f, 2.0f}); // Temp
 
 	MainLoop();
 }

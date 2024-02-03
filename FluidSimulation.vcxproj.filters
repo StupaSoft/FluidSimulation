@@ -85,13 +85,13 @@
     <ClCompile Include="Sources\SimulatedScene.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\Particle.cpp">
-      <Filter>sources\Simulation</Filter>
-    </ClCompile>
     <ClCompile Include="Sources\HashGrid.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
     <ClCompile Include="Sources\Kernel.cpp">
+      <Filter>sources\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\Particle.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
   </ItemGroup>
@@ -153,13 +153,13 @@
     <ClInclude Include="Sources\SimulatedScene.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\Particle.h">
-      <Filter>sources\Simulation</Filter>
-    </ClInclude>
     <ClInclude Include="Sources\HashGrid.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
     <ClInclude Include="Sources\Kernel.h">
+      <Filter>sources\Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\Particle.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
   </ItemGroup>

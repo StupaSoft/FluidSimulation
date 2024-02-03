@@ -11,5 +11,9 @@ struct Particle
 	glm::vec3 _position{};
 	glm::vec3 _velocity{};
 	glm::vec3 _force{};
+
+	float _density = 0.0f;
+	float _pressure = 0.0f;
+	glm::vec3 _pressureForce{};
 };
 
