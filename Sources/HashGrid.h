@@ -26,7 +26,7 @@ private:
 
 public:
 	HashGrid(const std::vector<Particle> &particles, glm::ivec3 resolution, float gridSpacing);
-	void UpdateNeighborList();
+	void UpdateGrid();
 	void ForEachNeighborParticle(size_t particleIndex, const std::function<void(size_t)> &callback) const;
 
 private:

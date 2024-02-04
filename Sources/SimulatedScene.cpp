@@ -107,7 +107,7 @@ void SimulatedScene::InitializeParticles(float particleMass, float particleRadiu
 
 void SimulatedScene::BeginTimeStep()
 {
-	_hashGrid->UpdateNeighborList();
+	_hashGrid->UpdateGrid();
 	UpdateDensities();
 }
 

@@ -8,19 +8,28 @@ HashGrid::HashGrid(const std::vector<Particle> &particles, glm::ivec3 resolution
 	_gridSpacing(kernelRadius)
 {
 	_buckets.resize(_resolution.x * _resolution.y * _resolution.z);
-	for (size_t i = 0; i < _particles.size(); ++i)
+	_neighbors.resize(_particles.size());
+}
+
+void HashGrid::UpdateGrid()
+{
+	// 1. Update the grids
+	size_t particleCount = _particles.size();
+
+	size_t bucketCount = _buckets.size();
+	#pragma omp parallel for
+	for (size_t i = 0; i < bucketCount; ++i)
+	{
+		_buckets[i].clear();
+	}
+
+	for (size_t i = 0; i < particleCount; ++i)
 	{
 		size_t key = PositionToHashKey(_particles[i]._position);
 		_buckets[key].push_back(i); // Store the index of the particle
 	}
 
-	_neighbors.resize(_particles.size());
-}
-
-void HashGrid::UpdateNeighborList()
-{
-	size_t particleCount = _particles.size();
-
+	// 2. Update the neighbor list
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < particleCount; ++particleIndex)
 	{
