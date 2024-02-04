@@ -28,7 +28,7 @@ void main()
     vec3 fragNormal = vec3(fragTexCoord, coordZ); // Spherical normal
 
     // Diffuse
-    vec3 diffuse = lightIntensity * (lightColor * clamp(dot(fragNormal, lightDirection), 0.0f, 1.0f)) * texture(texSampler, fragTexCoord).xyz;
+    vec3 diffuse = lightIntensity * (lightColor * clamp(dot(fragNormal, lightDirection), 0.0f, 1.0f)) * fragColor;
 
     // Specular
     vec3 halfway = normalize(normalize(viewDirection) + normalize(lightDirection));
