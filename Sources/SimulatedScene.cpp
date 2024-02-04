@@ -155,7 +155,7 @@ void SimulatedScene::AccumulateExternalForce(float deltaSecond)
 
 		// Apply wind forces
 		glm::vec3 relativeVelocity = particle._velocity - GetWindVelocityAt(particle._position);
-		externalForce += DRAG_COEFF * relativeVelocity;
+		externalForce += -DRAG_COEFF * relativeVelocity;
 
 		particle._force += externalForce;
 	}
