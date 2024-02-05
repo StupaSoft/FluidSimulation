@@ -1,11 +1,11 @@
 #include "SimulatedScene.h"
 
-const float SimulatedScene::DRAG_COEFF = 1e-4;
+const float SimulatedScene::DRAG_COEFF = 1e-3;
 const glm::vec3 SimulatedScene::GRAVITY = glm::vec3(0.0f, -9.8f, 0.0f);
 const float SimulatedScene::SOUND_SPEED = 1.0f;
-const float SimulatedScene::EOS_EXPONENT = 1.0f;
+const float SimulatedScene::EOS_EXPONENT = 2.0f;
 const glm::uvec3 SimulatedScene::GRID_RESOLUTION = glm::uvec3(100, 100, 100);
-const float SimulatedScene::VISCOSITY_COEFF = 1e-4;
+const float SimulatedScene::VISCOSITY_COEFF = 1e-3f;
 
 void SimulatedScene::AddLevel(const std::string &OBJPath, const std::string &texturePath)
 {
@@ -94,7 +94,8 @@ void SimulatedScene::InitializeParticles(float particleMass, float particleRadiu
 
 	MeshModel::Material particleMat
 	{
-		._color = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)
+		._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
+		._glossiness = 1.0f
 	};
 	_particleModel->SetMaterial(std::move(particleMat));
 	_particleModel->AddMeshObject();
@@ -236,6 +237,36 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 
 		// Integrate position
 		nextParticle._position = particle._position + deltaSecond * nextParticle._velocity;
+
+		// Temp
+		float factor = 0.3f;
+		if (nextParticle._position.x > 2.5f)
+		{
+			nextParticle._position.x = 2.5f - (nextParticle._position.x - 2.5f) * factor;
+			nextParticle._velocity.x = -nextParticle._velocity.x * factor;
+		}
+		else if (nextParticle._position.x < -1.2f)
+		{
+			nextParticle._position.x = -1.2f - (nextParticle._position.x + 1.2f) * factor;
+			nextParticle._velocity.x = -nextParticle._velocity.x * factor;
+		}
+
+		if (nextParticle._position.y < 0.0f)
+		{
+			nextParticle._position.y = -nextParticle._position.y * factor;
+			nextParticle._velocity.y = -nextParticle._velocity.y * factor;
+		}
+
+		if (nextParticle._position.z > 1.2f)
+		{
+			nextParticle._position.z = 1.2f - (nextParticle._position.z - 1.2f) * factor;
+			nextParticle._velocity.z = -nextParticle._velocity.z * factor;
+		}
+		else if (nextParticle._position.z < -1.2f)
+		{
+			nextParticle._position.z = -1.2f - (nextParticle._position.z + 1.2f) * factor;
+			nextParticle._velocity.z = -nextParticle._velocity.z * factor;
+		}
 	}
 }
 

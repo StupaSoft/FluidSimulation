@@ -15,8 +15,8 @@ void WindowApplication::Run()
 	uiModel->AddPanel<LeftPanel>();
 
 	_simulatedScene = std::make_shared<SimulatedScene>(_vulkanCore);
-	_simulatedScene->AddLevel("Models/M2A1.obj", "Textures/M2A1.png");  // Temp
-	_simulatedScene->InitializeParticles(0.1f, 0.02f, 0.05f, 500.0f, {-2.0f, 2.0f}, {2.0f, 3.0f}, {-2.0f, 2.0f}); // Temp
+	//_simulatedScene->AddLevel("Models/M2A1.obj", "Textures/M2A1.png");  // Temp
+	_simulatedScene->InitializeParticles(0.1f, 0.03f, 0.07f, 100.0f, {-1.0f, 1.0f}, {2.0f, 8.0f}, {-1.0f, 1.0f}); // Temp
 
 	MainLoop();
 }
@@ -45,7 +45,7 @@ void WindowApplication::MainLoop()
 
 		glfwPollEvents();
 
-		_simulatedScene->Update(deltaSecond);
+		_simulatedScene->Update(deltaSecond * 0.05f);
 		_vulkanCore->DrawFrame();
 
 		auto currentTime = std::chrono::high_resolution_clock::now();
