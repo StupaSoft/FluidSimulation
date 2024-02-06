@@ -9,13 +9,12 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "Particle.h"
 #include "Kernel.h"
 
 class HashGrid
 {
 private:
-	const std::vector<Particle> &_particles;
+	const std::vector<glm::vec3> &_positions;
 
 	float _gridSpacing;
 	glm::ivec3 _resolution = glm::vec3(1.0f, 1.0f, 1.0f);
@@ -25,7 +24,7 @@ private:
 	static const size_t OVERLAPPING_GRID;
 
 public:
-	HashGrid(const std::vector<Particle> &particles, glm::ivec3 resolution, float gridSpacing);
+	HashGrid(const std::vector<glm::vec3> &positions, glm::ivec3 resolution, float gridSpacing);
 	void UpdateGrid();
 	void ForEachNeighborParticle(size_t particleIndex, const std::function<void(size_t)> &callback) const;
 

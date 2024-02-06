@@ -4,7 +4,6 @@
 
 #include "VulkanCore.h"
 #include "MeshModel.h"
-#include "Particle.h"
 #include "HashGrid.h"
 
 class SimulatedScene
@@ -18,10 +17,18 @@ private:
 	size_t _particleCount;
 
 	std::shared_ptr<MeshModel> _particleModel;
-	std::vector<Particle> _particles;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
-	std::vector<Particle> _nextParticles;
+
+	std::vector<glm::vec3> _positions;
+	std::vector<glm::vec3> _velocities;
+	std::vector<glm::vec3> _forces;
+	std::vector<float> _densities;
+	std::vector<float> _pressures;
+	std::vector<glm::vec3> _pressureForces;
+
+	std::vector<glm::vec3> _nextPositions;
+	std::vector<glm::vec3> _nextVelocities;
 
 	std::unique_ptr<HashGrid> _hashGrid;
 
@@ -35,8 +42,8 @@ private:
 	// Physics invariants
 	static const float DRAG_COEFF;
 	static const glm::vec3 GRAVITY;
-	float _particleMass;
-	float _targetDensity;
+	float _particleMass = 0.1f;
+	float _targetDensity = 100.0f;
 	static const float SOUND_SPEED;
 	static const float EOS_EXPONENT;
 	static const glm::uvec3 GRID_RESOLUTION;
@@ -47,7 +54,7 @@ public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
 	void AddLevel(const std::string &OBJPath, const std::string &texturePath);
-	void InitializeParticles(float particleMass, float particleRadius, float distanceBetweenParticles, float targetDensity, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
+	void InitializeParticles(float particleRadius, float distanceBetweenParticles, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
 
 	void Update(float deltaSecond);
 	
@@ -68,7 +75,6 @@ private:
 
 	glm::vec3 GetWindVelocityAt(glm::vec3 samplePosition);
 	// Compute the pressure from the equation-of-state
-	void ComputePseudoViscosity();
 	float ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent);
 
 	void UpdateDensities();

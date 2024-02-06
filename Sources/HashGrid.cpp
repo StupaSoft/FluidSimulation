@@ -2,19 +2,19 @@
 
 const size_t HashGrid::OVERLAPPING_GRID = 8;
 
-HashGrid::HashGrid(const std::vector<Particle> &particles, glm::ivec3 resolution, float kernelRadius) :
-	_particles(particles),
+HashGrid::HashGrid(const std::vector<glm::vec3> &positions, glm::ivec3 resolution, float kernelRadius) :
+	_positions(positions),
 	_resolution(resolution),
 	_gridSpacing(kernelRadius)
 {
 	_buckets.resize(_resolution.x * _resolution.y * _resolution.z);
-	_neighbors.resize(_particles.size());
+	_neighbors.resize(_positions.size());
 }
 
 void HashGrid::UpdateGrid()
 {
 	// 1. Update the grids
-	size_t particleCount = _particles.size();
+	size_t particleCount = _positions.size();
 
 	size_t bucketCount = _buckets.size();
 	#pragma omp parallel for
@@ -23,10 +23,10 @@ void HashGrid::UpdateGrid()
 		_buckets[i].clear();
 	}
 
-	for (size_t i = 0; i < particleCount; ++i)
+	for (size_t particleIndex = 0; particleIndex < particleCount; ++particleIndex)
 	{
-		size_t key = PositionToHashKey(_particles[i]._position);
-		_buckets[key].push_back(i); // Store the index of the particle
+		size_t key = PositionToHashKey(_positions[particleIndex]);
+		_buckets[key].push_back(particleIndex); // Store the index of the particle
 	}
 
 	// 2. Update the neighbor list
@@ -35,10 +35,8 @@ void HashGrid::UpdateGrid()
 	{
 		_neighbors[particleIndex].clear();
 
-		const auto &particle = _particles[particleIndex];
-
 		// For each adjacent overlapping grid key
-		std::vector<size_t> adjacentKeys = GetAdjacentKeys(particle._position);
+		std::vector<size_t> adjacentKeys = GetAdjacentKeys(_positions[particleIndex]);
 		for (size_t i = 0; i < OVERLAPPING_GRID; ++i)
 		{
 			const auto &bucket = _buckets[adjacentKeys[i]];
@@ -85,7 +83,7 @@ void HashGrid::ForEachNeighborParticle(size_t particleIndex, const std::function
 {
 	for (size_t neighborIndex : _neighbors[particleIndex])
 	{
-		float distance = glm::distance(_particles[particleIndex]._position, _particles[neighborIndex]._position);
+		float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
 		if (distance < _gridSpacing)
 		{
 			callback(neighborIndex);

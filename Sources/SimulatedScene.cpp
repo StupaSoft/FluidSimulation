@@ -18,9 +18,8 @@ void SimulatedScene::AddLevel(const std::string &OBJPath, const std::string &tex
 	_levelModels.emplace_back(std::move(levelModel));
 }
 
-void SimulatedScene::InitializeParticles(float particleMass, float particleRadius, float particleDistance, float targetDensity, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
+void SimulatedScene::InitializeParticles(float particleRadius, float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
-	_targetDensity = targetDensity;
 	_kernelRadius = particleRadius * 4.0f;
 	_kernel = Kernel(_kernelRadius);
 
@@ -32,17 +31,25 @@ void SimulatedScene::InitializeParticles(float particleMass, float particleRadiu
 	_particleCount = xCount * yCount * zCount;
 	glm::vec3 startingPoint = glm::vec3(xRange.r, yRange.r, zRange.r);
 
-	// Prepare data structures
-	_particles.resize(_particleCount);
-
+	// Prepare render data
 	_particleVertices.clear();
 	_particleVertices.resize(_particleCount * VERTICES_IN_PARTICLE.size());
 
 	_particleIndices.clear();
 	_particleIndices.resize(_particleCount * INDICES_IN_PARTICLE.size());
 
+	// Prepare particles themselves
+	_positions.resize(_particleCount);
+	_velocities.resize(_particleCount);
+	_forces.resize(_particleCount);
+	_densities.resize(_particleCount);
+	_pressures.resize(_particleCount);
+	_pressureForces.resize(_particleCount);
+
+	_nextPositions.resize(_particleCount);
+	_nextVelocities.resize(_particleCount);
+
 	// Initialize particles
-	_particleMass = particleMass;
 	for (size_t i = 0; i < _particleCount; ++i)
 	{
 		// Set attributes within each particle
@@ -70,22 +77,9 @@ void SimulatedScene::InitializeParticles(float particleMass, float particleRadiu
 			for (size_t x = 0; x < xCount; ++x)
 			{
 				size_t particleIndex = z * (xCount * yCount) + y * xCount + x;
-				_particles[particleIndex]._position = startingPoint + glm::vec3(x, y, z) * particleDistance;
+				_positions[particleIndex] = startingPoint + glm::vec3(x, y, z) * particleDistance;
 			}
 		}
-	}
-
-	for (size_t i = 0; i < _particleCount; ++i)
-	{
-		auto &particle = _particles[i];
-		particle._force = glm::vec3(rand() % 20, 40 + rand() % 10, rand() % 20); // Temp
-	}
-
-	// Make a copy of the particles that will be used in simulation.
-	_nextParticles = _particles;
-	for (size_t i = 0; i < _particleCount; ++i)
-	{
-		_nextParticles[i]._force = glm::vec3{};
 	}
 
 	// Create models
@@ -103,7 +97,7 @@ void SimulatedScene::InitializeParticles(float particleMass, float particleRadiu
 	ApplyParticlePositions();
 
 	// Build the hash grid
-	_hashGrid = std::make_unique<HashGrid>(_particles, GRID_RESOLUTION, 2.0f * _kernelRadius);
+	_hashGrid = std::make_unique<HashGrid>(_positions, GRID_RESOLUTION, 2.0f * _kernelRadius);
 }
 
 void SimulatedScene::BeginTimeStep()
@@ -114,12 +108,15 @@ void SimulatedScene::BeginTimeStep()
 
 void SimulatedScene::EndTimeStep()
 {
-	// 1. Velocities and positions are applied
-	// 2. Forces are set to zero
-	_particles = _nextParticles;
+	// Apply velocities and positions are applied
+	std::copy(_nextPositions.cbegin(), _nextPositions.cend(), _positions.begin());
+	std::copy(_nextVelocities.cbegin(), _nextVelocities.cend(), _velocities.begin());
 
-	// Damplens noticeable noises
-	ComputePseudoViscosity();
+	// Set other components to zero
+	std::fill(_forces.begin(), _forces.end(), glm::vec3{});
+	std::fill(_densities.begin(), _densities.end(), 0.0f);
+	std::fill(_pressures.begin(), _pressures.end(), 0.0f);
+	std::fill(_pressureForces.begin(), _pressureForces.end(), glm::vec3{});
 }
 
 void SimulatedScene::Update(float deltaSecond)
@@ -149,16 +146,14 @@ void SimulatedScene::AccumulateExternalForce(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-
 		// Apply gravity
 		glm::vec3 externalForce = _particleMass * GRAVITY;
 
 		// Apply wind forces
-		glm::vec3 relativeVelocity = particle._velocity - GetWindVelocityAt(particle._position);
+		glm::vec3 relativeVelocity = _velocities[particleIndex] - GetWindVelocityAt(_positions[particleIndex]);
 		externalForce += -DRAG_COEFF * relativeVelocity;
 
-		particle._force += externalForce;
+		_forces[particleIndex] += externalForce;
 	}
 }
 
@@ -167,17 +162,13 @@ void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-
 		_hashGrid->ForEachNeighborParticle
 		(
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
-				const auto &neighborParticle = _particles[neighborIndex];
-
-				float distance = glm::distance(particle._position, neighborParticle._position);
-				particle._force += VISCOSITY_COEFF * (_particleMass * _particleMass) * (neighborParticle._velocity - particle._velocity) * _kernel.SecondDerivative(distance) / neighborParticle._density;
+				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
+				_forces[particleIndex] += VISCOSITY_COEFF * (_particleMass * _particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
 			}
 		);
 	}
@@ -189,38 +180,32 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-
 		float eosScale = _targetDensity * (SOUND_SPEED * SOUND_SPEED) / EOS_EXPONENT;
-		particle._pressure = ComputePressureFromEOS(particle._density, _targetDensity, eosScale, EOS_EXPONENT);
+		_pressures[particleIndex] = ComputePressureFromEOS(_densities[particleIndex], _targetDensity, eosScale, EOS_EXPONENT);
 	}
 
 	// Compute pressure forces from the pressures
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-
 		_hashGrid->ForEachNeighborParticle
 		(
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
-				const auto &neighborParticle = _particles[neighborIndex];
-
-				float distance = glm::distance(particle._position, neighborParticle._position);
+				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
 				if (distance > 0.0f)
 				{
-					glm::vec3 direction = (neighborParticle._position - particle._position) / distance;
-					particle._pressureForce -=
+					glm::vec3 direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
+					_pressureForces[particleIndex] -=
 						(_particleMass * _particleMass) * 
 						_kernel.Gradient(distance, direction) * 
-						(particle._pressure / (particle._density * particle._density) + neighborParticle._pressure / (neighborParticle._density * neighborParticle._density));
+						(_pressures[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + _pressures[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex]));
 				}
 			}
 		);
 
-		particle._force += particle._pressureForce; // Temp
+		_forces[particleIndex] += _pressureForces[particleIndex]; // Temp
 	}
 }
 
@@ -229,43 +214,40 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-		auto &nextParticle = _nextParticles[particleIndex];
-
 		// Integrate velocity
-		nextParticle._velocity = particle._velocity + deltaSecond * (particle._force / _particleMass);
+		_nextVelocities[particleIndex] = _velocities[particleIndex] + deltaSecond * (_forces[particleIndex] / _particleMass);
 
 		// Integrate position
-		nextParticle._position = particle._position + deltaSecond * nextParticle._velocity;
+		_nextPositions[particleIndex] = _positions[particleIndex] + deltaSecond * _nextVelocities[particleIndex];
 
 		// Temp
 		float factor = 0.3f;
-		if (nextParticle._position.x > 2.5f)
+		if (_nextPositions[particleIndex].x > 2.5f)
 		{
-			nextParticle._position.x = 2.5f - (nextParticle._position.x - 2.5f) * factor;
-			nextParticle._velocity.x = -nextParticle._velocity.x * factor;
+			_nextPositions[particleIndex].x = 2.5f - (_nextPositions[particleIndex].x - 2.5f) * factor;
+			_nextVelocities[particleIndex].x = -_nextVelocities[particleIndex].x * factor;
 		}
-		else if (nextParticle._position.x < -1.2f)
+		else if (_nextPositions[particleIndex].x < -1.2f)
 		{
-			nextParticle._position.x = -1.2f - (nextParticle._position.x + 1.2f) * factor;
-			nextParticle._velocity.x = -nextParticle._velocity.x * factor;
-		}
-
-		if (nextParticle._position.y < 0.0f)
-		{
-			nextParticle._position.y = -nextParticle._position.y * factor;
-			nextParticle._velocity.y = -nextParticle._velocity.y * factor;
+			_nextPositions[particleIndex].x = -1.2f - (_nextPositions[particleIndex].x + 1.2f) * factor;
+			_nextVelocities[particleIndex].x = -_nextVelocities[particleIndex].x * factor;
 		}
 
-		if (nextParticle._position.z > 1.2f)
+		if (_nextPositions[particleIndex].y < 0.0f)
 		{
-			nextParticle._position.z = 1.2f - (nextParticle._position.z - 1.2f) * factor;
-			nextParticle._velocity.z = -nextParticle._velocity.z * factor;
+			_nextPositions[particleIndex].y = -_nextPositions[particleIndex].y * factor;
+			_nextVelocities[particleIndex].y = -_nextVelocities[particleIndex].y * factor;
 		}
-		else if (nextParticle._position.z < -1.2f)
+
+		if (_nextPositions[particleIndex].z > 1.2f)
 		{
-			nextParticle._position.z = -1.2f - (nextParticle._position.z + 1.2f) * factor;
-			nextParticle._velocity.z = -nextParticle._velocity.z * factor;
+			_nextPositions[particleIndex].z = 1.2f - (_nextPositions[particleIndex].z - 1.2f) * factor;
+			_nextVelocities[particleIndex].z = -_nextVelocities[particleIndex].z * factor;
+		}
+		else if (_nextPositions[particleIndex].z < -1.2f)
+		{
+			_nextPositions[particleIndex].z = -1.2f - (_nextPositions[particleIndex].z + 1.2f) * factor;
+			_nextVelocities[particleIndex].z = -_nextVelocities[particleIndex].z * factor;
 		}
 	}
 }
@@ -281,7 +263,7 @@ void SimulatedScene::ApplyParticlePositions()
 	#pragma omp parallel for
 	for (size_t i = 0; i < _particleCount; ++i)
 	{
-		glm::vec3 particlePosition = _particles[i]._position;
+		glm::vec3 particlePosition = _positions[i];
 		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
 		{
 			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
@@ -296,11 +278,6 @@ glm::vec3 SimulatedScene::GetWindVelocityAt(glm::vec3 samplePosition)
 	return glm::vec3{}; // Temp
 }
 
-void SimulatedScene::ComputePseudoViscosity()
-{
-
-}
-
 float SimulatedScene::ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent)
 {
 	float pressure = eosScale * (std::pow(density / targetDensity, eosExponent) - 1.0f) / eosExponent;
@@ -313,22 +290,18 @@ void SimulatedScene::UpdateDensities()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		auto &particle = _particles[particleIndex];
-
 		float sum = 0.0f;
 		_hashGrid->ForEachNeighborParticle
 		(
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
-				const auto &neighborParticle = _particles[neighborIndex];
-
-				float distance = glm::distance(_particles[particleIndex]._position, neighborParticle._position);
+				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
 				sum += _kernel.GetValue(distance);
 			}
 		);
 
-		particle._density = sum * _particleMass;
+		_densities[particleIndex] = sum * _particleMass;
 	}
 }
 
@@ -336,19 +309,14 @@ glm::vec3 SimulatedScene::Interpolate(size_t particleIndex, const std::vector<gl
 {
 	assert(values.size() == _particles.size());
 
-	const auto &particle = _particles[particleIndex];
-
 	glm::vec3 sum{};
-
 	_hashGrid->ForEachNeighborParticle
 	(
 		particleIndex,
 		[&](size_t neighborIndex)
 		{
-			const auto &neighborParticle = _particles[neighborIndex];
-
-			float distance = glm::distance(particle._position, neighborParticle._position);
-			float weight = _particleMass / neighborParticle._density * _kernel.GetValue(distance);
+			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
+			float weight = _particleMass / _densities[neighborIndex] * _kernel.GetValue(distance);
 			sum += weight * values[neighborIndex];
 		});
 
@@ -359,23 +327,19 @@ glm::vec3 SimulatedScene::GradientAt(size_t particleIndex, const std::vector<glm
 {
 	assert(values.size() == _particles.size());
 
-	const auto &particle = _particles[particleIndex];
-
 	glm::vec3 sum{};
-
 	_hashGrid->ForEachNeighborParticle
 	(
 		particleIndex,
 		[&](size_t neighborIndex)
 		{
-			const auto &neighborParticle = _particles[neighborIndex];
-			float distance = glm::distance(particle._position, neighborParticle._position);
+			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
 			if (distance > 0.0f)
 			{
-				auto direction = (neighborParticle._position - particle._position) / distance;
-				sum += particle._density * 
+				auto direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
+				sum += _densities[particleIndex] * 
 					_particleMass * 
-					(values[particleIndex] / (particle._density * particle._density) + values[neighborIndex] / (neighborParticle._density * neighborParticle._density)) *
+					(values[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + values[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex])) *
 					_kernel.Gradient(distance, direction);
 			}
 		});
@@ -387,8 +351,6 @@ float SimulatedScene::LaplacianAt(size_t particleIndex, const std::vector<float>
 {
 	assert(values.size() == _particles.size());
 
-	const auto &particle = _particles[particleIndex];
-
 	// Temp - use neighbor list instead...?
 	float sum = 0.0f;
 
@@ -397,11 +359,10 @@ float SimulatedScene::LaplacianAt(size_t particleIndex, const std::vector<float>
 		particleIndex,
 		[&](size_t neighborIndex)
 		{
-			const auto &neighborParticle = _particles[neighborIndex];
-			float distance = glm::distance(particle._position, neighborParticle._position);
+			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
 			if (distance > 0.0f)
 			{
-				sum += _particleMass * _kernel.SecondDerivative(distance) * (values[neighborIndex] - values[particleIndex]) / neighborParticle._density;
+				sum += _particleMass * _kernel.SecondDerivative(distance) * (values[neighborIndex] - values[particleIndex]) / _densities[neighborIndex];
 			}
 		});
 

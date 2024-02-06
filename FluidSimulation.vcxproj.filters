@@ -91,9 +91,6 @@
     <ClCompile Include="Sources\Kernel.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\Particle.cpp">
-      <Filter>sources\Simulation</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">
@@ -157,9 +154,6 @@
       <Filter>sources\Simulation</Filter>
     </ClInclude>
     <ClInclude Include="Sources\Kernel.h">
-      <Filter>sources\Simulation</Filter>
-    </ClInclude>
-    <ClInclude Include="Sources\Particle.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
   </ItemGroup>

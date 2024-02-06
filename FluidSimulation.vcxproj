@@ -35,7 +35,6 @@
     <ClCompile Include="Sources\MainApplication.cpp" />
     <ClCompile Include="Sources\MeshModel.cpp" />
     <ClCompile Include="Sources\MeshObject.cpp" />
-    <ClCompile Include="Sources\Particle.cpp" />
     <ClCompile Include="Sources\SimulatedScene.cpp" />
     <ClCompile Include="Sources\UIModel.cpp" />
     <ClCompile Include="Sources\Vertex.cpp" />
@@ -59,7 +58,6 @@
     <ClInclude Include="Sources\MeshObject.h" />
     <ClInclude Include="Sources\ModelBase.h" />
     <ClInclude Include="Sources\PanelBase.h" />
-    <ClInclude Include="Sources\Particle.h" />
     <ClInclude Include="Sources\SimulatedScene.h" />
     <ClInclude Include="Sources\UIModel.h" />
     <ClInclude Include="Sources\Vertex.h" />
