@@ -97,12 +97,12 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	ApplyParticlePositions();
 
 	// Build the hash grid
-	_hashGrid = std::make_unique<HashGrid>(_positions, GRID_RESOLUTION, 2.0f * _kernelRadius);
+	_hashGrid = std::make_unique<HashGrid>(_particleCount, GRID_RESOLUTION, 2.0f * _kernelRadius);
 }
 
 void SimulatedScene::BeginTimeStep()
 {
-	_hashGrid->UpdateGrid();
+	_hashGrid->UpdateGrid(_positions);
 	UpdateDensities();
 }
 
@@ -164,6 +164,7 @@ void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
 	{
 		_hashGrid->ForEachNeighborParticle
 		(
+			_positions,
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
@@ -190,6 +191,7 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	{
 		_hashGrid->ForEachNeighborParticle
 		(
+			_positions,
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
@@ -293,6 +295,7 @@ void SimulatedScene::UpdateDensities()
 		float sum = 0.0f;
 		_hashGrid->ForEachNeighborParticle
 		(
+			_positions,
 			particleIndex,
 			[&](size_t neighborIndex)
 			{
@@ -312,6 +315,7 @@ glm::vec3 SimulatedScene::Interpolate(size_t particleIndex, const std::vector<gl
 	glm::vec3 sum{};
 	_hashGrid->ForEachNeighborParticle
 	(
+		_positions,
 		particleIndex,
 		[&](size_t neighborIndex)
 		{
@@ -330,6 +334,7 @@ glm::vec3 SimulatedScene::GradientAt(size_t particleIndex, const std::vector<glm
 	glm::vec3 sum{};
 	_hashGrid->ForEachNeighborParticle
 	(
+		_positions,
 		particleIndex,
 		[&](size_t neighborIndex)
 		{
@@ -356,6 +361,7 @@ float SimulatedScene::LaplacianAt(size_t particleIndex, const std::vector<float>
 
 	_hashGrid->ForEachNeighborParticle
 	(
+		_positions,
 		particleIndex,
 		[&](size_t neighborIndex)
 		{

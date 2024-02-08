@@ -2,19 +2,18 @@
 
 const size_t HashGrid::OVERLAPPING_GRID = 8;
 
-HashGrid::HashGrid(const std::vector<glm::vec3> &positions, glm::ivec3 resolution, float kernelRadius) :
-	_positions(positions),
+HashGrid::HashGrid(size_t particleCount, glm::ivec3 resolution, float kernelRadius) :
 	_resolution(resolution),
 	_gridSpacing(kernelRadius)
 {
 	_buckets.resize(_resolution.x * _resolution.y * _resolution.z);
-	_neighbors.resize(_positions.size());
+	_neighbors.resize(particleCount);
 }
 
-void HashGrid::UpdateGrid()
+void HashGrid::UpdateGrid(const std::vector<glm::vec3> &positions)
 {
 	// 1. Update the grids
-	size_t particleCount = _positions.size();
+	size_t particleCount = positions.size();
 
 	size_t bucketCount = _buckets.size();
 	#pragma omp parallel for
@@ -25,7 +24,7 @@ void HashGrid::UpdateGrid()
 
 	for (size_t particleIndex = 0; particleIndex < particleCount; ++particleIndex)
 	{
-		size_t key = PositionToHashKey(_positions[particleIndex]);
+		size_t key = PositionToHashKey(positions[particleIndex]);
 		_buckets[key].push_back(particleIndex); // Store the index of the particle
 	}
 
@@ -36,7 +35,7 @@ void HashGrid::UpdateGrid()
 		_neighbors[particleIndex].clear();
 
 		// For each adjacent overlapping grid key
-		std::vector<size_t> adjacentKeys = GetAdjacentKeys(_positions[particleIndex]);
+		std::vector<size_t> adjacentKeys = GetAdjacentKeys(positions[particleIndex]);
 		for (size_t i = 0; i < OVERLAPPING_GRID; ++i)
 		{
 			const auto &bucket = _buckets[adjacentKeys[i]];
@@ -79,11 +78,11 @@ size_t HashGrid::PositionToHashKey(glm::vec3 position) const
 	return BucketIndexToHashKey(bucketIndex);
 }
 
-void HashGrid::ForEachNeighborParticle(size_t particleIndex, const std::function<void(size_t)> &callback) const
+void HashGrid::ForEachNeighborParticle(const std::vector<glm::vec3> &positions, size_t particleIndex, const std::function<void(size_t)> &callback) const
 {
 	for (size_t neighborIndex : _neighbors[particleIndex])
 	{
-		float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
+		float distance = glm::distance(positions[particleIndex], positions[neighborIndex]);
 		if (distance < _gridSpacing)
 		{
 			callback(neighborIndex);

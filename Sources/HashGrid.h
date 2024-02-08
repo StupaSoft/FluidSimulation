@@ -14,8 +14,6 @@
 class HashGrid
 {
 private:
-	const std::vector<glm::vec3> &_positions;
-
 	float _gridSpacing;
 	glm::ivec3 _resolution = glm::vec3(1.0f, 1.0f, 1.0f);
 	std::vector<std::vector<uint32_t>> _buckets;
@@ -24,9 +22,9 @@ private:
 	static const size_t OVERLAPPING_GRID;
 
 public:
-	HashGrid(const std::vector<glm::vec3> &positions, glm::ivec3 resolution, float gridSpacing);
-	void UpdateGrid();
-	void ForEachNeighborParticle(size_t particleIndex, const std::function<void(size_t)> &callback) const;
+	HashGrid(size_t particleCount, glm::ivec3 resolution, float gridSpacing);
+	void UpdateGrid(const std::vector<glm::vec3> &positions);
+	void ForEachNeighborParticle(const std::vector<glm::vec3> &positions, size_t particleIndex, const std::function<void(size_t)> &callback) const;
 
 private:
 	// Position -> Bucket index -> Hash key
