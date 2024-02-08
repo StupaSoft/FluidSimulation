@@ -15,9 +15,11 @@ void WindowApplication::Run()
 	uiModel->AddPanel<LeftPanel>();
 
 	_simulatedScene = std::make_shared<SimulatedScene>(_vulkanCore);
-	_simulatedScene->AddCollider("Models/Bath.obj"); // Temp
-	_simulatedScene->AddCollider("Models/Obstacle.obj"); // Temp
-	_simulatedScene->InitializeParticles(0.03f, 0.07f, {-1.0f, 1.0f}, {1.0f, 5.0f}, {-1.0f, 1.0f}); // Temp
+	_simulatedScene->AddProp("Models/Bath.obj", "", false, true); // Temp
+	_simulatedScene->AddProp("Models/BathWireframe.obj", "", true, false); // Temp
+	_simulatedScene->AddProp("Models/Obstacle.obj", "", false, true); // Temp
+	_simulatedScene->AddProp("Models/ObstacleWireframe.obj", "", true, false);
+	_simulatedScene->InitializeParticles(0.03f, 0.07f, {-1.3f, 0.7f}, {1.0f, 5.0f}, {-1.0f, 1.0f}); // Temp
 
 	MainLoop();
 }

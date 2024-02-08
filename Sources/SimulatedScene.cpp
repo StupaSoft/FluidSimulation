@@ -92,15 +92,17 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	_bvh = std::make_unique<BVH>();
 }
 
-void SimulatedScene::AddCollider(const std::string &OBJPath, const std::string &texturePath)
+void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
 {
 	auto obj = LoadOBJ(OBJPath);
 
-	auto colliderModel = _vulkanCore->AddModel<MeshModel>();
-	colliderModel->LoadAssets(std::get<0>(obj), std::get<1>(obj), "Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", texturePath);
-	auto colliderObject = colliderModel->AddMeshObject();
+	auto propModel = _vulkanCore->AddModel<MeshModel>();
+	propModel->LoadAssets(std::get<0>(obj), std::get<1>(obj), "Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", texturePath);
+	auto propObject = propModel->AddMeshObject();
+	propObject->SetVisible(isVisible);
+	propObject->SetCollidable(isCollidable);
 
-	_colliderObjects.emplace_back(std::move(colliderObject));
+	_propObjects.emplace_back(std::move(propObject));
 }
 
 void SimulatedScene::BeginTimeStep()
@@ -219,9 +221,12 @@ void SimulatedScene::ResolveCollision()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		for (const auto &colliderObject : _colliderObjects)
+		for (const auto &propObject : _propObjects)
 		{
-			_bvh->ResolveCollision(colliderObject->GetWorldTriangles(), _positions[particleIndex], _velocities[particleIndex], _particleRadius, _restitutionCoefficient, _frictionCoefficient, &_nextPositions[particleIndex], &_nextVelocities[particleIndex]);
+			if (propObject->IsCollidable())
+			{
+				_bvh->ResolveCollision(propObject->GetWorldTriangles(), _positions[particleIndex], _velocities[particleIndex], _particleRadius, _restitutionCoefficient, _frictionCoefficient, &_nextPositions[particleIndex], &_nextVelocities[particleIndex]);
+			}
 		}
 	}
 }

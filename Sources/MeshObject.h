@@ -31,6 +31,9 @@ public:
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 
+	bool _isVisible = true;
+	bool _isCollidable = true;
+
 	// ==================== Vulkan resources ====================
 	std::vector<VkBuffer> _mvpBuffers; // Create multiple buffers for each frame
 	std::vector<VkDeviceMemory> _mvpBuffersMemory;
@@ -55,6 +58,11 @@ public:
 	void CleanUp();
 
 	const std::vector<Triangle> &GetWorldTriangles() const { return _worldTriangles; }
+
+	void SetVisible(bool visible) { _isVisible = visible; }
+	bool IsVisible() { return _isVisible; }
+	void SetCollidable(bool collidable) { _isCollidable = collidable; }
+	bool IsCollidable() { return _isCollidable; }
 
 	void SetPosition(glm::vec3 position);
 	void SetRotation(glm::vec3);

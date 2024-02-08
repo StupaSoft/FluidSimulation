@@ -19,7 +19,7 @@ class SimulatedScene
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 
-	std::vector<std::shared_ptr<MeshObject>> _colliderObjects;
+	std::vector<std::shared_ptr<MeshObject>> _propObjects;
 
 	// Particles in the data structure
 	size_t _particleCount;
@@ -66,7 +66,7 @@ public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
 	void InitializeParticles(float particleRadius, float distanceBetweenParticles, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
-	void AddCollider(const std::string &OBJPath, const std::string &texturePath = "");
+	void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true);
 
 	void Update(float deltaSecond);
 	

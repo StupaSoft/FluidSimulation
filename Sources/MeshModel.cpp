@@ -61,9 +61,12 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 	for (auto &objectPair : _objectPairs)
 	{
-		auto descriptorSets = std::get<1>(objectPair);
-		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
+		if (std::get<0>(objectPair)->IsVisible())
+		{
+			auto descriptorSets = std::get<1>(objectPair);
+			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
+			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
+		}
 	}
 }
 
