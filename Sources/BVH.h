@@ -9,20 +9,26 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "MeshModel.h"
 #include "Triangle.h"
+
+struct Intersection
+{
+	glm::vec3 point{};
+	glm::vec3 normal{};
+	glm::vec3 pointVelocity{};
+};
 
 class BVH
 {
 private:
-	struct Intersection
-	{
-		glm::vec3 point{};
-		glm::vec3 normal{};
-		glm::vec3 pointVelocity{};
-	};
+	std::vector<std::shared_ptr<MeshObject>> _propObjects;
 
 public:
-	void ResolveCollision(const std::vector<Triangle> &triangles, glm::vec3 currentPosition, glm::vec3 currentVelocity, float particleRadius, float restitutionCoefficient, float frictionCoefficient, glm::vec3 *newPosition, glm::vec3 *newVelocity);
-	bool GetIntersection(const std::vector<Triangle> &triangles, glm::vec3 currentPosition, glm::vec3 newPosition, Intersection *intersection);
+	void AddPropObject(const std::shared_ptr<MeshObject> &propObject);
+	bool GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Intersection *intersection);
+
+private:
+	bool MollerTrumbore(const Triangle triangle, glm::vec3 start, glm::vec3 end, Intersection *intersection);
 };
 

@@ -89,7 +89,6 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 	// Build the hash grid and BVH
 	_hashGrid = std::make_unique<HashGrid>(_particleCount, GRID_RESOLUTION, 2.0f * _kernelRadius);
-	_bvh = std::make_unique<BVH>();
 }
 
 void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
@@ -102,7 +101,7 @@ void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &text
 	propObject->SetVisible(isVisible);
 	propObject->SetCollidable(isCollidable);
 
-	_propObjects.emplace_back(std::move(propObject));
+	_bvh->AddPropObject(propObject);
 }
 
 void SimulatedScene::BeginTimeStep()
@@ -221,12 +220,41 @@ void SimulatedScene::ResolveCollision()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		for (const auto &propObject : _propObjects)
+		// Check if the new position is penetrating the surface
+		Intersection intersection{};
+		if (_bvh->GetIntersection(_positions[particleIndex], _nextPositions[particleIndex], &intersection))
 		{
-			if (propObject->IsCollidable())
+			// Target point is the closest non-penetrating position from the current position.
+			glm::vec3 targetNormal = intersection.normal;
+			glm::vec3 targetPoint = intersection.point + _particleRadius * targetNormal * 0.5f;
+			glm::vec3 collisionPointVelocity = intersection.pointVelocity;
+
+			// Get new candidate relative velocities from the target point
+			glm::vec3 relativeVelocity = _nextVelocities[particleIndex] - collisionPointVelocity;
+			float normalDotRelativeVelocity = glm::dot(targetNormal, relativeVelocity);
+			glm::vec3 relativeVelocityN = normalDotRelativeVelocity * targetNormal;
+			glm::vec3 relativeVelocityT = relativeVelocity - relativeVelocityN;
+
+			// Check if the velocity is facing ooposite direction of the surface normal
+			if (normalDotRelativeVelocity < 0.0f)
 			{
-				_bvh->ResolveCollision(propObject->GetWorldTriangles(), _positions[particleIndex], _velocities[particleIndex], _particleRadius, _restitutionCoefficient, _frictionCoefficient, &_nextPositions[particleIndex], &_nextVelocities[particleIndex]);
+				// Apply restitution coefficient to the surface normal component of the velocity
+				glm::vec3 deltaRelativeVelocityN = (-_restitutionCoefficient - 1.0f) * relativeVelocityN;
+				relativeVelocityN *= -_restitutionCoefficient;
+
+				// Apply friction to the tangential component of the velocity
+				if (relativeVelocityT.length() > 0.0f)
+				{
+					float frictionScale = std::max(1.0f - _frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
+					relativeVelocityT *= frictionScale;
+				}
+
+				// Apply the velocity
+				_nextVelocities[particleIndex] = relativeVelocityN + relativeVelocityT + collisionPointVelocity;
 			}
+
+			// Apply the position
+			_nextPositions[particleIndex] = targetPoint;
 		}
 	}
 }

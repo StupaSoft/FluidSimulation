@@ -19,8 +19,6 @@ class SimulatedScene
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 
-	std::vector<std::shared_ptr<MeshObject>> _propObjects;
-
 	// Particles in the data structure
 	size_t _particleCount;
 	float _particleRadius;
@@ -40,7 +38,7 @@ private:
 	std::vector<glm::vec3> _nextVelocities;
 
 	std::unique_ptr<HashGrid> _hashGrid;
-	std::unique_ptr<BVH> _bvh;
+	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
 
 	Kernel _kernel = Kernel(0.0f);
 

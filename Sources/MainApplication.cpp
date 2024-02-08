@@ -41,18 +41,12 @@ GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::
 void WindowApplication::MainLoop()
 {
 	// Application loop
-	float deltaSecond = 0.01f; // To add initial force to particles
 	while (!glfwWindowShouldClose(_window))
 	{
-		auto prevTime = std::chrono::high_resolution_clock::now();
-
 		glfwPollEvents();
 
-		_simulatedScene->Update(std::min(deltaSecond, 0.002f));
+		_simulatedScene->Update(0.002f);
 		_vulkanCore->DrawFrame();
-
-		auto currentTime = std::chrono::high_resolution_clock::now();
-		deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 	}
 }
 

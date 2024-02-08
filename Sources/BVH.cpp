@@ -1,90 +1,82 @@
 #include "BVH.h"
 
-void BVH::ResolveCollision(const std::vector<Triangle> &triangles, glm::vec3 currentPosition, glm::vec3 currentVelocity, float particleRadius, float restitutionCoefficient, float frictionCoefficient, glm::vec3 *nextPosition, glm::vec3 *nextVelocity)
+void BVH::AddPropObject(const std::shared_ptr<MeshObject> &propObject)
 {
-	// Check if the new position is penetrating the surface
-    Intersection intersection{};
-	if (GetIntersection(triangles, currentPosition, *nextPosition, &intersection))
-	{
-        // Target point is the closest non-penetrating position from the current position.
-        glm::vec3 targetNormal = intersection.normal;
-        glm::vec3 targetPoint = intersection.point + particleRadius * targetNormal; // Temp - is it correct to use along normal? Shouldn't we just use intersection.point?
-        glm::vec3 collisionPointVelocity = intersection.pointVelocity;
-
-        // Get new candidate relative velocities from the target point
-        glm::vec3 relativeVelocity = *nextVelocity - collisionPointVelocity;
-        float normalDotRelativeVelocity = glm::dot(targetNormal, relativeVelocity);
-        glm::vec3 relativeVelocityN = normalDotRelativeVelocity * targetNormal;
-        glm::vec3 relativeVelocityT = relativeVelocity - relativeVelocityN;
-
-		// Check if the velocity is facing ooposite direction of the surface normal
-		if (normalDotRelativeVelocity < 0.0f)
-		{
-			// Apply restitution coefficient to the surface normal component of the velocity
-            glm::vec3 deltaRelativeVelocityN = (-restitutionCoefficient - 1.0f) * relativeVelocityN;
-            relativeVelocityN *= -restitutionCoefficient;
-
-			// Apply friction to the tangential component of the velocity
-            if (relativeVelocityT.length() > 0.0f)
-            {
-                float frictionScale = std::max(1.0f - frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
-                relativeVelocityT *= frictionScale;
-            }
-
-			// Apply the velocity
-            *nextVelocity = relativeVelocityN + relativeVelocityT + collisionPointVelocity;
-		}
-
-		// Apply the position
-        *nextPosition = targetPoint;
-	}
+    _propObjects.push_back(propObject);
 }
 
-bool BVH::GetIntersection(const std::vector<Triangle> &triangles, glm::vec3 currentPosition, glm::vec3 newPosition, Intersection *intersection)
+bool BVH::GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Intersection *intersection)
 {
-    constexpr float EPSILON = std::numeric_limits<float>::epsilon();
-    
     bool isHit = false;
-    float tMin = std::numeric_limits<float>::infinity();
-    glm::vec3 ray = newPosition - currentPosition;
+    float minDistance = std::numeric_limits<float>::infinity();
+    glm::vec3 ray = nextPosition - currentPosition;
 
-    size_t triangleCount = triangles.size();
-	for (size_t i = 0; i < triangleCount; ++i)
-	{
-		const auto &triangle = triangles[i];
-
-        // Moller-Trumbore alogrithm
-        glm::vec3 edge1 = triangle.B - triangle.A;
-        glm::vec3 edge2 = triangle.C - triangle.A;
-        glm::vec3 rayCrossEdge2 = glm::cross(ray, edge2);
-        float det = glm::dot(edge1, rayCrossEdge2);
-
-        if (det > -EPSILON && det < EPSILON) continue; // This ray is parallel to this triangle.
-
-        float inverseDet = 1.0f / det;
-        glm::vec3 s = currentPosition - triangle.A;
-        float u = inverseDet * glm::dot(s, rayCrossEdge2);
-
-        if (u < 0.0f || u > 1.0f) continue;
-
-        glm::vec3 sCrossEdge1 = glm::cross(s, edge1);
-        float v = inverseDet * glm::dot(ray, sCrossEdge1);
-
-        if (v < 0.0f || u + v > 1.0f) continue;
-
-        // At this stage we can compute t to find out where the intersection point is on the line.
-        float t = inverseDet * dot(edge2, sCrossEdge1);
-
-        if (EPSILON < t && t < 1.0f && t < tMin)
+    for (const auto &propObject : _propObjects)
+    {
+        if (propObject->IsCollidable())
         {
-            tMin = t;
-            isHit = true;
+            Intersection propIntersection;
 
-            intersection->point = currentPosition + t * ray;
-            intersection->normal = glm::normalize((1.0f - u - v) * triangle.normalA + u * triangle.normalB + v * triangle.normalC);
-            intersection->pointVelocity = glm::vec3(); // Temp
+            const auto &triangles = propObject->GetWorldTriangles();
+            size_t triangleCount = triangles.size();
+            for (size_t i = 0; i < triangleCount; ++i)
+            {
+                const auto &triangle = triangles[i];
+                if (MollerTrumbore(triangle, currentPosition, nextPosition, &propIntersection))
+                {
+                    float distance = glm::distance(currentPosition, propIntersection.point);
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+                        *intersection = std::move(propIntersection);
+                        isHit = true;
+                    }
+                }
+            }
         }
-	}
+    }
 
     return isHit;
 }
+
+bool BVH::MollerTrumbore(const Triangle triangle, glm::vec3 start, glm::vec3 end, Intersection *intersection)
+{
+    // Moller-Trumbore alogrithm
+    constexpr float EPSILON = std::numeric_limits<float>::epsilon();
+
+    glm::vec3 ray = end - start;
+
+    glm::vec3 edge1 = triangle.B - triangle.A;
+    glm::vec3 edge2 = triangle.C - triangle.A;
+    glm::vec3 rayCrossEdge2 = glm::cross(ray, edge2);
+    float det = glm::dot(edge1, rayCrossEdge2);
+
+    if (det > -EPSILON && det < EPSILON) return false; // This ray is parallel to this triangle.
+
+    float inverseDet = 1.0f / det;
+    glm::vec3 s = start - triangle.A;
+    float u = inverseDet * glm::dot(s, rayCrossEdge2);
+
+    if (u < 0.0f || u > 1.0f) return false;
+
+    glm::vec3 sCrossEdge1 = glm::cross(s, edge1);
+    float v = inverseDet * glm::dot(ray, sCrossEdge1);
+
+    if (v < 0.0f || u + v > 1.0f) return false;
+
+    // At this stage we can compute t to find out where the intersection point is on the line.
+    float t = inverseDet * dot(edge2, sCrossEdge1);
+    if (EPSILON < t && t < 1.0f)
+    {
+        intersection->point = start + t * ray;
+        intersection->normal = glm::normalize((1.0f - u - v) * triangle.normalA + u * triangle.normalB + v * triangle.normalC);
+        intersection->pointVelocity = glm::vec3(); // Temp
+
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
