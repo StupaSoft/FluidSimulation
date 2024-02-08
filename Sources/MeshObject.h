@@ -13,6 +13,7 @@
 #include "VulkanUtility.h"
 #include "VulkanCore.h"
 #include "Camera.h"
+#include "Triangle.h"
 
 class MeshObject
 {
@@ -38,8 +39,12 @@ private:
 	glm::mat4 _position = glm::mat4(1.0f);
 	glm::mat4 _rotation = glm::mat4(1.0f);
 
+	// ==================== Triangle ====================
+	std::shared_ptr<std::vector<Triangle>> _triangles; // Triangles in the model space
+	std::vector<Triangle> _worldTriangles; // Triangles in the world space
+
 public:
-	explicit MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore);
+	explicit MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std::shared_ptr<std::vector<Triangle>> &triangles);
 	MeshObject(const MeshObject &other) = delete;
 	MeshObject(MeshObject &&other) = default;
 	MeshObject &operator=(const MeshObject &other) = delete;
@@ -49,6 +54,8 @@ public:
 	std::vector<VkBuffer> GetMVPBuffers();
 	void CleanUp();
 
+	const std::vector<Triangle> &GetWorldTriangles() const { return _worldTriangles; }
+
 	void SetPosition(glm::vec3 position);
 	void SetRotation(glm::vec3);
 	void Translate(glm::vec3 offset);
@@ -57,4 +64,5 @@ public:
 private:
 	void ApplyModelTransformation();
 	void SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection);
+	void UpdateWorldTriangles(const glm::mat4 &model);
 };

@@ -1,7 +1,8 @@
 #include "MeshObject.h"
 
-MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore) :
-	_vulkanCore(vulkanCore)
+MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std::shared_ptr<std::vector<Triangle>> &triangles) :
+	_vulkanCore(vulkanCore),
+	_triangles(triangles)
 {
 	std::tie(_mvpBuffers, _mvpBuffersMemory) = CreateBuffersAndMemory
 	(
@@ -88,6 +89,8 @@ void MeshObject::ApplyModelTransformation()
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
 	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+
+	UpdateWorldTriangles(mvp._model);
 }
 
 void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 &projection)
@@ -101,4 +104,27 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
 	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+}
+
+void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)
+{
+	size_t triangleCount = _triangles->size();
+	_worldTriangles.resize(triangleCount);
+
+	auto modelInverse = glm::inverse(model);
+
+	#pragma omp parallel for
+	for (size_t i = 0; i < triangleCount; ++i)
+	{
+		const auto &triangle = _triangles->at(i);
+		auto &worldTriangle = _worldTriangles[i];
+
+		worldTriangle.A = model * glm::vec4(triangle.A, 1.0f);
+		worldTriangle.B = model * glm::vec4(triangle.B, 1.0f);
+		worldTriangle.C = model * glm::vec4(triangle.C, 1.0f);
+
+		worldTriangle.normalA = glm::vec4(triangle.normalA, 1.0f) * modelInverse;
+		worldTriangle.normalB = glm::vec4(triangle.normalB, 1.0f) * modelInverse;
+		worldTriangle.normalC = glm::vec4(triangle.normalC, 1.0f) * modelInverse;
+	}
 }

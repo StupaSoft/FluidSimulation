@@ -7,19 +7,10 @@ const float SimulatedScene::EOS_EXPONENT = 2.0f;
 const glm::uvec3 SimulatedScene::GRID_RESOLUTION = glm::uvec3(100, 100, 100);
 const float SimulatedScene::VISCOSITY_COEFF = 1e-3f;
 
-void SimulatedScene::AddLevel(const std::string &OBJPath, const std::string &texturePath)
-{
-	auto obj = LoadOBJ(OBJPath);
-
-	auto levelModel = _vulkanCore->AddModel<MeshModel>();
-	levelModel->LoadAssets(std::get<0>(obj), std::get<1>(obj), "Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", texturePath);
-	levelModel->AddMeshObject();
-
-	_levelModels.emplace_back(std::move(levelModel));
-}
-
 void SimulatedScene::InitializeParticles(float particleRadius, float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
+	_particleRadius = particleRadius;
+
 	_kernelRadius = particleRadius * 4.0f;
 	_kernel = Kernel(_kernelRadius);
 
@@ -96,8 +87,20 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 	ApplyParticlePositions();
 
-	// Build the hash grid
+	// Build the hash grid and BVH
 	_hashGrid = std::make_unique<HashGrid>(_particleCount, GRID_RESOLUTION, 2.0f * _kernelRadius);
+	_bvh = std::make_unique<BVH>();
+}
+
+void SimulatedScene::AddCollider(const std::string &OBJPath, const std::string &texturePath)
+{
+	auto obj = LoadOBJ(OBJPath);
+
+	auto colliderModel = _vulkanCore->AddModel<MeshModel>();
+	colliderModel->LoadAssets(std::get<0>(obj), std::get<1>(obj), "Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", texturePath);
+	auto colliderObject = colliderModel->AddMeshObject();
+
+	_colliderObjects.emplace_back(std::move(colliderObject));
 }
 
 void SimulatedScene::BeginTimeStep()
@@ -211,6 +214,18 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	}
 }
 
+void SimulatedScene::ResolveCollision()
+{
+	#pragma omp parallel for
+	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
+	{
+		for (const auto &colliderObject : _colliderObjects)
+		{
+			_bvh->ResolveCollision(colliderObject->GetWorldTriangles(), _positions[particleIndex], _velocities[particleIndex], _particleRadius, _restitutionCoefficient, _frictionCoefficient, &_nextPositions[particleIndex], &_nextVelocities[particleIndex]);
+		}
+	}
+}
+
 void SimulatedScene::TimeIntegration(float deltaSecond)
 {
 	#pragma omp parallel for
@@ -221,42 +236,7 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 
 		// Integrate position
 		_nextPositions[particleIndex] = _positions[particleIndex] + deltaSecond * _nextVelocities[particleIndex];
-
-		// Temp
-		float factor = 0.3f;
-		if (_nextPositions[particleIndex].x > 2.5f)
-		{
-			_nextPositions[particleIndex].x = 2.5f - (_nextPositions[particleIndex].x - 2.5f) * factor;
-			_nextVelocities[particleIndex].x = -_nextVelocities[particleIndex].x * factor;
-		}
-		else if (_nextPositions[particleIndex].x < -1.2f)
-		{
-			_nextPositions[particleIndex].x = -1.2f - (_nextPositions[particleIndex].x + 1.2f) * factor;
-			_nextVelocities[particleIndex].x = -_nextVelocities[particleIndex].x * factor;
-		}
-
-		if (_nextPositions[particleIndex].y < 0.0f)
-		{
-			_nextPositions[particleIndex].y = -_nextPositions[particleIndex].y * factor;
-			_nextVelocities[particleIndex].y = -_nextVelocities[particleIndex].y * factor;
-		}
-
-		if (_nextPositions[particleIndex].z > 1.2f)
-		{
-			_nextPositions[particleIndex].z = 1.2f - (_nextPositions[particleIndex].z - 1.2f) * factor;
-			_nextVelocities[particleIndex].z = -_nextVelocities[particleIndex].z * factor;
-		}
-		else if (_nextPositions[particleIndex].z < -1.2f)
-		{
-			_nextPositions[particleIndex].z = -1.2f - (_nextPositions[particleIndex].z + 1.2f) * factor;
-			_nextVelocities[particleIndex].z = -_nextVelocities[particleIndex].z * factor;
-		}
 	}
-}
-
-void SimulatedScene::ResolveCollision()
-{
-
 }
 
 // Reflect the particle positions to the render system
@@ -272,7 +252,7 @@ void SimulatedScene::ApplyParticlePositions()
 		}
 	}
 
-	_particleModel->UpdateVertexBuffer(_particleVertices);
+	_particleModel->UpdateVertices(_particleVertices);
 }
 
 glm::vec3 SimulatedScene::GetWindVelocityAt(glm::vec3 samplePosition)
@@ -306,71 +286,4 @@ void SimulatedScene::UpdateDensities()
 
 		_densities[particleIndex] = sum * _particleMass;
 	}
-}
-
-glm::vec3 SimulatedScene::Interpolate(size_t particleIndex, const std::vector<glm::vec3> &values) const
-{
-	assert(values.size() == _particles.size());
-
-	glm::vec3 sum{};
-	_hashGrid->ForEachNeighborParticle
-	(
-		_positions,
-		particleIndex,
-		[&](size_t neighborIndex)
-		{
-			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-			float weight = _particleMass / _densities[neighborIndex] * _kernel.GetValue(distance);
-			sum += weight * values[neighborIndex];
-		});
-
-	return sum;
-}
-
-glm::vec3 SimulatedScene::GradientAt(size_t particleIndex, const std::vector<glm::vec3> &values) const
-{
-	assert(values.size() == _particles.size());
-
-	glm::vec3 sum{};
-	_hashGrid->ForEachNeighborParticle
-	(
-		_positions,
-		particleIndex,
-		[&](size_t neighborIndex)
-		{
-			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-			if (distance > 0.0f)
-			{
-				auto direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
-				sum += _densities[particleIndex] * 
-					_particleMass * 
-					(values[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + values[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex])) *
-					_kernel.Gradient(distance, direction);
-			}
-		});
-
-	return sum;
-}
-
-float SimulatedScene::LaplacianAt(size_t particleIndex, const std::vector<float> &values) const
-{
-	assert(values.size() == _particles.size());
-
-	// Temp - use neighbor list instead...?
-	float sum = 0.0f;
-
-	_hashGrid->ForEachNeighborParticle
-	(
-		_positions,
-		particleIndex,
-		[&](size_t neighborIndex)
-		{
-			float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-			if (distance > 0.0f)
-			{
-				sum += _particleMass * _kernel.SecondDerivative(distance) * (values[neighborIndex] - values[particleIndex]) / _densities[neighborIndex];
-			}
-		});
-
-	return sum;
 }

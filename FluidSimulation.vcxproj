@@ -26,6 +26,7 @@
     <ClCompile Include="Libraries\imgui\imgui_draw.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Sources\BVH.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
@@ -47,6 +48,7 @@
     <ClInclude Include="Libraries\imgui\imconfig.h" />
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
+    <ClInclude Include="Sources\BVH.h" />
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\HashGrid.h" />
@@ -59,6 +61,7 @@
     <ClInclude Include="Sources\ModelBase.h" />
     <ClInclude Include="Sources\PanelBase.h" />
     <ClInclude Include="Sources\SimulatedScene.h" />
+    <ClInclude Include="Sources\Triangle.h" />
     <ClInclude Include="Sources\UIModel.h" />
     <ClInclude Include="Sources\Vertex.h" />
     <ClInclude Include="Sources\VulkanCore.h" />

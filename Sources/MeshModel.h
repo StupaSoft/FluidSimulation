@@ -3,6 +3,7 @@
 #include "ModelBase.h"
 #include "MeshObject.h"
 #include "Vertex.h"
+#include "Triangle.h"
 
 class MeshModel : public ModelBase
 {
@@ -49,6 +50,9 @@ private:
 	VkBuffer _indexStagingBuffer;
 	VkDeviceMemory _indexStagingBufferMemory;
 
+	// ==================== Triangles ====================
+	std::shared_ptr<std::vector<Triangle>> _triangles = std::make_shared<std::vector<Triangle>>(); // Triangles in the model space
+
 	// ==================== Texture ====================
 	VkImage _textureImage;
 	VkDeviceMemory _textureImageMemory;
@@ -81,13 +85,15 @@ public:
 	void SetMaterial(const Material &material);
 	void SetMaterial(Material &&material);
 
-	void UpdateVertexBuffer(const std::vector<Vertex> &vertices);
-	void UpdateIndexBuffer(const std::vector<uint32_t> &indices);
+	void UpdateVertices(const std::vector<Vertex> &vertices);
+	void UpdateIndices(const std::vector<uint32_t> &indices);
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);
 
 private:
+	void UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
+
 	VkDescriptorSetLayout CreateDescriptorSetLayout();
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount);
 	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers);

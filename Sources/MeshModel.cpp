@@ -113,6 +113,29 @@ void MeshModel::OnCleanUpOthers()
 	}
 }
 
+void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
+{
+	const size_t STRIDE = 3;
+
+	size_t triangleCount = indices.size() / STRIDE;
+	_triangles->resize(triangleCount);
+
+	#pragma omp parallel for
+	for (size_t i = 0; i < triangleCount; ++i)
+	{
+		auto &triangle = _triangles->at(i);
+
+		triangle.A = vertices[indices[i * STRIDE + 0]].pos;
+		triangle.normalA = vertices[indices[i * STRIDE + 0]].normal;
+
+		triangle.B = vertices[indices[i * STRIDE + 1]].pos;
+		triangle.normalB = vertices[indices[i * STRIDE + 1]].normal;
+
+		triangle.C = vertices[indices[i * STRIDE + 2]].pos;
+		triangle.normalC = vertices[indices[i * STRIDE + 2]].normal;
+	}
+}
+
 void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath)
 {
 	// Create a vertex (creation, update)
@@ -124,16 +147,16 @@ void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vecto
 	// Temporary, host-visible buffer that resides on the CPU
 	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory, 0, vertexBufferSize, 0, &_vertexOnHost);
-	UpdateVertexBuffer(vertices);
+	UpdateVertices(vertices);
 
 	// Create an index buffer
-	uint32_t indexBufferSize = static_cast < uint32_t>(sizeof(indices[0]) * indices.size());
+	uint32_t indexBufferSize = static_cast<uint32_t>(sizeof(indices[0]) * indices.size());
 	std::tie(_indexBuffer, _indexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, 0, indexBufferSize, 0, &_indexOnHost);
-	UpdateIndexBuffer(indices);
+	UpdateIndices(indices);
 
 	// Load a texture
 	std::string targetTexturePath = texturePath;
@@ -163,7 +186,7 @@ void MeshModel::SetMaterial(Material &&material)
 
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
-	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore);
+	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore, _triangles);
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers());
 	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
 
@@ -412,7 +435,7 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 	return textureSampler;
 }
 
-void MeshModel::UpdateVertexBuffer(const std::vector<Vertex> &vertices)
+void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 {
 	_vertices = vertices;
 
@@ -420,9 +443,11 @@ void MeshModel::UpdateVertexBuffer(const std::vector<Vertex> &vertices)
 
 	memcpy(_vertexOnHost, vertices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
 	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, bufferSize);
+
+	UpdateTriangles(_vertices, _indices);
 }
 
-void MeshModel::UpdateIndexBuffer(const std::vector<uint32_t> &indices)
+void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 {
 	_indices = indices;
 
@@ -430,6 +455,8 @@ void MeshModel::UpdateIndexBuffer(const std::vector<uint32_t> &indices)
 
 	memcpy(_indexOnHost, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
 	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, bufferSize);
+
+	UpdateTriangles(_vertices, _indices);
 }
 
 std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)

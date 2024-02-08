@@ -5,16 +5,25 @@
 #include "VulkanCore.h"
 #include "MeshModel.h"
 #include "HashGrid.h"
+#include "BVH.h"
+
+enum class ColliderRenderMode
+{
+	Solid,
+	Invisible,
+	Wireframe
+};
 
 class SimulatedScene
 {
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
 
-	std::vector<std::shared_ptr<MeshModel>> _levelModels;
+	std::vector<std::shared_ptr<MeshObject>> _colliderObjects;
 
 	// Particles in the data structure
 	size_t _particleCount;
+	float _particleRadius;
 
 	std::shared_ptr<MeshModel> _particleModel;
 	std::vector<Vertex> _particleVertices;
@@ -31,6 +40,7 @@ private:
 	std::vector<glm::vec3> _nextVelocities;
 
 	std::unique_ptr<HashGrid> _hashGrid;
+	std::unique_ptr<BVH> _bvh;
 
 	Kernel _kernel = Kernel(0.0f);
 
@@ -49,12 +59,14 @@ private:
 	static const glm::uvec3 GRID_RESOLUTION;
 	float _kernelRadius;
 	static const float VISCOSITY_COEFF;
+	float _restitutionCoefficient = 0.5f;
+	float _frictionCoefficient = 0.5f;
 
 public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
-	void AddLevel(const std::string &OBJPath, const std::string &texturePath);
 	void InitializeParticles(float particleRadius, float distanceBetweenParticles, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
+	void AddCollider(const std::string &OBJPath, const std::string &texturePath = "");
 
 	void Update(float deltaSecond);
 	
@@ -66,9 +78,9 @@ private:
 	void AccumulateExternalForce(float deltaSecond);
 	void AccumulateViscosityForce(float deltaSecond);
 	void AccumulatePressureForce(float deltaSecond);
+	void ResolveCollision();
 
 	void TimeIntegration(float deltaSecond);
-	void ResolveCollision();
 
 	// Reflect the particle status to the render system
 	void ApplyParticlePositions();
@@ -78,9 +90,4 @@ private:
 	float ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent);
 
 	void UpdateDensities();
-	// Interpolate the values at the given particle position.
-	glm::vec3 Interpolate(size_t particleIndex, const std::vector<glm::vec3> &values) const;
-	// Symmetric gradient
-	glm::vec3 GradientAt(size_t particleIndex, const std::vector<glm::vec3> &values) const;
-	float LaplacianAt(size_t particleIndex, const std::vector<float> &values) const;
 };
