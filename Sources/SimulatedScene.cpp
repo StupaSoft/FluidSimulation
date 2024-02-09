@@ -1,18 +1,11 @@
 #include "SimulatedScene.h"
 
-const float SimulatedScene::DRAG_COEFF = 1e-3;
 const glm::vec3 SimulatedScene::GRAVITY = glm::vec3(0.0f, -9.8f, 0.0f);
-const float SimulatedScene::SOUND_SPEED = 1.0f;
-const float SimulatedScene::EOS_EXPONENT = 2.0f;
-const glm::uvec3 SimulatedScene::GRID_RESOLUTION = glm::uvec3(100, 100, 100);
-const float SimulatedScene::VISCOSITY_COEFF = 1e-3f;
 
 void SimulatedScene::InitializeParticles(float particleRadius, float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
 	_particleRadius = particleRadius;
-
-	_kernelRadius = particleRadius * 4.0f;
-	_kernel = Kernel(_kernelRadius);
+	_kernel = Kernel(_particleRadius * simulationParameters._kernelRadiusFactor);
 
 	// Setup
 	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
@@ -88,7 +81,7 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	ApplyParticlePositions();
 
 	// Build the hash grid and BVH
-	_hashGrid = std::make_unique<HashGrid>(_particleCount, GRID_RESOLUTION, 2.0f * _kernelRadius);
+	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _particleRadius * simulationParameters._kernelRadiusFactor);
 }
 
 void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
@@ -125,6 +118,8 @@ void SimulatedScene::EndTimeStep()
 
 void SimulatedScene::Update(float deltaSecond)
 {
+	if (!_play) return;
+
 	// Conduct simulation
 	BeginTimeStep();
 
@@ -151,11 +146,11 @@ void SimulatedScene::AccumulateExternalForce(float deltaSecond)
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
 		// Apply gravity
-		glm::vec3 externalForce = _particleMass * GRAVITY;
+		glm::vec3 externalForce = simulationParameters._particleMass * GRAVITY;
 
 		// Apply wind forces
 		glm::vec3 relativeVelocity = _velocities[particleIndex] - GetWindVelocityAt(_positions[particleIndex]);
-		externalForce += -DRAG_COEFF * relativeVelocity;
+		externalForce += -simulationParameters._dragCoefficient * relativeVelocity;
 
 		_forces[particleIndex] += externalForce;
 	}
@@ -173,7 +168,7 @@ void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
 			[&](size_t neighborIndex)
 			{
 				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-				_forces[particleIndex] += VISCOSITY_COEFF * (_particleMass * _particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
+				_forces[particleIndex] += simulationParameters._viscosityCoefficient * (simulationParameters._particleMass * simulationParameters._particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
 			}
 		);
 	}
@@ -185,8 +180,8 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		float eosScale = _targetDensity * (SOUND_SPEED * SOUND_SPEED) / EOS_EXPONENT;
-		_pressures[particleIndex] = ComputePressureFromEOS(_densities[particleIndex], _targetDensity, eosScale, EOS_EXPONENT);
+		float eosScale = simulationParameters._targetDensity * (simulationParameters._soundSpeed * simulationParameters._soundSpeed) / simulationParameters._eosExponent;
+		_pressures[particleIndex] = ComputePressureFromEOS(_densities[particleIndex], simulationParameters._targetDensity, eosScale, simulationParameters._eosExponent);
 	}
 
 	// Compute pressure forces from the pressures
@@ -204,7 +199,7 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 				{
 					glm::vec3 direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
 					_pressureForces[particleIndex] -=
-						(_particleMass * _particleMass) * 
+						(simulationParameters._particleMass * simulationParameters._particleMass) * 
 						_kernel.Gradient(distance, direction) * 
 						(_pressures[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + _pressures[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex]));
 				}
@@ -239,13 +234,13 @@ void SimulatedScene::ResolveCollision()
 			if (normalDotRelativeVelocity < 0.0f)
 			{
 				// Apply restitution coefficient to the surface normal component of the velocity
-				glm::vec3 deltaRelativeVelocityN = (-_restitutionCoefficient - 1.0f) * relativeVelocityN;
-				relativeVelocityN *= -_restitutionCoefficient;
+				glm::vec3 deltaRelativeVelocityN = (-simulationParameters._restitutionCoefficient - 1.0f) * relativeVelocityN;
+				relativeVelocityN *= -simulationParameters._restitutionCoefficient;
 
 				// Apply friction to the tangential component of the velocity
 				if (relativeVelocityT.length() > 0.0f)
 				{
-					float frictionScale = std::max(1.0f - _frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
+					float frictionScale = std::max(1.0f - simulationParameters._frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
 					relativeVelocityT *= frictionScale;
 				}
 
@@ -265,7 +260,7 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
 		// Integrate velocity
-		_nextVelocities[particleIndex] = _velocities[particleIndex] + deltaSecond * (_forces[particleIndex] / _particleMass);
+		_nextVelocities[particleIndex] = _velocities[particleIndex] + deltaSecond * (_forces[particleIndex] / simulationParameters._particleMass);
 
 		// Integrate position
 		_nextPositions[particleIndex] = _positions[particleIndex] + deltaSecond * _nextVelocities[particleIndex];
@@ -317,6 +312,6 @@ void SimulatedScene::UpdateDensities()
 			}
 		);
 
-		_densities[particleIndex] = sum * _particleMass;
+		_densities[particleIndex] = sum * simulationParameters._particleMass;
 	}
 }
