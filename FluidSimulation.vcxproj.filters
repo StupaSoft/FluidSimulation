@@ -49,7 +49,7 @@
     <ClCompile Include="Libraries\imgui\backends\imgui_impl_vulkan.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\LeftPanel.cpp">
+    <ClCompile Include="Sources\SimulationPanel.cpp">
       <Filter>sources\UI</Filter>
     </ClCompile>
     <ClCompile Include="Sources\MainApplication.cpp">
@@ -111,7 +111,7 @@
     <ClInclude Include="Libraries\imgui\backends\imgui_impl_vulkan.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\LeftPanel.h">
+    <ClInclude Include="Sources\SimulationPanel.h">
       <Filter>sources\UI</Filter>
     </ClInclude>
     <ClInclude Include="Sources\PanelBase.h">

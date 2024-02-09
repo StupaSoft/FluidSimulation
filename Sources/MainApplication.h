@@ -25,7 +25,7 @@
 #include "SimulatedScene.h"
 #include "UIModel.h"
 
-#include "LeftPanel.h"
+#include "SimulationPanel.h"
 
 class WindowApplication
 {

@@ -30,7 +30,7 @@
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
-    <ClCompile Include="Sources\LeftPanel.cpp" />
+    <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MainApplication.cpp" />
@@ -53,7 +53,7 @@
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\Kernel.h" />
-    <ClInclude Include="Sources\LeftPanel.h" />
+    <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />
     <ClInclude Include="Sources\MeshModel.h" />
