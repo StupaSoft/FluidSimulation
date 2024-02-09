@@ -23,15 +23,15 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	_particleIndices.resize(_particleCount * INDICES_IN_PARTICLE.size());
 
 	// Prepare particles themselves
-	_positions.resize(_particleCount);
-	_velocities.resize(_particleCount);
-	_forces.resize(_particleCount);
-	_densities.resize(_particleCount);
-	_pressures.resize(_particleCount);
-	_pressureForces.resize(_particleCount);
+	_positions = std::vector<glm::vec3>(_particleCount);
+	_velocities = std::vector<glm::vec3>(_particleCount);
+	_forces = std::vector<glm::vec3>(_particleCount);
+	_densities = std::vector<float>(_particleCount);
+	_pressures = std::vector<float>(_particleCount);
+	_pressureForces = std::vector<glm::vec3>(_particleCount);
 
-	_nextPositions.resize(_particleCount);
-	_nextVelocities.resize(_particleCount);
+	_nextPositions = std::vector<glm::vec3>(_particleCount);
+	_nextVelocities = std::vector<glm::vec3>(_particleCount);
 
 	// Initialize particles
 	for (size_t i = 0; i < _particleCount; ++i)
@@ -67,16 +67,19 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	}
 
 	// Create models
-	_particleModel = _vulkanCore->AddModel<MeshModel>();
-	_particleModel->LoadAssets(_particleVertices, _particleIndices, "Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
-
-	MeshModel::Material particleMat
+	if (_particleModel == nullptr)
 	{
-		._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
-		._glossiness = 1.0f
-	};
-	_particleModel->SetMaterial(std::move(particleMat));
-	_particleModel->AddMeshObject();
+		_particleModel = _vulkanCore->AddModel<MeshModel>();
+		_particleModel->LoadAssets(_particleVertices, _particleIndices, "Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
+
+		MeshModel::Material particleMat
+		{
+			._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
+			._glossiness = 1.0f
+		};
+		_particleModel->SetMaterial(std::move(particleMat));
+		_particleModel->AddMeshObject();
+	}
 
 	ApplyParticlePositions();
 

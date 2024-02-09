@@ -32,15 +32,15 @@ struct SimulationParameters
 class SimulatedScene
 {
 private:
-	std::shared_ptr<VulkanCore> _vulkanCore;
+	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
 
 	bool _play = false;
 
 	// Particles in the data structure
-	size_t _particleCount;
+	size_t _particleCount = 0;
 	float _particleRadius = 0.03f;
 
-	std::shared_ptr<MeshModel> _particleModel;
+	std::shared_ptr<MeshModel> _particleModel = nullptr;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
 
@@ -55,7 +55,7 @@ private:
 	std::vector<glm::vec3> _nextVelocities;
 
 	glm::uvec3 _gridResolution = glm::uvec3(100, 100, 100);
-	std::unique_ptr<HashGrid> _hashGrid;
+	std::unique_ptr<HashGrid> _hashGrid = nullptr;
 	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
 
 	Kernel _kernel = Kernel(0.0f);
