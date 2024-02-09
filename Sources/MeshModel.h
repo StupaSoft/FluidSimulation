@@ -23,7 +23,8 @@ public:
 	};
 
 private:
-	std::vector<std::tuple<std::shared_ptr<MeshObject>, std::vector<VkDescriptorSet>>> _objectPairs;
+	std::vector<std::shared_ptr<MeshObject>> _meshObjects;
+	std::vector<std::vector<VkDescriptorSet>> _descriptorSets; // [Mesh object count][Frames in flight]
 
 	// ==================== Pipeline and shaders ====================
 	VkShaderModule _vertShaderModule;

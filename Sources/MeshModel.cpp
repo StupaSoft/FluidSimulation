@@ -59,11 +59,13 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
 	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
-	for (auto &objectPair : _objectPairs)
+
+	size_t meshObjectCount = _meshObjects.size();
+	for (size_t i = 0; i < meshObjectCount; ++i)
 	{
-		if (std::get<0>(objectPair)->IsVisible())
+		if (_meshObjects[i]->IsVisible())
 		{
-			auto descriptorSets = std::get<1>(objectPair);
+			auto &descriptorSets = _descriptorSets[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
 		}
@@ -72,10 +74,9 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 
 void MeshModel::OnCleanUpOthers()
 {
-	for (auto &objectPair : _objectPairs)
+	for (auto &meshObject : _meshObjects)
 	{
-		auto object = std::get<0>(objectPair);
-		object->CleanUp();
+		meshObject->CleanUp();
 	}
 
 	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory);
@@ -191,16 +192,18 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore, _triangles);
 	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers());
-	_objectPairs.push_back(std::make_tuple(meshObject, descriptorSets));
+
+	_meshObjects.push_back(meshObject);
+	_descriptorSets.push_back(descriptorSets);
 
 	return meshObject;
 }
 
 void MeshModel::RemoveMeshObject(const std::shared_ptr<MeshObject> &object)
 {
-	auto it = std::find_if(_objectPairs.begin(), _objectPairs.end(), [object](const auto &pair) { return std::get<0>(pair) == object; });
-	std::iter_swap(it, _objectPairs.end() - 1);
-	_objectPairs.pop_back();
+	auto it = std::find_if(_meshObjects.begin(), _meshObjects.end(), [object](const auto &meshObject) { return meshObject == object; });
+	std::iter_swap(it, _meshObjects.end() - 1);
+	_meshObjects.pop_back();
 }
 
 VkDescriptorSetLayout MeshModel::CreateDescriptorSetLayout()
