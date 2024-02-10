@@ -224,7 +224,7 @@ void SimulatedScene::ResolveCollision()
 		{
 			// Target point is the closest non-penetrating position from the current position.
 			glm::vec3 targetNormal = intersection.normal;
-			glm::vec3 targetPoint = intersection.point + _particleRadius * targetNormal * 0.5f;
+			glm::vec3 targetPoint = intersection.point + _particleRadius * targetNormal * 0.1f;
 			glm::vec3 collisionPointVelocity = intersection.pointVelocity;
 
 			// Get new candidate relative velocities from the target point
@@ -303,7 +303,7 @@ void SimulatedScene::UpdateDensities()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		float sum = 0.0f;
+		float sum = _kernel.GetValue(0.0f);
 		_hashGrid->ForEachNeighborParticle
 		(
 			_positions,
