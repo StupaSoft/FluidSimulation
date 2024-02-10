@@ -19,7 +19,7 @@ struct SimulationParameters
 	float _particleMass = 0.05f;
 
 	float _targetDensity = 160.0f;
-	float _soundSpeed = 2.3f;
+	float _soundSpeed = 2.0f;
 	float _eosExponent = 2.0f;
 	float _kernelRadiusFactor = 4.0f;
 
