@@ -66,7 +66,7 @@ bool BVH::MollerTrumbore(const Triangle triangle, glm::vec3 start, glm::vec3 end
 
     // At this stage we can compute t to find out where the intersection point is on the line.
     float t = inverseDet * dot(edge2, sCrossEdge1);
-    if (EPSILON < t && t < 1.0f)
+    if (0.0f <= t && t <= 1.0f)
     {
         intersection->point = start + t * ray;
         intersection->normal = glm::normalize((1.0f - u - v) * triangle.normalA + u * triangle.normalB + v * triangle.normalC);
