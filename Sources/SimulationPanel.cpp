@@ -2,6 +2,8 @@
 
 void SimulationPanel::Draw()
 {
+	ImGui::Begin("Simulation Parameters");
+
 	auto &simulationParameters = _simulatedScene->GetSimulationParameters();
 
 	ImGui::SliderFloat("Particle Mass", &simulationParameters._particleMass, 0.001f, 1.0f);
@@ -19,4 +21,6 @@ void SimulationPanel::Draw()
 		_simulatedScene->InitializeParticles(0.03f, 0.07f, { -1.3f, 0.7f }, { 1.0f, 5.0f }, { -1.0f, 1.0f }); // Temp
 		_simulatedScene->SetPlay(true);
 	}
+
+	ImGui::End();
 }
