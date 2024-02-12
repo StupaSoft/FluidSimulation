@@ -2,7 +2,7 @@
 
 void SimulationPanel::Draw()
 {
-	ImGui::Begin("Simulation Parameters");
+	ImGui::Begin("Simulation");
 
 	auto &simulationParameters = _simulatedScene->GetSimulationParameters();
 
