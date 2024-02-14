@@ -63,7 +63,7 @@ private:
 	VkSampler _textureSampler; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
 
 	// ==================== Descriptor ====================
-	static const uint32_t MAX_SET_COUNT;
+	static const uint32_t MAX_SET_COUNT = 1000;
 	VkDescriptorSetLayout _descriptorSetLayout;
 	VkDescriptorPool _descriptorPool;
 
@@ -82,12 +82,16 @@ public:
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override { return 1000; }
 	
-	void LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath = std::string());
-	void SetMaterial(const Material &material);
-	void SetMaterial(Material &&material);
+	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
+	void LoadMesh(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory);
+	void LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
+	void LoadTexture(const std::string &texturePath);
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);
 	void UpdateIndices(const std::vector<uint32_t> &indices);
+
+	void SetMaterial(const Material &material);
+	void SetMaterial(Material &&material);
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);

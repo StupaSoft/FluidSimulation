@@ -26,6 +26,9 @@
     <Filter Include="sources\Simulation">
       <UniqueIdentifier>{ede57f02-9691-4eb2-844e-1d66b4d22a83}</UniqueIdentifier>
     </Filter>
+    <Filter Include="sources\Compute">
+      <UniqueIdentifier>{f233e260-46f7-4093-9f8f-147abc549897}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -93,6 +96,9 @@
     </ClCompile>
     <ClCompile Include="Sources\BVH.cpp">
       <Filter>sources\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MarchingCubes.cpp">
+      <Filter>sources\Compute</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -164,6 +170,12 @@
     </ClInclude>
     <ClInclude Include="Sources\Triangle.h">
       <Filter>sources\Render</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MarchingCubes.h">
+      <Filter>sources\Compute</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\ComputeBase.h">
+      <Filter>sources\Compute</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

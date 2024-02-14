@@ -30,6 +30,7 @@
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
+    <ClCompile Include="Sources\MarchingCubes.cpp" />
     <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
@@ -50,9 +51,11 @@
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
     <ClInclude Include="Sources\BVH.h" />
     <ClInclude Include="Sources\Camera.h" />
+    <ClInclude Include="Sources\ComputeBase.h" />
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\Kernel.h" />
+    <ClInclude Include="Sources\MarchingCubes.h" />
     <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />

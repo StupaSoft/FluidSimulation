@@ -1,8 +1,6 @@
 #include "MeshModel.h"
 #include "VulkanCore.h"
 
-const uint32_t MeshModel::MAX_SET_COUNT = 1000;
-
 MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 	: ModelBase(vulkanCore)
 {
@@ -50,6 +48,9 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 			ApplyLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
 		}
 	);
+
+	// Load a fallback texture
+	LoadTexture("");
 }
 
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
@@ -140,7 +141,16 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 	}
 }
 
-void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices, const std::string &vertexShaderPath, const std::string fragmentShaderPath, const std::string &texturePath)
+void MeshModel::LoadTexture(const std::string &texturePath)
+{
+	// Load a texture
+	std::string targetTexturePath = texturePath;
+	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
+	std::tie(_textureImage, _textureImageMemory, _textureImageView, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
+	_textureSampler = CreateTextureSampler(_textureMipLevels);
+}
+
+void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
 {
 	// Create a vertex (creation, update)
 	uint32_t vertexBufferSize = static_cast<uint32_t>(sizeof(vertices[0]) * vertices.size());
@@ -161,13 +171,19 @@ void MeshModel::LoadAssets(const std::vector<Vertex> &vertices, const std::vecto
 	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, 0, indexBufferSize, 0, &_indexOnHost);
 	UpdateIndices(indices);
+}
 
-	// Load a texture
-	std::string targetTexturePath = texturePath;
-	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
-	std::tie(_textureImage, _textureImageMemory, _textureImageView, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
-	_textureSampler = CreateTextureSampler(_textureMipLevels);
+void MeshModel::LoadMesh(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory)
+{
+	_vertexBuffer = vertexBuffer;
+	_vertexBufferMemory = vertexBufferMemory;
 
+	_indexBuffer = indexBuffer;
+	_indexBufferMemory = indexBufferMemory;
+}
+
+void MeshModel::LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
+{
 	// Create shader modules
 	_vertShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(vertexShaderPath));
 	_fragShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(fragmentShaderPath));

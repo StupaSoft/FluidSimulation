@@ -17,7 +17,7 @@ void VulkanCore::InitVulkan()
 
 	_surface = CreateSurface(_instance, _window); // Must be created right after the instance
 	_physicalDevice = SelectPhysicalDevice(_instance, _surface, DEVICE_EXTENSIONS);
-	std::tie(_logicalDevice, _graphicsQueue, _presentQueue) = CreateLogicalDevice(_physicalDevice, _surface, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS, DEVICE_EXTENSIONS);
+	std::tie(_logicalDevice, _graphicsQueue, _computeQueue, _presentQueue) = CreateLogicalDevice(_physicalDevice, _surface, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS, DEVICE_EXTENSIONS);
 
 	std::tie(_swapChain, _swapChainImages, _swapChainImageFormat, _swapChainExtent) = CreateSwapChain(_physicalDevice, _logicalDevice, _surface, _window);
 	_swapChainImageViews = CreateImageViews(_logicalDevice, _swapChainImages, _swapChainImageFormat);
@@ -30,81 +30,108 @@ void VulkanCore::InitVulkan()
 
 	_commandPool = CreateCommandPool(_physicalDevice, _logicalDevice, _surface);
 	_commandBuffers = CreateCommandBuffers(_logicalDevice, _commandPool, MAX_FRAMES_IN_FLIGHT);
-	std::tie(_imageAvailableSemaphores, _renderFinishedSemaphores, _inFlightFences) = CreateSyncObjects(MAX_FRAMES_IN_FLIGHT);
-}
-
-void VulkanCore::RemoveModel(const std::shared_ptr<ModelBase> &model)
-{
-	auto it = std::find(_models.begin(), _models.end(), model);
+	_computeCommandBuffers = CreateCommandBuffers(_logicalDevice, _commandPool, MAX_FRAMES_IN_FLIGHT);
+	std::tie(_imageAvailableSemaphores, _renderFinishedSemaphores, _computeFinishedSemaphores, _inFlightFences, _computeInFlightFences) = CreateSyncObjects(MAX_FRAMES_IN_FLIGHT);
 }
 
 void VulkanCore::DrawFrame()
 {
-	vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX); // Wait until the previous frame has finished
-
-	uint32_t imageIndex = 0; // Index to the image in the swap chain
-	VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex); // Get an available swap chain image that has become available
-	if (result == VK_ERROR_OUT_OF_DATE_KHR) // The swap chain has become incompatible with the surface; usually after resizing the window
+	// Submit compute commands
+	if (!_computeModels.empty())
 	{
-		RecreateSwapChain();
-		_currentFrame = 0;
+		vkWaitForFences(_logicalDevice, 1, &_computeInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
+		vkResetFences(_logicalDevice, 1, &_computeInFlightFences[_currentFrame]);
 
-		return;
-	}
-	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // Even if the result is suboptimal, proceed anyway since we have already got an image.
-	{
-		throw std::runtime_error("Failed to acquire a swap chain image.");
-	}
+		vkResetCommandBuffer(_computeCommandBuffers[_currentFrame], 0);
+		RecordComputeCommandBuffer(_commandBuffers[_currentFrame], _computeCommandBuffers[_currentFrame], _currentFrame);
 
-	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]); // Reset the fece only if we are submitting a work
+		VkSubmitInfo computeSubmitInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 
-	vkResetCommandBuffer(_commandBuffers[_currentFrame], 0);
-	RecordCommandBuffer(_swapChainExtent, _renderPass, _frameBuffers[_currentFrame], _commandBuffers[_currentFrame], _currentFrame);
+			.commandBufferCount = 1,
+			.pCommandBuffers = &_computeCommandBuffers[_currentFrame],
 
-	// Submit the command buffer
-	std::vector<VkCommandBuffer> submitCommandBuffers = { _commandBuffers[_currentFrame] };
-	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; // Wait with writing colors to the image until it's available
-	VkSubmitInfo submitInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &_imageAvailableSemaphores[_currentFrame],
-		.pWaitDstStageMask = waitStages,
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = &_computeFinishedSemaphores[_currentFrame]
+		};
 
-		.commandBufferCount = 1,
-		.pCommandBuffers = submitCommandBuffers.data(),
-
-		.signalSemaphoreCount = 1,
-		.pSignalSemaphores = &_renderFinishedSemaphores[_currentFrame]
-	};
-
-	if (vkQueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to submit a draw command buffer.");
+		if (vkQueueSubmit(_computeQueue, 1, &computeSubmitInfo, _computeInFlightFences[_currentFrame]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to submit a compute command buffer.");
+		}
 	}
 
-	VkPresentInfoKHR presentInfo =
+	if (!_models.empty())
 	{
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		// Submit draw commands
+		vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX); // Wait until the previous frame has finished
 
-		.waitSemaphoreCount = 1,
-		.pWaitSemaphores = &_renderFinishedSemaphores[_currentFrame], // Wait on the command buffer to finish execution
+		uint32_t imageIndex = 0; // Index to the image in the swap chain
+		VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex); // Get an available swap chain image that has become available
+		if (result == VK_ERROR_OUT_OF_DATE_KHR) // The swap chain has become incompatible with the surface; usually after resizing the window
+		{
+			RecreateSwapChain();
+			_currentFrame = 0;
 
-		.swapchainCount = 1,
-		.pSwapchains = &_swapChain,
-		.pImageIndices = &imageIndex
-	};
+			return;
+		}
+		else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) // Even if the result is suboptimal, proceed anyway since we have already got an image.
+		{
+			throw std::runtime_error("Failed to acquire a swap chain image.");
+		}
 
-	result = vkQueuePresentKHR(_presentQueue, &presentInfo);
-	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _framebufferResized) // If the result is subotpimal, recreate the swap chain because we want the best result
-	{
-		RecreateSwapChain();
-		_currentFrame = -1; // The next frame should be 0
-		_framebufferResized = false;
-	}
-	else if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to present a swap chain image.");
+		vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]); // Reset the fece only if we are submitting a work
+
+		vkResetCommandBuffer(_commandBuffers[_currentFrame], 0);
+		RecordCommandBuffer(_swapChainExtent, _renderPass, _frameBuffers[_currentFrame], _commandBuffers[_currentFrame], _currentFrame);
+
+		std::vector<VkSemaphore> waitSemaphores = { _imageAvailableSemaphores[_currentFrame] };
+		if (!_computeModels.empty()) waitSemaphores.push_back(_computeFinishedSemaphores[_currentFrame]);
+		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; // Wait with writing colors to the image until it's available
+		VkSubmitInfo submitInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			.waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size()),
+			.pWaitSemaphores = waitSemaphores.data(),
+			.pWaitDstStageMask = waitStages,
+
+			.commandBufferCount = 1,
+			.pCommandBuffers = &_commandBuffers[_currentFrame],
+
+			.signalSemaphoreCount = 1,
+			.pSignalSemaphores = &_renderFinishedSemaphores[_currentFrame]
+		};
+
+		if (vkQueueSubmit(_graphicsQueue, 1, &submitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to submit a draw command buffer.");
+		}
+
+		// Submit present commands
+		VkPresentInfoKHR presentInfo =
+		{
+			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+
+			.waitSemaphoreCount = 1,
+			.pWaitSemaphores = &_renderFinishedSemaphores[_currentFrame], // Wait on the command buffer to finish execution
+
+			.swapchainCount = 1,
+			.pSwapchains = &_swapChain,
+			.pImageIndices = &imageIndex
+		};
+
+		result = vkQueuePresentKHR(_presentQueue, &presentInfo);
+		if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || _framebufferResized) // If the result is subotpimal, recreate the swap chain because we want the best result
+		{
+			RecreateSwapChain();
+			_currentFrame = -1; // The next frame should be 0
+			_framebufferResized = false;
+		}
+		else if (result != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to present a swap chain image.");
+		}
 	}
 
 	// Proceed to the next frame
@@ -212,6 +239,7 @@ void VulkanCore::CleanUp()
 		vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
 		vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
+		vkDestroyFence(_logicalDevice, _computeInFlightFences[i], nullptr);
 	}
 
 	vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
@@ -382,12 +410,12 @@ bool VulkanCore::IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 }
 
 // Create a logical device as an interface to the physical device
-std::tuple<VkDevice, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions)
+std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions)
 {
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsComputeFamily.value(), indices.presentFamily.value() };
 
 	float queuePriority = 1.0f;
 	for (uint32_t queueFamily : uniqueQueueFamilies)
@@ -439,12 +467,15 @@ std::tuple<VkDevice, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(VkPhysica
 
 	// Retrieve queue handles
 	VkQueue graphicsQueue = VK_NULL_HANDLE;
-	vkGetDeviceQueue(logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
+	vkGetDeviceQueue(logicalDevice, indices.graphicsComputeFamily.value(), 0, &graphicsQueue);
+
+	VkQueue computeQueue = VK_NULL_HANDLE;
+	vkGetDeviceQueue(logicalDevice, indices.graphicsComputeFamily.value(), 0, &computeQueue);
 
 	VkQueue presentQueue = VK_NULL_HANDLE;
 	vkGetDeviceQueue(logicalDevice, indices.presentFamily.value(), 0, &presentQueue);
 
-	return std::make_tuple(logicalDevice, graphicsQueue, presentQueue);
+	return std::make_tuple(logicalDevice, graphicsQueue, computeQueue, presentQueue);
 }
 
 // Find queues that support graphics commands
@@ -460,7 +491,7 @@ QueueFamilyIndices VulkanCore::FindQueueFamilies(VkPhysicalDevice physicalDevice
 	for (uint32_t i = 0; i < queueFamilyCount; ++i)
 	{
 		const auto &queueFamily = queueFamilies[i];
-		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) indices.graphicsFamily = i; // Check if graphics queue is supported
+		if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)) indices.graphicsComputeFamily = i; // Check if graphics queue is supported
 
 		VkBool32 presentSupport = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport); // Check if presentation queue is supported
@@ -516,10 +547,10 @@ std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> VulkanCor
 
 	// Specify how to handle swap chain images that will be used across multiple queue families
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
-	uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+	uint32_t queueFamilyIndices[] = { indices.graphicsComputeFamily.value(), indices.presentFamily.value() };
 
 	// Drawing commands on images are submitted to the graphics queue and the images are submitted to the presentation queue
-	if (indices.graphicsFamily != indices.presentFamily)
+	if (indices.graphicsComputeFamily != indices.presentFamily)
 	{
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT; // An image is owned by one queue family at a time and ownership must be explicitly transferred before using it in another queue family.
 		// Which queue families ownership will be shared using the queueFamilyIndexCount and pQueueFamilyIndices.
@@ -873,7 +904,7 @@ VkCommandPool VulkanCore::CreateCommandPool(VkPhysicalDevice physicalDevice, VkD
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value() // Since we want to record commands for drawing
+		.queueFamilyIndex = queueFamilyIndices.graphicsComputeFamily.value() // Since we want to record commands for drawing
 	};
 
 	VkCommandPool commandPool = VK_NULL_HANDLE;
@@ -902,6 +933,11 @@ std::vector<VkCommandBuffer> VulkanCore::CreateCommandBuffers(VkDevice logicalDe
 	}
 
 	return commandBuffers;
+}
+
+void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
+{
+	ForAllModels<ComputeBase>(&ComputeBase::RecordCommand, commandBuffer, computeCommandBuffer, currentFrame);
 }
 
 void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame)
@@ -970,16 +1006,17 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 		// Draw models here
-		ForAllModels(&ModelBase::RecordCommand, commandBuffer, currentFrame);
+		ForAllModels<ModelBase>(&ModelBase::RecordCommand, commandBuffer, currentFrame);
 	}
 	vkCmdEndRenderPass(commandBuffer);
+
 	if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to record command a buffer.");
 	}
 }
 
-std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>> VulkanCore::CreateSyncObjects(uint32_t maxFramesInFlight)
+std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>, std::vector<VkFence>> VulkanCore::CreateSyncObjects(uint32_t maxFramesInFlight)
 {
 	// Semaphores are used to add order between queue operations.
 	// enqueue A, signal S when done - starts executing immediately
@@ -989,12 +1026,14 @@ std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFen
 	// Note that only the GPU waits; vkQueueSubmit returns immediately and the CPU executes continuosly.
 	std::vector<VkSemaphore> imageAvailableSemaphores(maxFramesInFlight);
 	std::vector<VkSemaphore> renderFinishedSemaphores(maxFramesInFlight);
+	std::vector<VkSemaphore> computeFinishedSemaphores(maxFramesInFlight);
 
 	// Fences are used for ordering the execution on the CPU, otherwise known as the host.
 	// enqueue A, start work immediately, signal F when done
 	// vkQueueSubmit(work: A, fence : F)
 	// vkWaitForFence(F)
 	std::vector<VkFence> inFlightFences(maxFramesInFlight);
+	std::vector<VkFence> computeInFlightFences(maxFramesInFlight);
 
 	VkSemaphoreCreateInfo semaphoreInfo =
 	{
@@ -1012,14 +1051,16 @@ std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFen
 		bool failed =
 			vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS ||
 			vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
-			vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS;
+			vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &computeFinishedSemaphores[i]) != VK_SUCCESS ||
+			vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS ||
+			vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &computeInFlightFences[i]) != VK_SUCCESS;
 		if (failed)
 		{
 			throw std::runtime_error("Failed to create semaphores.");
 		}
 	}
 
-	return std::make_tuple(imageAvailableSemaphores, renderFinishedSemaphores, inFlightFences);
+	return std::make_tuple(imageAvailableSemaphores, renderFinishedSemaphores, computeFinishedSemaphores, inFlightFences, computeInFlightFences);
 }
 
 std::tuple<VkImage, VkDeviceMemory, VkImageView> VulkanCore::CreateDepthResources(VkExtent2D swapChainExtent)

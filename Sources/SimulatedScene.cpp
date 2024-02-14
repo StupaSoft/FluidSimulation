@@ -70,7 +70,8 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	if (_particleModel == nullptr)
 	{
 		_particleModel = _vulkanCore->AddModel<MeshModel>();
-		_particleModel->LoadAssets(_particleVertices, _particleIndices, "Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
+		_particleModel->LoadMesh(_particleVertices, _particleIndices);
+		_particleModel->LoadShaders("Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
 
 		MeshModel::Material particleMat
 		{
@@ -92,7 +93,10 @@ void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &text
 	auto obj = LoadOBJ(OBJPath);
 
 	auto propModel = _vulkanCore->AddModel<MeshModel>();
-	propModel->LoadAssets(std::get<0>(obj), std::get<1>(obj), "Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", texturePath);
+	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
+	propModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
+	propModel->LoadTexture(texturePath);
+
 	auto propObject = propModel->AddMeshObject();
 	propObject->SetVisible(isVisible);
 	propObject->SetCollidable(isCollidable);
@@ -270,22 +274,6 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 	}
 }
 
-// Reflect the particle positions to the render system
-void SimulatedScene::ApplyParticlePositions()
-{
-	#pragma omp parallel for
-	for (size_t i = 0; i < _particleCount; ++i)
-	{
-		glm::vec3 particlePosition = _positions[i];
-		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
-		{
-			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
-		}
-	}
-
-	_particleModel->UpdateVertices(_particleVertices);
-}
-
 glm::vec3 SimulatedScene::GetWindVelocityAt(glm::vec3 samplePosition)
 {
 	return glm::vec3{}; // Temp
@@ -317,4 +305,20 @@ void SimulatedScene::UpdateDensities()
 
 		_densities[particleIndex] = sum * simulationParameters._particleMass;
 	}
+}
+
+// Reflect the particle positions to the render system
+void SimulatedScene::ApplyParticlePositions()
+{
+#pragma omp parallel for
+	for (size_t i = 0; i < _particleCount; ++i)
+	{
+		glm::vec3 particlePosition = _positions[i];
+		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
+		{
+			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
+		}
+	}
+
+	_particleModel->UpdateVertices(_particleVertices);
 }

@@ -15,6 +15,7 @@
 #include <array>
 #include <chrono>
 #include <unordered_map>
+#include <type_traits>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -27,6 +28,7 @@
 
 #include "VulkanUtility.h"
 #include "ModelBase.h"
+#include "ComputeBase.h"
 #include "Delegate.h"
 #include "Camera.h"
 #include "DirectionalLight.h"
@@ -42,11 +44,11 @@ struct QueueFamilyIndices
 {
 	// Note that queue families that support drawing commands and presentation can differ.
 	// So they are separated.
-	std::optional<uint32_t> graphicsFamily;
+	std::optional<uint32_t> graphicsComputeFamily;
 	std::optional<uint32_t> presentFamily;
 	inline bool IsComplete()
 	{
-		return graphicsFamily.has_value() && presentFamily.has_value();
+		return graphicsComputeFamily.has_value() && presentFamily.has_value();
 	}
 };
 
@@ -56,6 +58,7 @@ class VulkanCore : public std::enable_shared_from_this<VulkanCore>
 private:
 	// ==================== Model pool ====================
 	std::vector<std::shared_ptr<ModelBase>> _models;
+	std::vector<std::shared_ptr<ComputeBase>> _computeModels;
 
 	// ==================== Basic setup ====================
 	GLFWwindow *_window;
@@ -83,11 +86,12 @@ private:
 	// Belongs to the graphics queue
 	// Automatically cleaned up when the device is destroyed
 	VkQueue _graphicsQueue;
+	VkQueue _presentQueue;
+	VkQueue _computeQueue;
 
 	// ==================== Window ====================
 	VkSurfaceKHR _surface; // Abstract type of surface to present rendered images to
-	VkQueue _presentQueue;
-
+	
 	// ==================== Swap chain ====================
 	VkSwapchainKHR _swapChain;
 	const std::vector<const char *> DEVICE_EXTENSIONS =
@@ -110,11 +114,14 @@ private:
 	// ==================== Command buffers ====================
 	VkCommandPool _commandPool;
 	std::vector<VkCommandBuffer> _commandBuffers;
+	std::vector<VkCommandBuffer> _computeCommandBuffers;
 
 	// ==================== Syncronization objects ====================
 	std::vector<VkSemaphore> _imageAvailableSemaphores; // Signal that an image has been aquired from the swap chain
 	std::vector<VkSemaphore> _renderFinishedSemaphores; // Signal that rendering has finished and presentation can happen
+	std::vector<VkSemaphore> _computeFinishedSemaphores; // Signal that compute has finished 
 	std::vector<VkFence> _inFlightFences; // To make sure that only one frame is rendering at a time
+	std::vector<VkFence> _computeInFlightFences; // Wait until the compute shader command has ended
 
 	// ==================== Frames in flight ====================
 	static const uint32_t MAX_FRAMES_IN_FLIGHT; // Limit to 2 so that the CPU doesn't get ahead of the GPU
@@ -163,34 +170,42 @@ public:
 
 	void SetUpScene(); // Temp
 
-	template<typename TModel, typename... TArgs>
-	std::shared_ptr<TModel> AddModel(TArgs&&... args)
+	template <typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true, typename... TArgs>
+	std::shared_ptr<TModel> AddModel(TArgs&&... args) 
 	{
-		std::shared_ptr<TModel> model = std::make_shared<TModel>(shared_from_this(), std::forward<TArgs>(args)...);
-
-		bool inserted = false;
-		for (auto it = _models.begin(); it != _models.end(); ++it)
-		{
-			if (model->GetOrder() < (*it)->GetOrder())
-			{
-				_models.insert(it, model);
-				inserted = true;
-				break;
-			}
-		}
-		if (!inserted) _models.emplace_back(model);
-
-		return model;
+		return AddModelInternal<TModel>(&_models, std::forward<TArgs>(args)...);
 	}
-	void RemoveModel(const std::shared_ptr<ModelBase> &model);
 
-	template<typename TFunc, typename... TArgs>
-	void ForAllModels(TFunc func, TArgs&&... args)
+	template <typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true, typename... TArgs>
+	std::shared_ptr<TModel> AddModel(TArgs&&... args) 
 	{
-		for (auto &model : _models)
-		{
-			((*model).*func)(std::forward<TArgs>(args)...);
-		}
+		return AddModelInternal<TModel>(&_computeModels, std::forward<TArgs>(args)...);
+	}
+
+	template<typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true, typename TFunc, typename... TArgs>
+	void ForAllModels(TFunc &&func, TArgs&&... args)
+	{
+		ForAllModelsInternal(&_models, std::forward<TFunc>(func), std::forward<TArgs>(args)...);
+	}
+
+	template<typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true, typename TFunc, typename... TArgs>
+	void ForAllModels(TFunc &&func, TArgs&&... args)
+	{
+		ForAllModelsInternal(&_computeModels, std::forward<TFunc>(func), std::forward<TArgs>(args)...);
+	}
+
+	template<typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true>
+	void RemoveModel(const std::shared_ptr<TModel> &model)
+	{
+		auto it = std::find(_models->begin(), _models->end(), model);
+		if (it != _models->end()) _models.erase(it);
+	}
+
+	template<typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true>
+	void RemoveModel(const std::shared_ptr<TModel> &model)
+	{
+		auto it = std::find(_computeModels->begin(), _computeModels->end(), model);
+		if (it != _computeModels->end()) _computeModels.erase(it);
 	}
 
 	// ==================== Getters ====================
@@ -200,7 +215,7 @@ public:
 	auto GetLogicalDevice() const { return _logicalDevice; }
 	auto GetSurface() const { return _surface; }
 	auto GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
-	auto GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(); }
+	auto GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsComputeFamily.value(); }
 	auto GetGraphicsQueue() const { return _graphicsQueue; }
 	auto GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
 	auto GetSwapChainImageCount() const { return _swapChainImages.size(); }
@@ -236,7 +251,7 @@ private:
 	bool IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions);
 
 	// ==================== Logical device and queues ====================
-	std::tuple<VkDevice, VkQueue, VkQueue> CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
+	std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, bool enableValidationLayers, const std::vector<const char *> &validationLayers, const std::vector<const char *> &deviceExtensions);
 	// Find queues that support graphics commands
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface) const;
 
@@ -267,10 +282,11 @@ private:
 	// ==================== Command buffers ====================
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
+	void RecordComputeCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame);
 	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
 
 	// ==================== Syncronization objects ====================
-	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);
+	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);
 
 	// ==================== Depth buffering ====================
 	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateDepthResources(VkExtent2D swapChainExtent);
@@ -278,4 +294,33 @@ private:
 
 	// ==================== Multisampling ====================
 	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
+
+	template<typename TModel, typename TModelBase, typename... TArgs>
+	std::shared_ptr<TModel> AddModelInternal(std::vector<TModelBase> *models, TArgs&&... args)
+	{
+		std::shared_ptr<TModel> model = std::make_shared<TModel>(shared_from_this(), std::forward<TArgs>(args)...);
+
+		bool inserted = false;
+		for (auto it = models->begin(); it != models->end(); ++it)
+		{
+			if (model->GetOrder() < (*it)->GetOrder())
+			{
+				models->insert(it, model);
+				inserted = true;
+				break;
+			}
+		}
+		if (!inserted) models->emplace_back(model);
+
+		return model;
+	}
+
+	template<typename TModelBase, typename TFunc, typename... TArgs>
+	void ForAllModelsInternal(std::vector<TModelBase> *models, TFunc func, TArgs&&... args)
+	{
+		for (auto &model : (*models))
+		{
+			((*model).*func)(std::forward<TArgs>(args)...);
+		}
+	}
 };

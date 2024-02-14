@@ -93,12 +93,12 @@ private:
 
 	void TimeIntegration(float deltaSecond);
 
-	// Reflect the particle status to the render system
-	void ApplyParticlePositions();
-
 	glm::vec3 GetWindVelocityAt(glm::vec3 samplePosition);
 	// Compute the pressure from the equation-of-state
 	float ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent);
 
 	void UpdateDensities();
+
+	// Reflect the particle status to the render system
+	void ApplyParticlePositions();
 };
