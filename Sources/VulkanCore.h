@@ -27,8 +27,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "VulkanUtility.h"
-#include "ModelBase.h"
-#include "ComputeBase.h"
 #include "Delegate.h"
 #include "Camera.h"
 #include "DirectionalLight.h"
@@ -56,10 +54,6 @@ struct QueueFamilyIndices
 class VulkanCore : public std::enable_shared_from_this<VulkanCore>
 {
 private:
-	// ==================== Model pool ====================
-	std::vector<std::shared_ptr<ModelBase>> _models;
-	std::vector<std::shared_ptr<ComputeBase>> _computeModels;
-
 	// ==================== Basic setup ====================
 	GLFWwindow *_window;
 
@@ -152,6 +146,8 @@ private:
 	std::unique_ptr<DirectionalLight> _mainLight;
 
 	// ==================== Events ====================
+	Delegate<void(VkCommandBuffer, VkCommandBuffer, uint32_t)> _onComputeCommand;
+	Delegate<void(VkCommandBuffer, uint32_t)> _onDrawCommand;
 	Delegate<void()> _onCleanUpSwapChain;
 	Delegate<void()> _onCleanUpOthers;
 	Delegate<void()> _onRecreateSwapChain;
@@ -169,44 +165,6 @@ public:
 	void Resize() { _framebufferResized = true; }
 
 	void SetUpScene(); // Temp
-
-	template <typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true, typename... TArgs>
-	std::shared_ptr<TModel> AddModel(TArgs&&... args) 
-	{
-		return AddModelInternal<TModel>(&_models, std::forward<TArgs>(args)...);
-	}
-
-	template <typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true, typename... TArgs>
-	std::shared_ptr<TModel> AddModel(TArgs&&... args) 
-	{
-		return AddModelInternal<TModel>(&_computeModels, std::forward<TArgs>(args)...);
-	}
-
-	template<typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true, typename TFunc, typename... TArgs>
-	void ForAllModels(TFunc &&func, TArgs&&... args)
-	{
-		ForAllModelsInternal(&_models, std::forward<TFunc>(func), std::forward<TArgs>(args)...);
-	}
-
-	template<typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true, typename TFunc, typename... TArgs>
-	void ForAllModels(TFunc &&func, TArgs&&... args)
-	{
-		ForAllModelsInternal(&_computeModels, std::forward<TFunc>(func), std::forward<TArgs>(args)...);
-	}
-
-	template<typename TModel, std::enable_if_t<std::is_base_of_v<ModelBase, std::decay_t<TModel>>, bool> = true>
-	void RemoveModel(const std::shared_ptr<TModel> &model)
-	{
-		auto it = std::find(_models->begin(), _models->end(), model);
-		if (it != _models->end()) _models.erase(it);
-	}
-
-	template<typename TModel, std::enable_if_t<std::is_base_of_v<ComputeBase, std::decay_t<TModel>>, bool> = true>
-	void RemoveModel(const std::shared_ptr<TModel> &model)
-	{
-		auto it = std::find(_computeModels->begin(), _computeModels->end(), model);
-		if (it != _computeModels->end()) _computeModels.erase(it);
-	}
 
 	// ==================== Getters ====================
 	auto *GetWindow() const { return _window; }
@@ -227,6 +185,8 @@ public:
 	auto &GetMainCamera() const { return _mainCamera; }
 	auto &GetMainLight() const { return _mainLight; }
 
+	auto &OnComputeCommand() { return _onComputeCommand; }
+	auto &OnDrawCommand() { return _onDrawCommand; }
 	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
 	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
@@ -282,7 +242,6 @@ private:
 	// ==================== Command buffers ====================
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
-	void RecordComputeCommandBuffer(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame);
 	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
 
 	// ==================== Syncronization objects ====================
@@ -294,33 +253,4 @@ private:
 
 	// ==================== Multisampling ====================
 	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
-
-	template<typename TModel, typename TModelBase, typename... TArgs>
-	std::shared_ptr<TModel> AddModelInternal(std::vector<TModelBase> *models, TArgs&&... args)
-	{
-		std::shared_ptr<TModel> model = std::make_shared<TModel>(shared_from_this(), std::forward<TArgs>(args)...);
-
-		bool inserted = false;
-		for (auto it = models->begin(); it != models->end(); ++it)
-		{
-			if (model->GetOrder() < (*it)->GetOrder())
-			{
-				models->insert(it, model);
-				inserted = true;
-				break;
-			}
-		}
-		if (!inserted) models->emplace_back(model);
-
-		return model;
-	}
-
-	template<typename TModelBase, typename TFunc, typename... TArgs>
-	void ForAllModelsInternal(std::vector<TModelBase> *models, TFunc func, TArgs&&... args)
-	{
-		for (auto &model : (*models))
-		{
-			((*model).*func)(std::forward<TArgs>(args)...);
-		}
-	}
 };

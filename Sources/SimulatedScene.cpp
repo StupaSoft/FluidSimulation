@@ -69,7 +69,7 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	// Create models
 	if (_particleModel == nullptr)
 	{
-		_particleModel = _vulkanCore->AddModel<MeshModel>();
+		_particleModel = std::make_shared<MeshModel>(_vulkanCore);
 		_particleModel->LoadMesh(_particleVertices, _particleIndices);
 		_particleModel->LoadShaders("Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
 
@@ -92,7 +92,8 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 			.zRange = glm::vec2(-1.0f, 1.0f),
 			.voxelInterval = 0.1f
 		};
-		_marchingCubes = _vulkanCore->AddModel<MarchingCubes>(_particleCount, marchingCubesSetup);
+
+		// _marchingCubes = std::make_shared<MarchingCubes>(_vulkanCore, _particleCount, marchingCubesSetup);
 	}
 
 	ApplyParticlePositions();
@@ -105,15 +106,16 @@ void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &text
 {
 	auto obj = LoadOBJ(OBJPath);
 
-	auto propModel = _vulkanCore->AddModel<MeshModel>();
+	auto propModel = std::make_shared<MeshModel>(_vulkanCore);
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
 	propModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
 	propModel->LoadTexture(texturePath);
-
+	
 	auto propObject = propModel->AddMeshObject();
 	propObject->SetVisible(isVisible);
 	propObject->SetCollidable(isCollidable);
 
+	_propModels.emplace_back(std::move(propModel));
 	_bvh->AddPropObject(propObject);
 }
 

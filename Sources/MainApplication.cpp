@@ -17,8 +17,8 @@ void WindowApplication::Run()
 	_simulatedScene->AddProp("Models/Obstacle.obj", "", false, true); // Temp
 	_simulatedScene->AddProp("Models/ObstacleWireframe.obj", "", true, false);
 
-	auto uiModel = _vulkanCore->AddModel<UIModel>();
-	uiModel->AddPanel<SimulationPanel>(_simulatedScene);
+	auto interfaceModel = std::make_shared<UIModel>(_vulkanCore);
+	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);
 
 	MainLoop();
 }

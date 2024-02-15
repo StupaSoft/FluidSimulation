@@ -28,10 +28,12 @@
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\BVH.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
+    <ClCompile Include="Sources\ComputeBase.cpp" />
     <ClCompile Include="Sources\DescriptorHelper.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
     <ClCompile Include="Sources\MarchingCubes.cpp" />
+    <ClCompile Include="Sources\ModelBase.cpp" />
     <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />

@@ -12,18 +12,28 @@ class Delegate<TReturn(TArgs...)>
 {
 private:
 	using TSignature = TReturn(TArgs...);
-	std::vector<std::unique_ptr<ListenerBase<TSignature>>> _listeners;
+	std::vector<std::tuple<size_t, std::unique_ptr<ListenerBase<TSignature>>>> _listeners;
+
+	size_t _id = 0;
 
 public:
 	template<typename TFunc>
-	void AddListener(TFunc listener)
+	size_t AddListener(TFunc listener)
 	{
-		_listeners.emplace_back(std::make_unique<Listener<TFunc, TSignature>>(listener));
+		++_id;
+		_listeners.emplace_back(_id, std::make_unique<Listener<TFunc, TSignature>>(listener));
+		return _id;
 	}
 
 	void Clear()
 	{
 		_listeners.clear();
+	}
+
+	void RemoveListener(size_t id)
+	{
+		auto it = std::find_if(_listeners.begin(), _listeners.end(), [id](const auto &elem) { return std::get<0>(elem) == id; });
+		_listeners.erase(it);
 	}
 
 	TReturn Invoke(TArgs... args)
@@ -36,11 +46,16 @@ public:
 		auto last = _listeners.end() - 1;
 		for (auto it = _listeners.begin(); it != last; ++it)
 		{
-			(*it)->Call(args...);
+			std::get<1>(*it)->Call(args...);
 		}
 
 		// Return the return value of the last listener 
-		return (*last)->Call(args...);
+		return std::get<1>(*last)->Call(args...);
+	}
+
+	size_t GetListenerCount()
+	{
+		return _listeners.size();
 	}
 };
 

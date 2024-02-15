@@ -103,6 +103,12 @@
     <ClCompile Include="Sources\DescriptorHelper.cpp">
       <Filter>sources\Utility</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\ModelBase.cpp">
+      <Filter>sources\Render</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\ComputeBase.cpp">
+      <Filter>sources\Compute</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">

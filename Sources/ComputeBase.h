@@ -5,7 +5,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-class VulkanCore;
+#include "VulkanCore.h"
 
 class ComputeBase
 {
@@ -13,7 +13,7 @@ protected:
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
 
 public:
-	ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
+	ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore);
 	ComputeBase(const ComputeBase &other) = delete;
 	ComputeBase(ComputeBase &&other) = default;
 	ComputeBase &operator=(const ComputeBase &other) = delete;
