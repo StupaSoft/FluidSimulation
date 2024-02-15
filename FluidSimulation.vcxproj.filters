@@ -100,6 +100,9 @@
     <ClCompile Include="Sources\MarchingCubes.cpp">
       <Filter>sources\Compute</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\DescriptorHelper.cpp">
+      <Filter>sources\Utility</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">
@@ -176,6 +179,9 @@
     </ClInclude>
     <ClInclude Include="Sources\ComputeBase.h">
       <Filter>sources\Compute</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\DescriptorHelper.h">
+      <Filter>sources\Utility</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

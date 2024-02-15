@@ -16,7 +16,19 @@ UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	);
 
 	// Get ready
-	_ImGuiDescriptorPool = CreateImGuiDescriptorPool();
+	DescriptorHelper descriptorHelper(_vulkanCore);
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 });
+	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 });
+	_ImGuiDescriptorPool = descriptorHelper.GetDescriptorPool();
 
 	// Initialize ImGui
 	IMGUI_CHECKVERSION();
@@ -61,39 +73,4 @@ void UIModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame
 	ImGui::Render();
 	ImDrawData *mainDrawData = ImGui::GetDrawData();
 	ImGui_ImplVulkan_RenderDrawData(mainDrawData, commandBuffer); // Add draw calls to the render pass
-}
-
-VkDescriptorPool UIModel::CreateImGuiDescriptorPool()
-{
-	std::vector<VkDescriptorPoolSize> poolSizes = // Which descriptor types the descriptor sets are going to contain and how many of them?
-	{
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
-		.maxSets = _vulkanCore->GetMaxFramesInFlight(),
-		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-		.pPoolSizes = poolSizes.data()
-	};
-
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	if (vkCreateDescriptorPool(_vulkanCore->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a ImGui descriptor pool.");
-	}
-
-	return descriptorPool;
 }

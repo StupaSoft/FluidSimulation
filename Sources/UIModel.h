@@ -8,6 +8,7 @@
 #include <backends/imgui_impl_vulkan.h>
 
 #include "VulkanCore.h"
+#include "DescriptorHelper.h"
 
 class UIModel : public ModelBase
 {
@@ -30,7 +31,4 @@ public:
 
 		return panel;
 	}
-
-private:
-	VkDescriptorPool CreateImGuiDescriptorPool();
 };

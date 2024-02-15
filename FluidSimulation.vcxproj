@@ -28,6 +28,7 @@
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
     <ClCompile Include="Sources\BVH.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
+    <ClCompile Include="Sources\DescriptorHelper.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
     <ClCompile Include="Sources\MarchingCubes.cpp" />
@@ -53,6 +54,7 @@
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\ComputeBase.h" />
     <ClInclude Include="Sources\Delegate.h" />
+    <ClInclude Include="Sources\DescriptorHelper.h" />
     <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\Kernel.h" />
     <ClInclude Include="Sources\MarchingCubes.h" />

@@ -2,6 +2,7 @@
 
 #include "ModelBase.h"
 #include "MeshObject.h"
+#include "DescriptorHelper.h"
 #include "Vertex.h"
 #include "Triangle.h"
 
@@ -24,7 +25,6 @@ public:
 
 private:
 	std::vector<std::shared_ptr<MeshObject>> _meshObjects;
-	std::vector<std::vector<VkDescriptorSet>> _descriptorSets; // [Mesh object count][Frames in flight]
 
 	// ==================== Pipeline and shaders ====================
 	VkShaderModule _vertShaderModule;
@@ -63,9 +63,12 @@ private:
 	VkSampler _textureSampler; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
 
 	// ==================== Descriptor ====================
+	DescriptorHelper _descriptorHelper;
+
 	static const uint32_t MAX_SET_COUNT = 1000;
-	VkDescriptorSetLayout _descriptorSetLayout;
 	VkDescriptorPool _descriptorPool;
+	VkDescriptorSetLayout _descriptorSetLayout;
+	std::vector<std::vector<VkDescriptorSet>> _descriptorSetsList; // [Mesh object count][Frames in flight]
 
 	// ==================== Light ====================
 	std::vector<VkBuffer> _lightBuffers;
@@ -99,10 +102,7 @@ public:
 private:
 	void UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
-	VkDescriptorSetLayout CreateDescriptorSetLayout();
-	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers);
-
+	std::tuple<VkDescriptorPool, VkDescriptorSetLayout> PrepareDescriptors();
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);

@@ -4,6 +4,7 @@
 
 #include "VulkanCore.h"
 #include "MeshModel.h"
+#include "MarchingCubes.h"
 #include "HashGrid.h"
 #include "BVH.h"
 
@@ -43,6 +44,8 @@ private:
 	std::shared_ptr<MeshModel> _particleModel = nullptr;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
+
+	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
 
 	std::vector<glm::vec3> _positions;
 	std::vector<glm::vec3> _velocities;

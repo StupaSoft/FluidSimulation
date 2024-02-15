@@ -1,8 +1,9 @@
 #include "MeshModel.h"
 #include "VulkanCore.h"
 
-MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
-	: ModelBase(vulkanCore)
+MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) : 
+	ModelBase(vulkanCore),
+	_descriptorHelper(vulkanCore)
 {
 	// Create resources
 	std::tie(_lightBuffers, _lightBuffersMemory) = CreateBuffersAndMemory
@@ -25,8 +26,7 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore)
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	_descriptorSetLayout = CreateDescriptorSetLayout();
-	_descriptorPool = CreateDescriptorPool(MAX_SET_COUNT);
+	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
 
 	// Initialize & add callbacks
 	_vulkanCore->OnCleanUpOthers().AddListener
@@ -66,7 +66,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 	{
 		if (_meshObjects[i]->IsVisible())
 		{
-			auto &descriptorSets = _descriptorSets[i];
+			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
 		}
@@ -207,10 +207,16 @@ void MeshModel::SetMaterial(Material &&material)
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
 	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore, _triangles);
-	std::vector<VkDescriptorSet> descriptorSets = CreateDescriptorSets(meshObject->GetMVPBuffers());
-
 	_meshObjects.push_back(meshObject);
-	_descriptorSets.push_back(descriptorSets);
+
+	const auto &mvpBuffers = meshObject->GetMVPBuffers();
+
+	_descriptorHelper.BindBuffers(0, mvpBuffers);
+	_descriptorHelper.BindBuffers(1, _lightBuffers);
+	_descriptorHelper.BindBuffers(2, _materialBuffers);
+	_descriptorHelper.BindSampler(3, _textureSampler, _textureImageView);
+
+	_descriptorSetsList.emplace_back(_descriptorHelper.GetDescriptorSets());
 
 	return meshObject;
 }
@@ -222,197 +228,52 @@ void MeshModel::RemoveMeshObject(const std::shared_ptr<MeshObject> &object)
 	_meshObjects.pop_back();
 }
 
-VkDescriptorSetLayout MeshModel::CreateDescriptorSetLayout()
+// Create a descriptor pool from which we can allocate descriptor sets
+std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptors()
 {
-	// Descriptor layout specifies the types of resources that are going to be accessed by the pipeline, 
-	// just like a render pass specifies the types of attachments that will be accessed.
+	// Create descriptor pool
+	_descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SET_COUNT });
+	_descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SET_COUNT });
+	auto descriptorPool = _descriptorHelper.GetDescriptorPool();
 
-	// Buffer object descriptor
-	VkDescriptorSetLayoutBinding mvpLayoutBinding =
+	// Create descriptor set layout
+	BufferLayout mvpLayout
 	{
-		.binding = 0, // 'binding' in the shader - layout(binding = 0) uniform MVPMatrix
+		.binding = 0,
+		.dataSize = sizeof(MeshObject::MVP),
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1, // The number of values in the array of uniform buffer objects - only uniform buffer
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, // In which shader stages the descriptor is going to be referenced
-		.pImmutableSamplers = nullptr
+		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
 	};
 
-	VkDescriptorSetLayoutBinding lightLayoutBinding =
+	BufferLayout lightLayout
 	{
 		.binding = 1,
+		.dataSize = sizeof(Light),
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.pImmutableSamplers = nullptr
+		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
 	};
 
-	VkDescriptorSetLayoutBinding materialLayoutBinding =
+	BufferLayout materialLayout
 	{
 		.binding = 2,
+		.dataSize = sizeof(Material),
 		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
-		.pImmutableSamplers = nullptr
+		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
 	};
 
-	// Combined texture sampler descriptor
-	VkDescriptorSetLayoutBinding samplerLayoutBinding =
+	SamplerLayout samplerLayout
 	{
-		.binding = 3,
-		.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-		.descriptorCount = 1,
-		.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT,
-		.pImmutableSamplers = nullptr
+		.binding = 3
 	};
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings = { mvpLayoutBinding, lightLayoutBinding, materialLayoutBinding, samplerLayoutBinding };
+	_descriptorHelper.AddBufferLayout(mvpLayout);
+	_descriptorHelper.AddBufferLayout(lightLayout);
+	_descriptorHelper.AddBufferLayout(materialLayout);
+	_descriptorHelper.AddSamplerLayout(samplerLayout);
 
-	VkDescriptorSetLayoutCreateInfo layoutInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-		.bindingCount = static_cast<uint32_t>(bindings.size()),
-		.pBindings = bindings.data()
-	};
+	auto descriptorSetLayout = _descriptorHelper.GetDescriptorSetLayout();
 
-	VkDescriptorSetLayout descriptorSetLayout;
-	if (vkCreateDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a descriptor set layout.");
-	}
-
-	return descriptorSetLayout;
-}
-
-// Create a descriptor pool from which we can allocate descriptor sets
-VkDescriptorPool MeshModel::CreateDescriptorPool(uint32_t maxSetCount)
-{
-	std::vector<VkDescriptorPoolSize> poolSizes = // Which descriptor types descriptor sets are going to contain and how many of them
-	{
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, maxSetCount },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, maxSetCount }
-	};
-
-	VkDescriptorPoolCreateInfo poolInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-		.maxSets = static_cast<uint32_t>(maxSetCount),
-		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
-		.pPoolSizes = poolSizes.data()
-	};
-
-	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	if (vkCreateDescriptorPool(_vulkanCore->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a descriptor pool.");
-	}
-
-	return descriptorPool;
-}
-
-// Create a descriptor set for each VkBuffer resource to bind it to the uniform buffer descriptor
-std::vector<VkDescriptorSet> MeshModel::CreateDescriptorSets(const std::vector<VkBuffer> &mvpBuffers)
-{
-	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), _descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
-
-	VkDescriptorSetAllocateInfo allocInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-		.descriptorPool = _descriptorPool, // Descriptor pool to allocate from
-		.descriptorSetCount = _vulkanCore->GetMaxFramesInFlight(), // The number of descriptor sets to allocate
-		.pSetLayouts = layouts.data()
-	};
-
-	std::vector<VkDescriptorSet> descriptorSets(_vulkanCore->GetMaxFramesInFlight());
-	if (vkAllocateDescriptorSets(_vulkanCore->GetLogicalDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to allocate descriptor sets.");
-	}
-
-	// The configuration of descriptors is updated using the vkUpdateDescriptorSets function, 
-	// which takes an array of VkWriteDescriptorSet structs as parameter.
-	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
-	{
-		// Specify the buffer and the region within it that contains the data for the descriptor.
-		VkDescriptorBufferInfo mvpInfo =
-		{
-			.buffer = mvpBuffers[i],
-			.offset = 0,
-			.range = sizeof(MeshObject::MVP)
-		};
-
-		VkDescriptorBufferInfo lightInfo =
-		{
-			.buffer = _lightBuffers[i],
-			.offset = 0,
-			.range = sizeof(Light)
-		};
-
-		VkDescriptorBufferInfo materialInfo =
-		{
-			.buffer = _materialBuffers[i],
-			.offset = 0,
-			.range = sizeof(Material)
-		};
-
-		VkDescriptorImageInfo imageInfo =
-		{
-			.sampler = _textureSampler,
-			.imageView = _textureImageView, // Now a shader can access the image view
-			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-		};
-
-		std::vector<VkWriteDescriptorSet> descriptorWrites =
-		{
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = descriptorSets[i], // Descriptor set to update
-				.dstBinding = 0, // Binding index of the uniform buffer; 0
-				.dstArrayElement = 0, // Array is not used, so it is set to just 0.
-
-				.descriptorCount = 1, // The number of array elements to update 
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-
-				.pBufferInfo = &mvpInfo, // Array with descriptorCount structs that actually configure the descriptors
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = descriptorSets[i],
-				.dstBinding = 1,
-				.dstArrayElement = 0,
-
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-
-				.pBufferInfo = &lightInfo,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = descriptorSets[i],
-				.dstBinding = 2,
-				.dstArrayElement = 0,
-
-				.descriptorCount = 1,
-				.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-
-				.pBufferInfo = &materialInfo,
-			},
-			{
-				.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-				.dstSet = descriptorSets[i], // Descriptor set to update
-				.dstBinding = 3, // Binding index of the texture sampler; 3
-				.dstArrayElement = 0, // Array is not used, so it is set to just 0.
-
-				.descriptorCount = 1, // The number of array elements to update 
-				.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-
-				.pImageInfo = &imageInfo
-			}
-		};
-
-		vkUpdateDescriptorSets(_vulkanCore->GetLogicalDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
-	}
-
-	return descriptorSets;
+	return std::make_tuple(descriptorPool, descriptorSetLayout);
 }
 
 VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)

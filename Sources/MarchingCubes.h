@@ -11,6 +11,7 @@
 
 #include "ComputeBase.h"
 #include "VulkanUtility.h"
+#include "DescriptorHelper.h"
 #include "Vertex.h"
 
 struct MarchingCubesSetup
@@ -55,6 +56,8 @@ private:
 
 	static const uint32_t MAX_SET_COUNT = 100;
 
+	static const glm::uvec3 WORK_GROUP_DIMENSION; // Local size of the work group
+
 public:
 	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const MarchingCubesSetup &setup);
 
@@ -67,8 +70,6 @@ private:
 	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDescriptorSetLayout descriptorSetLayout);
 	void CreateMeshBuffers(const MarchingCubesSetup &setup);
 
-	VkDescriptorSetLayout CreateDescriptorSetLayout();
-	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorSetLayout descriptorSetLayout, const std::vector<VkBuffer> &setupBuffers, const std::vector<VkBuffer> &positionBuffers, const std::vector<VkBuffer> &vertexBuffers, const std::vector<VkBuffer> &indexBuffers);
+	std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>> PrepareDescriptors();
 };
 
