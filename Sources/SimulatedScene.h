@@ -41,12 +41,6 @@ private:
 	size_t _particleCount = 0;
 	float _particleRadius = 0.03f;
 
-	std::shared_ptr<MeshModel> _particleModel = nullptr;
-	std::vector<Vertex> _particleVertices;
-	std::vector<uint32_t> _particleIndices;
-
-	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
-
 	std::vector<glm::vec3> _positions;
 	std::vector<glm::vec3> _velocities;
 	std::vector<glm::vec3> _forces;
@@ -63,14 +57,29 @@ private:
 
 	Kernel _kernel = Kernel(0.0f);
 
+	// Physics parameters
+	static const glm::vec3 GRAVITY;
+	SimulationParameters simulationParameters{};
+
+	// Particle rendering
+	enum class ParticleRendering
+	{
+		Particle,
+		MarchingCubes
+	};
+
+	ParticleRendering _particleRendering = ParticleRendering::Particle;
+
+	std::shared_ptr<MeshModel> _particleModel = nullptr;
+	std::vector<Vertex> _particleVertices;
+	std::vector<uint32_t> _particleIndices;
+
+	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
+
 	// 3 2
 	// 0 1
 	const std::vector<glm::vec2> VERTICES_IN_PARTICLE{ {-1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } }; // (Camera right component, camera up component, 0.0f)
 	const std::vector<uint32_t> INDICES_IN_PARTICLE{ 0, 1, 2, 0, 2, 3 };
-
-	// Physics parameters
-	static const glm::vec3 GRAVITY;
-	SimulationParameters simulationParameters{};
 
 public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}

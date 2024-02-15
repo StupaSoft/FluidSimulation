@@ -4,7 +4,7 @@
 const glm::uvec3 MarchingCubes::WORK_GROUP_DIMENSION = glm::uvec3(1024, 1, 1);
 
 MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const MarchingCubesSetup &setup) :
-	ComputeBase(_vulkanCore)
+	ComputeBase(vulkanCore)
 {
 	// Create and populate buffers
 	std::tie(_positionBuffers, _positionBufferMemory) = CreateBuffersAndMemory
@@ -13,7 +13,7 @@ MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size
 		_vulkanCore->GetLogicalDevice(),
 		particleCount * sizeof(glm::vec3),
 		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
@@ -23,7 +23,7 @@ MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(MarchingCubesSetup),
 		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 	UpdateSetup(setup);
@@ -124,7 +124,7 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>
 	{
 		.binding = 0,
 		.dataSize = sizeof(MarchingCubesSetup),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
 	};
 
@@ -132,7 +132,7 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>
 	{
 		.binding = 1,
 		.dataSize = sizeof(glm::vec3),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
 	};
 
@@ -140,7 +140,7 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>
 	{
 		.binding = 2,
 		.dataSize = sizeof(glm::vec3),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
 	};
 
@@ -148,7 +148,7 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>
 	{
 		.binding = 3,
 		.dataSize = sizeof(uint32_t),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
 	};
 
@@ -173,6 +173,11 @@ void MarchingCubes::UpdateSetup(const MarchingCubesSetup &setup)
 	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _setupBufferMemory, const_cast<MarchingCubesSetup *>(&setup), 0, sizeof(MarchingCubesSetup));
 }
 
+void MarchingCubes::UpdatePositions(const std::vector<glm::vec3> &positions)
+{
+	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _indexBufferMemory, const_cast<glm::vec3 *>(positions.data()), 0, sizeof(glm::vec3) * positions.size());
+}
+
 void MarchingCubes::RecordCommand(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
 {
 	VkCommandBufferBeginInfo beginInfo
@@ -188,7 +193,7 @@ void MarchingCubes::RecordCommand(VkCommandBuffer commandBuffer, VkCommandBuffer
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipeline);
 	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePipelineLayout, 0, 1, &_descriptorSets[currentFrame], 0, 0);
 
-	vkCmdDispatch(computeCommandBuffer, 1, 1, 1); // Temp
+	vkCmdDispatch(computeCommandBuffer, 1024, 1, 1); // Temp
 }
 
 uint32_t MarchingCubes::GetOrder()

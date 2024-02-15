@@ -82,6 +82,19 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 		_particleModel->AddMeshObject();
 	}
 
+	if (_marchingCubes == nullptr)
+	{
+		// Temp
+		MarchingCubesSetup marchingCubesSetup
+		{
+			.xRange = glm::vec2(-1.0f, 1.0f),
+			.yRange = glm::vec2(-1.0f, 1.0f),
+			.zRange = glm::vec2(-1.0f, 1.0f),
+			.voxelInterval = 0.1f
+		};
+		_marchingCubes = _vulkanCore->AddModel<MarchingCubes>(_particleCount, marchingCubesSetup);
+	}
+
 	ApplyParticlePositions();
 
 	// Build the hash grid and BVH
@@ -310,15 +323,22 @@ void SimulatedScene::UpdateDensities()
 // Reflect the particle positions to the render system
 void SimulatedScene::ApplyParticlePositions()
 {
-#pragma omp parallel for
-	for (size_t i = 0; i < _particleCount; ++i)
+	if (_particleRendering == ParticleRendering::Particle)
 	{
-		glm::vec3 particlePosition = _positions[i];
-		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
+		#pragma omp parallel for
+		for (size_t i = 0; i < _particleCount; ++i)
 		{
-			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
+			glm::vec3 particlePosition = _positions[i];
+			for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
+			{
+				_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
+			}
 		}
-	}
 
-	_particleModel->UpdateVertices(_particleVertices);
+		_particleModel->UpdateVertices(_particleVertices);
+	}
+	else if (_particleRendering == ParticleRendering::MarchingCubes)
+	{
+		_marchingCubes->UpdatePositions(_positions);
+	}
 }

@@ -23,7 +23,7 @@ struct MarchingCubesSetup
 	alignas(4) float voxelInterval = 0.0f;
 };
 
-class MarchingCubes : ComputeBase
+class MarchingCubes : public ComputeBase
 {
 private:
 	// Compute pipeline
@@ -48,20 +48,20 @@ private:
 
 	std::vector<VkBuffer> _indexBuffers;
 	std::vector<VkDeviceMemory> _indexBufferMemory;
-
+	
 	uint32_t _vertexCount = 0;
 	uint32_t _indexCount = 0;
 
-	static const uint32_t MAX_INDICES_IN_CELL = 15;
-
 	static const uint32_t MAX_SET_COUNT = 100;
 
+	static const uint32_t MAX_INDICES_IN_CELL = 15;
 	static const glm::uvec3 WORK_GROUP_DIMENSION; // Local size of the work group
 
 public:
 	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const MarchingCubesSetup &setup);
 
 	void UpdateSetup(const MarchingCubesSetup &setup);
+	void UpdatePositions(const std::vector<glm::vec3> &positions);
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override;
