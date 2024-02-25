@@ -88,7 +88,7 @@ void MeshObject::ApplyModelTransformation()
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
 
 	UpdateWorldTriangles(mvp._model);
 }
@@ -103,7 +103,7 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
 }
 
 void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)

@@ -13,63 +13,122 @@
 #include "VulkanUtility.h"
 #include "DescriptorHelper.h"
 #include "Vertex.h"
+#include "SimulationParameters.h"
 
 struct MarchingCubesSetup
 {
-	alignas(8) glm::vec2 xRange{};
-	alignas(8) glm::vec2 yRange{};
-	alignas(8) glm::vec2 zRange{};
+	alignas(8) glm::vec2 xRange{ -3.0f, 3.0f };
+	alignas(8) glm::vec2 yRange{ -1.0f, 5.0f };
+	alignas(8) glm::vec2 zRange{ -3.0f, 3.0f };
+	alignas(4) float _voxelInterval = 0.05f;
+	alignas(4) float _isovalue = 2000.0f;
 
-	alignas(4) float voxelInterval = 0.0f;
+	alignas(16) glm::uvec4 _voxelDimension{};
+	alignas(4) uint32_t _voxelCount = 0;
+
+	alignas(16) glm::uvec4 _cellDimension{};
+	alignas(4) uint32_t _cellCount = 0;
+
+	alignas(4) uint32_t _vertexCount = 0;
+	alignas(4) uint32_t _indexCount = 0;
 };
 
 class MarchingCubes : public ComputeBase
 {
 private:
+	struct ParticleProperty
+	{
+		alignas(4) uint32_t _particleCount = 0;
+		alignas(4) float _kernelRadiusFactor = 0.0f;
+		alignas(4) float _r1 = 0.0f;
+		alignas(4) float _r2 = 0.0f;
+		alignas(4) float _r3 = 0.0f;
+	};
+
+	// Setup
+	std::unique_ptr<ParticleProperty> _particleProperty = std::make_unique<ParticleProperty>();
+	std::unique_ptr<MarchingCubesSetup> _setup = std::make_unique<MarchingCubesSetup>();
+
 	// Compute pipeline
-	VkPipeline _computePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _computePipelineLayout = VK_NULL_HANDLE;
+	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _accumulationPipelineLayout = VK_NULL_HANDLE;
+
+	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
+
+	VkPipeline _presentationPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _presentationPipelineLayout = VK_NULL_HANDLE;
 
 	// Descriptor sets
+	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
 	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _descriptorSets;
 
-	// Input particle position buffers
-	std::vector<VkBuffer> _positionBuffers;
-	std::vector<VkDeviceMemory> _positionBufferMemory;
+	VkDescriptorSetLayout _accumulationDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _accumulationDescriptorSets;
 
-	// Marching cubes mesh buffers
-	std::vector<VkBuffer> _setupBuffers;
-	std::vector<VkDeviceMemory> _setupBufferMemory;
+	VkDescriptorSetLayout _constructionDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _constructionDescriptorSets;
 
-	std::vector<VkBuffer> _vertexBuffers;
-	std::vector<VkDeviceMemory> _vertexBufferMemory;
+	VkDescriptorSetLayout _presentationDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _presentationDescriptorSets;
 
-	std::vector<VkBuffer> _indexBuffers;
-	std::vector<VkDeviceMemory> _indexBufferMemory;
-	
-	uint32_t _vertexCount = 0;
-	uint32_t _indexCount = 0;
+	// Basic buffers
+	VkBuffer _particlePropertyBuffer;
+	VkDeviceMemory _particlePropertyBufferMemory;
 
+	VkBuffer _setupBuffer;
+	VkDeviceMemory _setupBufferMemory;
+
+	std::vector<VkBuffer> _particlePositionBuffers;
+	std::vector<VkDeviceMemory> _particlePositionBufferMemory;
+
+	// Mesh construction buffers
+	VkBuffer _indexTableBuffer;
+	VkDeviceMemory _indexTableMemory;
+
+	VkBuffer _voxelBuffer;
+	VkDeviceMemory _voxelBufferMemory;
+
+	VkBuffer _vertexPositionBuffer; // Buffers that contains the vertex position result from the construction shader
+	VkDeviceMemory _vertexPositionBufferMemory;
+
+	VkBuffer _normalBuffer;
+	VkDeviceMemory _normalBufferMemory;
+
+	VkBuffer _indexBuffer;
+	VkDeviceMemory _indexBufferMemory;
+
+	VkBuffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
+	VkDeviceMemory _vertexOutputBufferMemory;
+
+	// Constants
 	static const uint32_t MAX_SET_COUNT = 100;
-
+	static const uint32_t CODES_COUNT = 256;
 	static const uint32_t MAX_INDICES_IN_CELL = 15;
-	static const glm::uvec3 WORK_GROUP_DIMENSION; // Local size of the work group
+	static const std::vector<uint32_t> INDICES_TABLE;
 
 public:
-	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const MarchingCubesSetup &setup);
+	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesSetup &setup);
 
-	void UpdateSetup(const MarchingCubesSetup &setup);
 	void UpdatePositions(const std::vector<glm::vec3> &positions);
+	void UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters);
 
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
+	std::tuple<VkBuffer, VkDeviceMemory> GetVertexBuffer() { return std::make_tuple(_vertexOutputBuffer, _vertexOutputBufferMemory); }
+	std::tuple<VkBuffer, VkDeviceMemory> GetIndexBuffer() { return std::make_tuple(_indexBuffer, _indexBufferMemory); }
+
+	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override;
 
-private:
-	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDescriptorSetLayout descriptorSetLayout);
-	void CreateMeshBuffers(const MarchingCubesSetup &setup);
+	uint32_t GetIndexCount() { return _setup->_indexCount; }
 
-	std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>> PrepareDescriptors();
+private:
+	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);
+	void UpdateSetup(const MarchingCubesSetup &setup);
+	void CreateComputeBuffers(const MarchingCubesSetup &setup);
+
+	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateAccumulationDescriptors(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateConstructionDescriptors(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePresentationDescriptors(DescriptorHelper *descriptorHelper);
 };
 

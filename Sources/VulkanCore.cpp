@@ -36,14 +36,16 @@ void VulkanCore::InitVulkan()
 
 void VulkanCore::DrawFrame()
 {
+	std::vector<VkSemaphore> waitSemaphores = { _imageAvailableSemaphores[_currentFrame] };
+
 	// Submit compute commands
-	if (_onComputeCommand.GetListenerCount() > 0)
+	if (_onRecordComputeCommand.GetListenerCount() > 0)
 	{
 		vkWaitForFences(_logicalDevice, 1, &_computeInFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
 		vkResetFences(_logicalDevice, 1, &_computeInFlightFences[_currentFrame]);
 
 		vkResetCommandBuffer(_computeCommandBuffers[_currentFrame], 0);
-		_onComputeCommand.Invoke(_commandBuffers[_currentFrame], _computeCommandBuffers[_currentFrame], _currentFrame);
+		RecordComputeCommandBuffer(_computeCommandBuffers[_currentFrame], _currentFrame);
 
 		VkSubmitInfo computeSubmitInfo
 		{
@@ -60,9 +62,11 @@ void VulkanCore::DrawFrame()
 		{
 			throw std::runtime_error("Failed to submit a compute command buffer.");
 		}
+
+		waitSemaphores.push_back(_computeFinishedSemaphores[_currentFrame]);
 	}
 
-	if (_onDrawCommand.GetListenerCount() > 0)
+	if (_onRecordDrawCommand.GetListenerCount() > 0)
 	{
 		// Submit draw commands
 		vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX); // Wait until the previous frame has finished
@@ -86,8 +90,6 @@ void VulkanCore::DrawFrame()
 		vkResetCommandBuffer(_commandBuffers[_currentFrame], 0);
 		RecordCommandBuffer(_swapChainExtent, _renderPass, _frameBuffers[_currentFrame], _commandBuffers[_currentFrame], _currentFrame);
 
-		std::vector<VkSemaphore> waitSemaphores = { _imageAvailableSemaphores[_currentFrame] };
-		if (_onComputeCommand.GetListenerCount() > 0) waitSemaphores.push_back(_computeFinishedSemaphores[_currentFrame]);
 		VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT }; // Wait with writing colors to the image until it's available
 		VkSubmitInfo submitInfo
 		{
@@ -935,6 +937,26 @@ std::vector<VkCommandBuffer> VulkanCore::CreateCommandBuffers(VkDevice logicalDe
 	return commandBuffers;
 }
 
+void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
+{
+	VkCommandBufferBeginInfo beginInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+	};
+
+	if (vkBeginCommandBuffer(computeCommandBuffer, &beginInfo) != VK_SUCCESS) 
+	{
+		throw std::runtime_error("failed to begin recording compute command buffer!");
+	}
+
+	_onRecordComputeCommand.Invoke(computeCommandBuffer, currentFrame);
+
+	if (vkEndCommandBuffer(computeCommandBuffer) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to record compute command buffer!");
+	}
+}
+
 void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
 	// Begin to record a command buffer
@@ -1001,7 +1023,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
 		// Draw models here
-		_onDrawCommand.Invoke(commandBuffer, currentFrame);
+		_onRecordDrawCommand.Invoke(commandBuffer, currentFrame);
 	}
 	vkCmdEndRenderPass(commandBuffer);
 

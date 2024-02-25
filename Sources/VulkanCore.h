@@ -146,8 +146,8 @@ private:
 	std::unique_ptr<DirectionalLight> _mainLight;
 
 	// ==================== Events ====================
-	Delegate<void(VkCommandBuffer, VkCommandBuffer, uint32_t)> _onComputeCommand;
-	Delegate<void(VkCommandBuffer, uint32_t)> _onDrawCommand;
+	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordComputeCommand;
+	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordDrawCommand;
 	Delegate<void()> _onCleanUpSwapChain;
 	Delegate<void()> _onCleanUpOthers;
 	Delegate<void()> _onRecreateSwapChain;
@@ -185,8 +185,8 @@ public:
 	auto &GetMainCamera() const { return _mainCamera; }
 	auto &GetMainLight() const { return _mainLight; }
 
-	auto &OnComputeCommand() { return _onComputeCommand; }
-	auto &OnDrawCommand() { return _onDrawCommand; }
+	auto &OnComputeCommand() { return _onRecordComputeCommand; }
+	auto &OnDrawCommand() { return _onRecordDrawCommand; }
 	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
 	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
@@ -242,6 +242,8 @@ private:
 	// ==================== Command buffers ====================
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
+
+	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame);
 	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
 
 	// ==================== Syncronization objects ====================

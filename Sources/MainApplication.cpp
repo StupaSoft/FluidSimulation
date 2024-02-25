@@ -19,6 +19,7 @@ void WindowApplication::Run()
 
 	auto interfaceModel = std::make_shared<UIModel>(_vulkanCore);
 	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);
+	interfaceModel->AddPanel<RenderingPanel>(_simulatedScene);
 
 	MainLoop();
 }

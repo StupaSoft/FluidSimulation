@@ -1,0 +1,219 @@
+#version 450
+
+const uint FRAC = 10000;
+
+const uint CORNERS_IN_CELL = 8;
+const uint CODES_COUNT = 256;
+const uint INDICES_IN_CELL = 15;
+const uint VERTICES_IN_CELL = 12;
+const uint NORMAL_GROUP_COUNT= 4;
+
+uvec2 VERTEX_TO_CORNERS[VERTICES_IN_CELL] = uvec2[]
+(
+    uvec2(0, 1), // Vertex 0 is between the corner 0 and corner 1
+    uvec2(1, 3), // Vertex 1
+    uvec2(2, 3), // Vertex 2
+    uvec2(0, 2), // Vertex 3
+    uvec2(4, 5), // Vertex 4
+    uvec2(5, 7), // Vertex 5
+    uvec2(6, 7), // Vertex 6
+    uvec2(4, 6), // Vertex 7
+    uvec2(0, 4), // Vertex 8
+    uvec2(1, 5), // Vertex 9
+    uvec2(3, 7), // Vertex 10
+    uvec2(2, 6) // Vertex 11
+);
+
+uint NORMAL_GROUP[VERTICES_IN_CELL] = uint[]
+(
+    0, // Vertex 0 is adjacent to vertex 2, 4, 6
+    0, // Vertex 1 is adjacent to vertex 3, 5, 7
+    1, // Vertex 2
+    2, // Vertex 3
+    2, // Vertex 4
+    3, // Vertex 5
+    3, // Vertex 6
+    4, // Vertex 7
+    0, // Vertex 8 is adjacent to vertex 9, 10, 11
+    1, // Vertex 9
+    2, // Vertex 10
+    3 // Vertex 11
+);
+
+struct MarchingCubesSetup
+{
+    vec2 xRange;
+    vec2 yRange;
+    vec2 zRange;
+    float voxelInterval;
+    float isovalue;
+
+    uvec4 voxelDimension;
+    uint voxelCount;
+
+    uvec4 cellDimension;
+    uint cellCount;
+
+    uint vertexCount;
+    uint indexCount;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SetupInSSBO
+{
+    MarchingCubesSetup setup;
+};
+
+// Input voxel
+layout (std430, binding = 1) buffer VoxelInSSBO
+{
+    uint voxelDensities[];
+};
+
+// Code -> Vertex indices
+layout (std430, binding = 2) buffer IndexTableInSSBO
+{
+    uint indexTable[CODES_COUNT * INDICES_IN_CELL]; // [CODES_COUNT][INDICES_IN_CELL]
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 3) buffer VertexPositionOutSSBO 
+{
+    vec3 vertexPositions[]; // [vertex count]
+};
+
+layout (std430, binding = 4) buffer NormalOutSSBO
+{
+    vec3 normals[]; // [vertex count][4] maximum four normals per vertex
+};
+
+layout (std430, binding = 5) buffer IndexOutSSBO
+{
+    uint indices[]; // [cell count][INDICES_IN_CELL]
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+uint GetLinearIndex(uvec3 volumeIndex, uvec3 dimension)
+{
+    return volumeIndex.z * (dimension.x * dimension.y) + volumeIndex.y * (dimension.x) + volumeIndex.x;
+}
+
+uvec3 GetVolumeIndex(uint index, uvec3 dimension)
+{
+    uint x = index % dimension.x;
+    index = (index - x) / dimension.x;
+    uint y = index % dimension.y;
+    uint z = (index - y) / dimension.y;
+
+    return uvec3(x, y, z); 
+}
+
+void main() 
+{
+    // This invocation deals with a single cell
+    uint cellLinearIndex = gl_GlobalInvocationID.x;
+    if (cellLinearIndex >= setup.cellCount) return;
+
+    uvec3 cellVolumeIndex = GetVolumeIndex(cellLinearIndex, setup.cellDimension.xyz); // The volume index of this cell
+    vec3 voxelOrigin = vec3(setup.xRange.x, setup.yRange.x, setup.zRange.x);
+
+    // Classify sparse and dense corner voxels
+    uint code = 0;
+    float cornerDensities[CORNERS_IN_CELL]; // Number of particles that belong to each corner voxel
+    vec3 voxelPositions[CORNERS_IN_CELL]; // Positions of voxels
+    for (uint i = 0; i < CORNERS_IN_CELL; ++i)
+    {
+        uint cornerX = (i >> 0) & 0x1;
+        uint cornerY = (i >> 1) & 0x1;
+        uint cornerZ = (i >> 2) & 0x1;
+        uvec3 voxelVolumeIndex = cellVolumeIndex + uvec3(cornerX, cornerY, cornerZ);
+
+        uint voxelLinearIndex = GetLinearIndex(voxelVolumeIndex, setup.voxelDimension.xyz);
+        cornerDensities[i] = float(voxelDensities[voxelLinearIndex]) / FRAC;
+        voxelPositions[i] = voxelOrigin + voxelVolumeIndex * setup.voxelInterval;
+
+        code |= (((cornerDensities[i] > setup.isovalue) ? 1 : 0) << i);
+    }
+
+    // Get global vertex indices from local vertex indices;
+    uint x = cellVolumeIndex.x;
+    uint y = cellVolumeIndex.y;
+    uint z = cellVolumeIndex.z;
+    uint DX = setup.cellDimension.x;
+    uint DY = setup.cellDimension.y;
+    uint DZ = setup.cellDimension.z;
+
+    // Set global vertex indices
+    uint globalVertexIndices[VERTICES_IN_CELL];
+
+    // Vertices located on edges aligned with the x axis
+    globalVertexIndices[0] = z * (DY + 1) * DX + y * DX + x;
+    globalVertexIndices[2] = globalVertexIndices[0] + DX;
+    globalVertexIndices[4] = globalVertexIndices[0] + (DY + 1) * DX;
+    globalVertexIndices[6] = globalVertexIndices[0] + (DY + 2) * DX;
+
+    // Vertices located on edges aligned with the y axis
+    globalVertexIndices[3] = (DZ + 1) * (DY + 1) * DX + z * DY * (DX + 1) + y * (DX + 1) + x;
+    globalVertexIndices[1] = globalVertexIndices[3] + 1;
+    globalVertexIndices[7] = globalVertexIndices[3] + DY * (DX + 1);
+    globalVertexIndices[5] = globalVertexIndices[3] + DY * (DX + 1) + 1;
+
+    // Vertices located on edges aligned with the z axis
+    globalVertexIndices[8] = (DZ + 1) * (DY + 1) * DX + (DZ + 1) * DY * (DX + 1) + z * (DY + 1) * (DX + 1) + y * (DX + 1) + x;
+    globalVertexIndices[9] = globalVertexIndices[8] + 1;
+    globalVertexIndices[11] = globalVertexIndices[8] + (DX + 1);
+    globalVertexIndices[10] = globalVertexIndices[8] + (DX + 2);
+
+    vec3 vertexPositionsInCell[INDICES_IN_CELL]; // This will be used to find normals later
+    bool notLastEdge = (cellVolumeIndex.x != setup.cellDimension.x - 1) && (cellVolumeIndex.y != setup.cellDimension.y - 1) && (cellVolumeIndex.z != setup.cellDimension.z - 1);
+    // Record vertex indices into IndexOutSSBO, vertex positions into VertexPositionOutSSBO, and normals into NormalOutSSBO
+    for (uint i = 0; i < INDICES_IN_CELL; ++i)
+    {
+        uint localVertexIndex = indexTable[code * INDICES_IN_CELL + i];
+        uint globalVertexIndex = (localVertexIndex == -1) ? -1 : globalVertexIndices[localVertexIndex];
+
+        // Store in the output index buffer!
+        // Since we will process vertex 0, 3, 8 in each cell, the vertices on the last edge for each axis will be invalid.
+        // Make triangles only for vertices not on the last edges. 
+        if (notLastEdge) indices[cellLinearIndex * INDICES_IN_CELL + i] = globalVertexIndex;
+        if (globalVertexIndex == -1) continue;
+
+        // Store vertex positions in the vertex position buffer!
+        uvec2 adjacentCorners = VERTEX_TO_CORNERS[localVertexIndex];
+        bool isLargerY = cornerDensities[adjacentCorners.x] < cornerDensities[adjacentCorners.y];
+
+        float weight1 = isLargerY ? cornerDensities[adjacentCorners.x] : cornerDensities[adjacentCorners.y];
+        float weight2 = isLargerY ? cornerDensities[adjacentCorners.y] : cornerDensities[adjacentCorners.x];
+        vec3 position1 = isLargerY ? voxelPositions[adjacentCorners.x] : voxelPositions[adjacentCorners.y];
+        vec3 position2 = isLargerY ? voxelPositions[adjacentCorners.y] : voxelPositions[adjacentCorners.x];
+
+        vec3 interpolatedPosition = position1 + (setup.isovalue - weight1) * ((position2 - position1) / (weight2 - weight1));
+        if (localVertexIndex == 0 || localVertexIndex == 3 || localVertexIndex == 8)
+        {
+            vertexPositions[globalVertexIndex] = interpolatedPosition;
+        }
+
+        vertexPositionsInCell[i] = interpolatedPosition;
+
+        // Store normals for every three indices
+        // (i % 3 == 2) means that we have processed three vertices for a triangle
+        if (i % 3 == 2)
+        {
+            vec3 v1 = vertexPositionsInCell[i - 2];
+            vec3 v2 = vertexPositionsInCell[i - 1];
+            vec3 v3 = vertexPositionsInCell[i];
+            vec3 normal = normalize(cross(v2 - v1, v3 - v1));
+
+            uint normalGroup1 = NORMAL_GROUP[indexTable[i - 2]];
+            normals[globalVertexIndex * NORMAL_GROUP_COUNT + normalGroup1] += normal;
+
+            uint normalGroup2 = NORMAL_GROUP[indexTable[i - 1]];
+            normals[globalVertexIndex * NORMAL_GROUP_COUNT + normalGroup2] += normal;
+
+            uint normalGroup3 = NORMAL_GROUP[indexTable[i]];
+            normals[globalVertexIndex * NORMAL_GROUP_COUNT + normalGroup3] += normal;
+        }
+    }
+}

@@ -344,10 +344,21 @@ std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateBuffersAndM
 	return std::make_tuple(buffers, buffersMemory);
 }
 
-void CopyToBuffer(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *memory, VkDeviceSize copyOffset, VkDeviceSize copySize)
+void CopyToBuffer(VkDevice logicalDevice, VkDeviceMemory bufferMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
 {
-	std::byte *offsetPtr = reinterpret_cast<std::byte *>(memory) + copyOffset;
-	void *source = offsetPtr;
+	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
+	source = offsetPtr;
+
+	void *data;
+	vkMapMemory(logicalDevice, bufferMemory, copyOffset, copySize, 0, &data);
+	memcpy(data, source, copySize);
+	vkUnmapMemory(logicalDevice, bufferMemory);
+}
+
+void CopyToBuffers(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
+{
+	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
+	source = offsetPtr;
 
 	for (size_t i = 0; i < buffersMemory.size(); ++i)
 	{

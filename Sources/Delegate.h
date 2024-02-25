@@ -33,7 +33,10 @@ public:
 	void RemoveListener(size_t id)
 	{
 		auto it = std::find_if(_listeners.begin(), _listeners.end(), [id](const auto &elem) { return std::get<0>(elem) == id; });
-		_listeners.erase(it);
+		if (it != _listeners.end())
+		{
+			_listeners.erase(it);
+		}
 	}
 
 	TReturn Invoke(TArgs... args)

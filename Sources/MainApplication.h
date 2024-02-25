@@ -26,6 +26,7 @@
 #include "UIModel.h"
 
 #include "SimulationPanel.h"
+#include "RenderingPanel.h"
 
 class WindowApplication
 {

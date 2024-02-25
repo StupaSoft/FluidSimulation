@@ -68,7 +68,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 		{
 			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size()), 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, _indexCount, 1, 0, 0, 0);
 		}
 	}
 }
@@ -173,13 +173,15 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	UpdateIndices(indices);
 }
 
-void MeshModel::LoadMesh(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory)
+void MeshModel::SetMeshBuffers(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory, uint32_t indexCount)
 {
 	_vertexBuffer = vertexBuffer;
 	_vertexBufferMemory = vertexBufferMemory;
 
 	_indexBuffer = indexBuffer;
 	_indexBufferMemory = indexBufferMemory;
+
+	_indexCount = indexCount;
 }
 
 void MeshModel::LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
@@ -333,6 +335,7 @@ void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 {
 	_indices = indices;
+	_indexCount = static_cast<uint32_t>(_indices.size());
 
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -549,12 +552,12 @@ void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(Light);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory, &light, copyOffset, copySize);
+	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory, &light, copyOffset, copySize);
 }
 
 void MeshModel::ApplyMaterialAdjustment()
 {
 	auto copyOffset = 0;
 	auto copySize = sizeof(Material);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory, &_material, copyOffset, copySize);
+	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory, &_material, copyOffset, copySize);
 }

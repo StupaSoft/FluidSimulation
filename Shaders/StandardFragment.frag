@@ -23,11 +23,12 @@ layout(location = 0) out vec4 outColor; // View space
 void main()
 {
     // Diffuse
-    vec3 diffuse = lightIntensity * (lightColor * clamp(dot(fragNormal, lightDirection), 0.0f, 1.0f)) * texture(texSampler, fragTexCoord).xyz;
+    vec3 normal = normalize(fragNormal);
+    vec3 diffuse = lightIntensity * (lightColor * clamp(dot(normal, lightDirection), 0.0f, 1.0f)) * texture(texSampler, fragTexCoord).xyz * fragColor;
 
     // Specular
     vec3 halfway = normalize(normalize(viewDirection) + normalize(lightDirection));
-    float highlight = pow(clamp(dot(fragNormal, halfway), 0.0f, 1.0f), glossiness) * float(dot(fragNormal, lightDirection) > 0.0f);
+    float highlight = pow(clamp(dot(normal, halfway), 0.0f, 1.0f), glossiness) * float(dot(normal, lightDirection) > 0.0f);
     vec3 specular = lightColor * specularColor * highlight;
 
     outColor = vec4(diffuse + specular, 1.0f);

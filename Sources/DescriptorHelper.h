@@ -49,6 +49,7 @@ public:
 	void AddSamplerLayout(const SamplerLayout &samplerLayout);
 
 	// buffer[max frames in flight]
+	void BindBuffer(uint32_t binding, VkBuffer buffer);
 	void BindBuffers(uint32_t binding, const std::vector<VkBuffer> &buffers);
 	void BindSampler(uint32_t binding, VkSampler sampler, VkImageView imageView);
 
@@ -56,6 +57,8 @@ public:
 	VkDescriptorPool GetDescriptorPool();
 	VkDescriptorSetLayout GetDescriptorSetLayout();
 	std::vector<VkDescriptorSet> GetDescriptorSets();
+
+	void ClearLayouts();
 
 private:
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount, const std::vector<VkDescriptorPoolSize> &poolSizes);

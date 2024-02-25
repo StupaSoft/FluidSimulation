@@ -4,8 +4,8 @@ const glm::vec3 SimulatedScene::GRAVITY = glm::vec3(0.0f, -9.8f, 0.0f);
 
 void SimulatedScene::InitializeParticles(float particleRadius, float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
-	_particleRadius = particleRadius;
-	_kernel = Kernel(_particleRadius * simulationParameters._kernelRadiusFactor);
+	_simulationParameters->_particleRadius = particleRadius;
+	_kernel = Kernel(_simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
 
 	// Setup
 	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
@@ -66,10 +66,13 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 		}
 	}
 
-	// Create models
+	// Build the hash grid and BVH
+	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
+
+	// Initialize render systems
 	if (_particleModel == nullptr)
 	{
-		_particleModel = std::make_shared<MeshModel>(_vulkanCore);
+		_particleModel = std::make_unique<MeshModel>(_vulkanCore);
 		_particleModel->LoadMesh(_particleVertices, _particleIndices);
 		_particleModel->LoadShaders("Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
 
@@ -79,34 +82,60 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 			._glossiness = 1.0f
 		};
 		_particleModel->SetMaterial(std::move(particleMat));
-		_particleModel->AddMeshObject();
+
+		_particleObject = _particleModel->AddMeshObject();
+		_particleObject->SetVisible(false);
 	}
 
 	if (_marchingCubes == nullptr)
 	{
-		// Temp
-		MarchingCubesSetup marchingCubesSetup
-		{
-			.xRange = glm::vec2(-1.0f, 1.0f),
-			.yRange = glm::vec2(-1.0f, 1.0f),
-			.zRange = glm::vec2(-1.0f, 1.0f),
-			.voxelInterval = 0.1f
-		};
+		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, MarchingCubesSetup{});
+		auto vertexBuffer = _marchingCubes->GetVertexBuffer();
+		auto indexBuffer = _marchingCubes->GetIndexBuffer();
+		_marchingCubes->SetEnable(false);
 
-		// _marchingCubes = std::make_shared<MarchingCubes>(_vulkanCore, _particleCount, marchingCubesSetup);
+		_marchingCubesModel = std::make_unique<MeshModel>(_vulkanCore);
+		_marchingCubesModel->SetMeshBuffers(std::get<0>(vertexBuffer), std::get<1>(vertexBuffer), std::get<0>(indexBuffer), std::get<1>(indexBuffer), _marchingCubes->GetIndexCount());
+		_marchingCubesModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
+
+		MeshModel::Material marchingCubesMat
+		{
+			._color = glm::vec4(0.0f, 0.1f, 1.0f, 1.0f),
+			._glossiness = 1.0f
+		};
+		_marchingCubesModel->SetMaterial(std::move(marchingCubesMat));
+
+		_marchingCubesObject = _marchingCubesModel->AddMeshObject();
+		_marchingCubesObject->SetVisible(false);
 	}
 
-	ApplyParticlePositions();
+	SetParticleRenderingMode(_particleRenderingMode);
+}
 
-	// Build the hash grid and BVH
-	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _particleRadius * simulationParameters._kernelRadiusFactor);
+void SimulatedScene::SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode)
+{
+	_particleRenderingMode = particleRenderingMode;
+	if (_particleRenderingMode == ParticleRenderingMode::Particle)
+	{
+		_marchingCubes->SetEnable(false);
+		_marchingCubesObject->SetVisible(false);
+
+		_particleObject->SetVisible(true);
+	}
+	else if (_particleRenderingMode == ParticleRenderingMode::MarchingCubes)
+	{
+		_particleObject->SetVisible(false);
+
+		_marchingCubes->SetEnable(true);
+		_marchingCubesObject->SetVisible(true);
+	}
 }
 
 void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
 {
 	auto obj = LoadOBJ(OBJPath);
 
-	auto propModel = std::make_shared<MeshModel>(_vulkanCore);
+	auto propModel = std::make_unique<MeshModel>(_vulkanCore);
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
 	propModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
 	propModel->LoadTexture(texturePath);
@@ -168,11 +197,11 @@ void SimulatedScene::AccumulateExternalForce(float deltaSecond)
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
 		// Apply gravity
-		glm::vec3 externalForce = simulationParameters._particleMass * GRAVITY;
+		glm::vec3 externalForce = _simulationParameters->_particleMass * GRAVITY;
 
 		// Apply wind forces
 		glm::vec3 relativeVelocity = _velocities[particleIndex] - GetWindVelocityAt(_positions[particleIndex]);
-		externalForce += -simulationParameters._dragCoefficient * relativeVelocity;
+		externalForce += -_simulationParameters->_dragCoefficient * relativeVelocity;
 
 		_forces[particleIndex] += externalForce;
 	}
@@ -190,7 +219,7 @@ void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
 			[&](size_t neighborIndex)
 			{
 				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-				_forces[particleIndex] += simulationParameters._viscosityCoefficient * (simulationParameters._particleMass * simulationParameters._particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
+				_forces[particleIndex] += _simulationParameters->_viscosityCoefficient * (_simulationParameters->_particleMass * _simulationParameters->_particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
 			}
 		);
 	}
@@ -202,8 +231,8 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		float eosScale = simulationParameters._targetDensity * (simulationParameters._soundSpeed * simulationParameters._soundSpeed) / simulationParameters._eosExponent;
-		_pressures[particleIndex] = ComputePressureFromEOS(_densities[particleIndex], simulationParameters._targetDensity, eosScale, simulationParameters._eosExponent);
+		float eosScale = _simulationParameters->_targetDensity * (_simulationParameters->_soundSpeed * _simulationParameters->_soundSpeed) / _simulationParameters->_eosExponent;
+		_pressures[particleIndex] = ComputePressureFromEOS(_densities[particleIndex], _simulationParameters->_targetDensity, eosScale, _simulationParameters->_eosExponent);
 	}
 
 	// Compute pressure forces from the pressures
@@ -221,7 +250,7 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 				{
 					glm::vec3 direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
 					_pressureForces[particleIndex] -=
-						(simulationParameters._particleMass * simulationParameters._particleMass) * 
+						(_simulationParameters->_particleMass * _simulationParameters->_particleMass) * 
 						_kernel.Gradient(distance, direction) * 
 						(_pressures[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + _pressures[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex]));
 				}
@@ -243,7 +272,7 @@ void SimulatedScene::ResolveCollision()
 		{
 			// Target point is the closest non-penetrating position from the current position.
 			glm::vec3 targetNormal = intersection.normal;
-			glm::vec3 targetPoint = intersection.point + _particleRadius * targetNormal * 0.1f;
+			glm::vec3 targetPoint = intersection.point + _simulationParameters->_particleRadius * targetNormal * 0.1f;
 			glm::vec3 collisionPointVelocity = intersection.pointVelocity;
 
 			// Get new candidate relative velocities from the target point
@@ -256,13 +285,13 @@ void SimulatedScene::ResolveCollision()
 			if (normalDotRelativeVelocity < 0.0f)
 			{
 				// Apply restitution coefficient to the surface normal component of the velocity
-				glm::vec3 deltaRelativeVelocityN = (-simulationParameters._restitutionCoefficient - 1.0f) * relativeVelocityN;
-				relativeVelocityN *= -simulationParameters._restitutionCoefficient;
+				glm::vec3 deltaRelativeVelocityN = (-_simulationParameters->_restitutionCoefficient - 1.0f) * relativeVelocityN;
+				relativeVelocityN *= -_simulationParameters->_restitutionCoefficient;
 
 				// Apply friction to the tangential component of the velocity
 				if (relativeVelocityT.length() > 0.0f)
 				{
-					float frictionScale = std::max(1.0f - simulationParameters._frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
+					float frictionScale = std::max(1.0f - _simulationParameters->_frictionCoefficient * deltaRelativeVelocityN.length() / relativeVelocityT.length(), 0.0f);
 					relativeVelocityT *= frictionScale;
 				}
 
@@ -282,7 +311,7 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
 		// Integrate velocity
-		_nextVelocities[particleIndex] = _velocities[particleIndex] + deltaSecond * (_forces[particleIndex] / simulationParameters._particleMass);
+		_nextVelocities[particleIndex] = _velocities[particleIndex] + deltaSecond * (_forces[particleIndex] / _simulationParameters->_particleMass);
 
 		// Integrate position
 		_nextPositions[particleIndex] = _positions[particleIndex] + deltaSecond * _nextVelocities[particleIndex];
@@ -318,14 +347,14 @@ void SimulatedScene::UpdateDensities()
 			}
 		);
 
-		_densities[particleIndex] = sum * simulationParameters._particleMass;
+		_densities[particleIndex] = sum * _simulationParameters->_particleMass;
 	}
 }
 
 // Reflect the particle positions to the render system
 void SimulatedScene::ApplyParticlePositions()
 {
-	if (_particleRendering == ParticleRendering::Particle)
+	if (_particleRenderingMode == ParticleRenderingMode::Particle)
 	{
 		#pragma omp parallel for
 		for (size_t i = 0; i < _particleCount; ++i)
@@ -339,7 +368,7 @@ void SimulatedScene::ApplyParticlePositions()
 
 		_particleModel->UpdateVertices(_particleVertices);
 	}
-	else if (_particleRendering == ParticleRendering::MarchingCubes)
+	else if (_particleRenderingMode == ParticleRenderingMode::MarchingCubes)
 	{
 		_marchingCubes->UpdatePositions(_positions);
 	}

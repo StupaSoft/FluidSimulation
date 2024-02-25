@@ -45,7 +45,8 @@ std::vector<char> ReadFile(const std::string &fileName);
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJPath);
 
 std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateBuffersAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty);
-void CopyToBuffer(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *memory, VkDeviceSize copyOffset, VkDeviceSize copySize);
+void CopyToBuffer(VkDevice logicalDevice, VkDeviceMemory bufferMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
+void CopyToBuffers(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
 
 std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath);
 void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);

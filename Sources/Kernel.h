@@ -12,19 +12,19 @@
 class Kernel
 {
 private:
-	float _h1;
-	float _h2;
-	float _h3;
-	float _h4;
-	float _h5;
+	float _r1;
+	float _r2;
+	float _r3;
+	float _r4;
+	float _r5;
 
 public:
 	explicit Kernel(float radius) :
-		_h1(radius),
-		_h2(radius * _h1),
-		_h3(radius * _h2),
-		_h4(radius * _h3),
-		_h5(radius * _h4)
+		_r1(radius),
+		_r2(radius * _r1),
+		_r3(radius * _r2),
+		_r4(radius * _r3),
+		_r5(radius * _r4)
 
 	{
 	}

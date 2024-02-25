@@ -18,7 +18,7 @@ void SimulationPanel::Draw()
 
 	if (ImGui::Button("Start Simulation"))
 	{
-		_simulatedScene->InitializeParticles(0.03f, 0.07f, { -1.3f, 0.7f }, { 1.0f, 5.0f }, { -1.0f, 1.0f }); // Temp
+		_simulatedScene->InitializeParticles(0.03f, 0.07f, { -0.8f, 0.8f }, { 1.0f, 5.0f }, { -0.8f, 0.8f }); // Temp
 		_simulatedScene->SetPlay(true);
 	}
 

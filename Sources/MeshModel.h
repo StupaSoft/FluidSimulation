@@ -46,6 +46,7 @@ private:
 	std::vector<uint32_t> _indices;
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
+	uint32_t _indexCount = 0;
 
 	void *_indexOnHost;
 	VkBuffer _indexStagingBuffer;
@@ -86,7 +87,7 @@ public:
 	virtual uint32_t GetOrder() override { return 1000; }
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
-	void LoadMesh(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory);
+	void SetMeshBuffers(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory, uint32_t indexCount);
 	void LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
 	void LoadTexture(const std::string &texturePath);
 

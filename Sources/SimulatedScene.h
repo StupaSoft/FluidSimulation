@@ -7,6 +7,7 @@
 #include "MarchingCubes.h"
 #include "HashGrid.h"
 #include "BVH.h"
+#include "SimulationParameters.h"
 
 enum class ColliderRenderMode
 {
@@ -15,19 +16,10 @@ enum class ColliderRenderMode
 	Wireframe
 };
 
-struct SimulationParameters
+enum class ParticleRenderingMode
 {
-	float _particleMass = 0.05f;
-
-	float _targetDensity = 160.0f;
-	float _soundSpeed = 2.0f;
-	float _eosExponent = 2.0f;
-	float _kernelRadiusFactor = 4.0f;
-
-	float _dragCoefficient = 0.001f;
-	float _viscosityCoefficient = 0.001f;
-	float _restitutionCoefficient = 0.5f;
-	float _frictionCoefficient = 0.5f;
+	Particle,
+	MarchingCubes
 };
 
 class SimulatedScene
@@ -39,8 +31,7 @@ private:
 
 	// Particles in the data structure
 	size_t _particleCount = 0;
-	float _particleRadius = 0.03f;
-
+	
 	std::vector<glm::vec3> _positions;
 	std::vector<glm::vec3> _velocities;
 	std::vector<glm::vec3> _forces;
@@ -59,22 +50,20 @@ private:
 
 	// Physics parameters
 	static const glm::vec3 GRAVITY;
-	SimulationParameters simulationParameters{};
+	std::unique_ptr<SimulationParameters> _simulationParameters = std::make_unique<SimulationParameters>();
 
-	// Particle rendering
-	enum class ParticleRendering
-	{
-		Particle,
-		MarchingCubes
-	};
+	ParticleRenderingMode _particleRenderingMode = ParticleRenderingMode::MarchingCubes;
 
-	ParticleRendering _particleRendering = ParticleRendering::Particle;
-
-	std::shared_ptr<MeshModel> _particleModel = nullptr;
+	// Rendering with particles
+	std::unique_ptr<MeshModel> _particleModel = nullptr;
+	std::shared_ptr<MeshObject> _particleObject = nullptr;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
 
-	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
+	// Rendering with marching cubes
+	std::unique_ptr<MarchingCubes> _marchingCubes = nullptr;
+	std::unique_ptr<MeshModel> _marchingCubesModel = nullptr;
+	std::shared_ptr<MeshObject> _marchingCubesObject = nullptr;
 
 	// 3 2
 	// 0 1
@@ -82,14 +71,16 @@ private:
 	const std::vector<uint32_t> INDICES_IN_PARTICLE{ 0, 1, 2, 0, 2, 3 };
 
 	// Prop
-	std::vector<std::shared_ptr<MeshModel>> _propModels;
+	std::vector<std::unique_ptr<MeshModel>> _propModels;
 
 public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
-	auto &GetSimulationParameters() { return simulationParameters; }
+	auto &GetSimulationParameters() { return *_simulationParameters; }
 	void SetPlay(bool play) { _play = play; }
 	bool IsPlaying() { return _play; }
+
+	void SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode);
 
 	void InitializeParticles(float particleRadius, float distanceBetweenParticles, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
 	void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true);

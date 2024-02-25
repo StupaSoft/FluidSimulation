@@ -11,6 +11,7 @@ class ComputeBase
 {
 protected:
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
+	size_t _eventID = 0;
 
 public:
 	ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore);
@@ -18,9 +19,10 @@ public:
 	ComputeBase(ComputeBase &&other) = default;
 	ComputeBase &operator=(const ComputeBase &other) = delete;
 	ComputeBase &operator=(ComputeBase &&other) = default;
-	virtual ~ComputeBase() = default;
+	virtual ~ComputeBase();
 
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) = 0;
+	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) = 0;
 	virtual uint32_t GetOrder() = 0;
+	void SetEnable(bool enable);
 };
 
