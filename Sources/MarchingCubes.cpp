@@ -1,16 +1,15 @@
 #include "MarchingCubes.h"
 #include "VulkanCore.h"
 
-MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesSetup &setup) :
+MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesGrid &marchingCubesGrid) :
 	ComputeBase(vulkanCore)
 {
 	_particleProperty->_particleCount = particleCount;
 
 	// Create and populate buffers
-	CreateSetupBuffers(setup);
-	UpdateSetup(setup);
+	CreateSetupBuffers();
+	UpdateGrid(marchingCubesGrid);
 	UpdateParticleProperty(particleCount, simulationParameters);
-	CreateComputeBuffers(*_setup);
 
 	// Create descriptor pool and sets
 	_descriptorHelper = std::make_unique<DescriptorHelper>(_vulkanCore);
@@ -103,7 +102,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MarchingCubes::CreateComputePipeline(Vk
 	return std::make_tuple(computePipeline, computePipelineLayout);
 }
 
-void MarchingCubes::CreateSetupBuffers(const MarchingCubesSetup &setup)
+void MarchingCubes::CreateSetupBuffers()
 {
 	_particlePropertyBuffer = CreateBuffer
 	(
@@ -406,13 +405,16 @@ void MarchingCubes::UpdateParticleProperty(size_t particleCount, const Simulatio
 	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBuffer, const_cast<ParticleProperty *>(_particleProperty.get()), 0, sizeof(ParticleProperty));
 }
 
-void MarchingCubes::UpdateSetup(const MarchingCubesSetup &setup)
+void MarchingCubes::UpdateGrid(const MarchingCubesGrid &grid)
 {
-	*_setup = setup;
+	_setup->_xRange = grid._xRange;
+	_setup->_yRange = grid._yRange;
+	_setup->_zRange = grid._zRange;
+	_setup->_voxelInterval = grid._voxelInterval;
 
-	uint32_t xVoxelCount = static_cast<uint32_t>((setup.xRange.y - setup.xRange.x) / setup._voxelInterval);
-	uint32_t yVoxelCount = static_cast<uint32_t>((setup.yRange.y - setup.yRange.x) / setup._voxelInterval);
-	uint32_t zVoxelCount = static_cast<uint32_t>((setup.zRange.y - setup.zRange.x) / setup._voxelInterval);
+	uint32_t xVoxelCount = static_cast<uint32_t>((grid._xRange.y - grid._xRange.x) / grid._voxelInterval);
+	uint32_t yVoxelCount = static_cast<uint32_t>((grid._yRange.y - grid._yRange.x) / grid._voxelInterval);
+	uint32_t zVoxelCount = static_cast<uint32_t>((grid._zRange.y - grid._zRange.x) / grid._voxelInterval);
 	_setup->_voxelDimension = glm::uvec4(xVoxelCount, yVoxelCount, zVoxelCount, 0);
 	_setup->_voxelCount = xVoxelCount * yVoxelCount * zVoxelCount;
 
@@ -425,7 +427,14 @@ void MarchingCubes::UpdateSetup(const MarchingCubesSetup &setup)
 	_setup->_vertexCount = (xCellCount * (yCellCount + 1) * (zCellCount + 1)) + ((xCellCount + 1) * yCellCount * (zCellCount + 1)) + ((xCellCount + 1) * (yCellCount + 1) * zCellCount);
 	_setup->_indexCount = _setup->_cellCount * MAX_INDICES_IN_CELL;
 
-	// Synchronize with the storage buffer
+	// Create and synchronize the storage buffer
+	CreateComputeBuffers(*_setup);
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
+}
+
+void MarchingCubes::SetIsovalue(float isovalue)
+{
+	_setup->_isovalue = isovalue;
 	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
 }
 

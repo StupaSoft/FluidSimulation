@@ -1,10 +1,13 @@
 #include "RenderingPanel.h"
 
+const std::string RenderingPanel::MARCHING_CUBES = "Marching Cubes";
+const std::string RenderingPanel::PARTICLE = "Particle";
+
 void RenderingPanel::Draw()
 {
 	ImGui::Begin("Rendering");
 
-    std::vector<std::string> items = { "Particle", "Marching Cubes" };
+    std::vector<std::string> items = { MARCHING_CUBES, PARTICLE };
     static std::string currentItem = items[0];
     if (ImGui::BeginCombo("Rendering Method", currentItem.data()))
     {
@@ -17,14 +20,15 @@ void RenderingPanel::Draw()
                 currentItem = items[i];
 
                 ParticleRenderingMode particleRenderingMode = ParticleRenderingMode::Particle;
-                if (currentItem == "Particle")
-                {
-                    particleRenderingMode = ParticleRenderingMode::Particle;
-                }
-                else if (currentItem == "Marching Cubes")
+                if (currentItem == MARCHING_CUBES)
                 {
                     particleRenderingMode = ParticleRenderingMode::MarchingCubes;
                 }
+                else if (currentItem == PARTICLE)
+                {
+                    particleRenderingMode = ParticleRenderingMode::Particle;
+                }
+
                 _simulatedScene->SetParticleRenderingMode(particleRenderingMode);
             }
 
@@ -35,6 +39,19 @@ void RenderingPanel::Draw()
         }
 
         ImGui::EndCombo();
+    }
+
+    if (currentItem == MARCHING_CUBES)
+    {
+        auto marchingCubes = _simulatedScene->GetMarchingCubes();
+        if (marchingCubes != nullptr)
+        {
+            float isovalue = marchingCubes->GetIsovalue();
+            if (ImGui::SliderFloat("Isovalue", &isovalue, 0.0f, 5000.0f))
+            {
+                marchingCubes->SetIsovalue(isovalue);
+            }
+        }
     }
 
 	ImGui::End();

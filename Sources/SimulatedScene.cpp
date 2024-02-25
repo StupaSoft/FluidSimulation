@@ -89,7 +89,15 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 	if (_marchingCubes == nullptr)
 	{
-		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, MarchingCubesSetup{});
+		MarchingCubesGrid marchingCubesGrid
+		{
+			._xRange{ -3.0f, 3.0f },
+			._yRange{ -1.0f, 5.0f },
+			._zRange{ -3.0f, 3.0f },
+			._voxelInterval = 0.05f
+		};
+
+		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, marchingCubesGrid);
 		_marchingCubes->SetEnable(false);
 
 		_marchingCubesModel = std::make_unique<MeshModel>(_vulkanCore);
@@ -107,26 +115,43 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 		_marchingCubesObject->SetVisible(false);
 	}
 
-	SetParticleRenderingMode(_particleRenderingMode);
+	_onSetPlay.AddListener
+	(
+		[this](bool play)
+		{
+			ApplyRenderMode(_particleRenderingMode, play);
+		}
+	);
+
+	_onSetParticleRenderingMode.AddListener
+	(
+		[this](ParticleRenderingMode particleRenderingMode)
+		{
+			ApplyRenderMode(particleRenderingMode, _isPlaying);
+		}
+	);
+}
+
+void SimulatedScene::SetPlay(bool play)
+{
+	_isPlaying = play;
+	_onSetPlay.Invoke(play);
 }
 
 void SimulatedScene::SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode)
 {
 	_particleRenderingMode = particleRenderingMode;
-	if (_particleRenderingMode == ParticleRenderingMode::Particle)
-	{
-		_marchingCubes->SetEnable(false);
-		_marchingCubesObject->SetVisible(false);
+	_onSetParticleRenderingMode.Invoke(particleRenderingMode);
+}
 
-		_particleObject->SetVisible(true);
-	}
-	else if (_particleRenderingMode == ParticleRenderingMode::MarchingCubes)
-	{
-		_particleObject->SetVisible(false);
+void SimulatedScene::ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play)
+{
+	bool isMarchingCubes = (particleRenderingMode == ParticleRenderingMode::MarchingCubes);
 
-		_marchingCubes->SetEnable(true);
-		_marchingCubesObject->SetVisible(true);
-	}
+	_marchingCubes->SetEnable(isMarchingCubes && play);
+	_marchingCubesObject->SetVisible(isMarchingCubes && play);
+
+	_particleObject->SetVisible(!isMarchingCubes && play);
 }
 
 void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
@@ -167,7 +192,7 @@ void SimulatedScene::EndTimeStep()
 
 void SimulatedScene::Update(float deltaSecond)
 {
-	if (!_play) return;
+	if (!_isPlaying) return;
 
 	// Conduct simulation
 	BeginTimeStep();

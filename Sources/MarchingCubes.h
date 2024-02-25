@@ -15,22 +15,12 @@
 #include "Vertex.h"
 #include "SimulationParameters.h"
 
-struct MarchingCubesSetup
+struct MarchingCubesGrid
 {
-	alignas(8) glm::vec2 xRange{ -3.0f, 3.0f };
-	alignas(8) glm::vec2 yRange{ -1.0f, 5.0f };
-	alignas(8) glm::vec2 zRange{ -3.0f, 3.0f };
-	alignas(4) float _voxelInterval = 0.05f;
-	alignas(4) float _isovalue = 2000.0f;
-
-	alignas(16) glm::uvec4 _voxelDimension{};
-	alignas(4) uint32_t _voxelCount = 0;
-
-	alignas(16) glm::uvec4 _cellDimension{};
-	alignas(4) uint32_t _cellCount = 0;
-
-	alignas(4) uint32_t _vertexCount = 0;
-	alignas(4) uint32_t _indexCount = 0;
+	glm::vec2 _xRange{};
+	glm::vec2 _yRange{};
+	glm::vec2 _zRange{};
+	float _voxelInterval = 0.0f;
 };
 
 class MarchingCubes : public ComputeBase
@@ -43,6 +33,25 @@ private:
 		alignas(4) float _r1 = 0.0f;
 		alignas(4) float _r2 = 0.0f;
 		alignas(4) float _r3 = 0.0f;
+	};
+
+	struct MarchingCubesSetup
+	{
+		alignas(8) glm::vec2 _xRange{};
+		alignas(8) glm::vec2 _yRange{};
+		alignas(8) glm::vec2 _zRange{};
+		alignas(4) float _voxelInterval = 1.0f;
+
+		alignas(4) float _isovalue = 1500.0f;
+
+		alignas(16) glm::uvec4 _voxelDimension{};
+		alignas(4) uint32_t _voxelCount = 0;
+
+		alignas(16) glm::uvec4 _cellDimension{};
+		alignas(4) uint32_t _cellCount = 0;
+
+		alignas(4) uint32_t _vertexCount = 0;
+		alignas(4) uint32_t _indexCount = 0;
 	};
 
 	// Setup
@@ -92,10 +101,14 @@ private:
 	static const std::vector<uint32_t> INDICES_TABLE;
 
 public:
-	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesSetup &setup);
+	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesGrid &marchingCubesGrid);
 
 	void UpdatePositions(const std::vector<glm::vec3> &positions);
 	void UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters);
+	void UpdateGrid(const MarchingCubesGrid &parameters);
+
+	float GetIsovalue() { return _setup->_isovalue; }
+	void SetIsovalue(float isovalue);
 
 	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
@@ -107,8 +120,7 @@ public:
 
 private:
 	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);
-	void UpdateSetup(const MarchingCubesSetup &setup);
-	void CreateSetupBuffers(const MarchingCubesSetup &setup);
+	void CreateSetupBuffers();
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);

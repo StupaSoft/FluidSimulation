@@ -8,6 +8,7 @@
 #include "HashGrid.h"
 #include "BVH.h"
 #include "SimulationParameters.h"
+#include "Delegate.h"
 
 enum class ColliderRenderMode
 {
@@ -27,7 +28,8 @@ class SimulatedScene
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
 
-	bool _play = false;
+	bool _isPlaying = false;
+	Delegate<void(bool)> _onSetPlay;
 
 	// Particles in the data structure
 	size_t _particleCount = 0;
@@ -54,15 +56,18 @@ private:
 
 	ParticleRenderingMode _particleRenderingMode = ParticleRenderingMode::MarchingCubes;
 
+	// Rendering
+	Delegate<void(ParticleRenderingMode)> _onSetParticleRenderingMode;
+
 	// Rendering with particles
-	std::unique_ptr<MeshModel> _particleModel = nullptr;
+	std::shared_ptr<MeshModel> _particleModel = nullptr;
 	std::shared_ptr<MeshObject> _particleObject = nullptr;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
 
 	// Rendering with marching cubes
-	std::unique_ptr<MarchingCubes> _marchingCubes = nullptr;
-	std::unique_ptr<MeshModel> _marchingCubesModel = nullptr;
+	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
+	std::shared_ptr<MeshModel> _marchingCubesModel = nullptr;
 	std::shared_ptr<MeshObject> _marchingCubesObject = nullptr;
 
 	// 3 2
@@ -77,13 +82,15 @@ public:
 	SimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
 	auto &GetSimulationParameters() { return *_simulationParameters; }
-	void SetPlay(bool play) { _play = play; }
-	bool IsPlaying() { return _play; }
+	void SetPlay(bool play);
+	bool IsPlaying() { return _isPlaying; }
 
 	void SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode);
 
 	void InitializeParticles(float particleRadius, float distanceBetweenParticles, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange);
 	void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true);
+
+	MarchingCubes *GetMarchingCubes() { return _marchingCubes.get(); }
 
 	void Update(float deltaSecond);
 	
@@ -106,5 +113,6 @@ private:
 	void UpdateDensities();
 
 	// Reflect the particle status to the render system
+	void ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play);
 	void ApplyParticlePositions();
 };
