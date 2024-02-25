@@ -31,7 +31,7 @@ private:
 	std::vector<SamplerLayout> _samplerLayouts;
 
 	std::unordered_map<uint32_t, std::vector<Buffer>> _bindingBuffers; // max frames in flight
-	std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> _bindingSamplers;
+	std::unordered_map<uint32_t, std::tuple<VkSampler, Image>> _bindingSamplers;
 
 	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
@@ -52,7 +52,7 @@ public:
 	// buffer[max frames in flight]
 	void BindBuffer(uint32_t binding, Buffer buffer);
 	void BindBuffers(uint32_t binding, const std::vector<Buffer> &buffers);
-	void BindSampler(uint32_t binding, VkSampler sampler, VkImageView imageView);
+	void BindSampler(uint32_t binding, VkSampler sampler, Image image);
 
 	// Finally, get descriptor set layout or descriptor sets
 	VkDescriptorPool GetDescriptorPool();
@@ -64,6 +64,6 @@ public:
 private:
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount, const std::vector<VkDescriptorPoolSize> &poolSizes);
 	VkDescriptorSetLayout CreateDescriptorSetLayout(const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers);
+	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, Image>> &bindingSamplers);
 };
 

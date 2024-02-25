@@ -95,10 +95,9 @@ private:
 	};
 	// Store the swap chain images
 	// Will be automatically cleaned up once the swap chain has been destroyed
-	std::vector<VkImage> _swapChainImages;
+	std::vector<Image> _swapChainImages;
 	VkFormat _swapChainImageFormat;
 	VkExtent2D _swapChainExtent;
-	std::vector<VkImageView> _swapChainImageViews;
 
 	// ==================== Render pass ====================
 	VkRenderPass _renderPass;
@@ -126,14 +125,10 @@ private:
 	bool _framebufferResized = false;
 
 	// ==================== Images ====================
-	VkImage _colorImage;
-	VkDeviceMemory _colorImageMemory;
-	VkImageView _colorImageView;
+	Image _colorImage;
 
 	// ==================== Depth buffering ====================
-	VkImage _depthImage;
-	VkDeviceMemory _depthImageMemory;
-	VkImageView _depthImageView;
+	Image _depthImage;
 
 	// ==================== Camera ====================
 	std::unique_ptr<Camera> _mainCamera;
@@ -216,7 +211,7 @@ private:
 	VkSurfaceKHR CreateSurface(VkInstance instance, GLFWwindow *window);
 
 	// ==================== Swap chain ====================
-	std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window);
+	std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window);
 	bool CheckDeviceExtensionSupport(VkPhysicalDevice physicalDevice, const std::vector<const char *> &deviceExtensions);
 	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface) const;
 	VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &availableFormats, VkFormat desiredFormat, VkColorSpaceKHR desiredColorSpace);
@@ -227,14 +222,11 @@ private:
 	void RecreateSwapChain();
 	void CleanUpSwapChain();
 
-	// ==================== Image views ====================
-	std::vector<VkImageView> CreateImageViews(VkDevice logicalDevice, const std::vector<VkImage> &swapChainImages, VkFormat swapChainImageFormat);
-
 	// ==================== Render pass ====================
 	VkRenderPass CreateRenderPass(VkFormat swapChainImageFormat);
 
 	// ==================== Framebuffers ====================
-	std::vector<VkFramebuffer> CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<VkImageView> &swapChainImageViews, const std::vector<VkImageView> &additionalImageViews);
+	std::vector<VkFramebuffer> CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<Image> &swapChainImages, const std::vector<Image> &additionalImages);
 
 	// ==================== Command buffers ====================
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
@@ -247,9 +239,9 @@ private:
 	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);
 
 	// ==================== Depth buffering ====================
-	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateDepthResources(VkExtent2D swapChainExtent);
+	Image CreateDepthResources(VkExtent2D swapChainExtent);
 	VkFormat FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
 
 	// ==================== Multisampling ====================
-	std::tuple<VkImage, VkDeviceMemory, VkImageView> CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
+	Image CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent);
 };

@@ -178,7 +178,7 @@ void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, Vk
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
-void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, VkImage image, uint32_t width, uint32_t height)
+void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, Image image, uint32_t width, uint32_t height)
 {
 	VkBufferImageCopy region =
 	{
@@ -199,11 +199,11 @@ void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueu
 	};
 
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
-	vkCmdCopyBufferToImage(commandBuffer, buffer._buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(commandBuffer, buffer._buffer, image._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 }
 
-std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties)
+Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties, VkImageAspectFlags aspectFlags)
 {
 	// Create an image object
 	VkImageCreateInfo imageInfo =
@@ -229,15 +229,15 @@ std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physic
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
 	};
 
-	VkImage image = VK_NULL_HANDLE;
-	if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS)
+	VkImage imageHandle = VK_NULL_HANDLE;
+	if (vkCreateImage(logicalDevice, &imageInfo, nullptr, &imageHandle) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create an image.");
 	}
 
 	// Allocate memory for the image
 	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(logicalDevice, image, &memRequirements);
+	vkGetImageMemoryRequirements(logicalDevice, imageHandle, &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo =
 	{
@@ -253,9 +253,48 @@ std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physic
 	}
 
 	// Bind the image and the memory
-	vkBindImageMemory(logicalDevice, image, imageMemory, 0);
+	vkBindImageMemory(logicalDevice, imageHandle, imageMemory, 0);
 
-	return std::make_tuple(image, imageMemory);
+	// Create an image view
+	VkImageViewCreateInfo viewInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+		.image = imageHandle,
+		.viewType = VK_IMAGE_VIEW_TYPE_2D,
+		.format = imageFormat,
+
+		// What the image's purpose is
+		.subresourceRange =
+		{
+			.aspectMask = aspectFlags,
+			.baseMipLevel = 0,
+			.levelCount = mipLevels,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		}
+	};
+
+	VkImageView imageView = VK_NULL_HANDLE;
+	if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a texture image view.");
+	}
+
+	// return
+	Image image
+	{
+		._image = imageHandle,
+		._imageMemory = imageMemory,
+		._imageView = imageView
+	};
+	return image;
+}
+
+void DestroyImage(VkDevice logicalDevice, Image image)
+{
+	vkDestroyImageView(logicalDevice, image._imageView, nullptr);
+	vkDestroyImage(logicalDevice, image._image, nullptr);
+	vkFreeMemory(logicalDevice, image._imageMemory, nullptr);
 }
 
 VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code)
@@ -289,35 +328,6 @@ VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) /
 	}
 
 	return VK_SAMPLE_COUNT_1_BIT;
-}
-
-VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
-{
-	VkImageViewCreateInfo viewInfo =
-	{
-		.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-		.image = image,
-		.viewType = VK_IMAGE_VIEW_TYPE_2D,
-		.format = format,
-
-		// What the image's purpose is
-		.subresourceRange =
-		{
-			.aspectMask = aspectFlags,
-			.baseMipLevel = 0,
-			.levelCount = mipLevels,
-			.baseArrayLayer = 0,
-			.layerCount = 1
-		}
-	};
-
-	VkImageView imageView = VK_NULL_HANDLE;
-	if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a texture image view.");
-	}
-
-	return imageView;
 }
 
 std::vector<char> ReadFile(const std::string &fileName)
@@ -387,7 +397,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string
 	return std::make_tuple(std::move(vertices), std::move(indices));
 }
 
-std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath)
+std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath)
 {
 	// Load a texture image
 	int texWidth = 0;
@@ -416,21 +426,22 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(Vk
 
 	// Create an image object
 	// Specify VK_IMAGE_USAGE_TRANSFER_SRC_BIT so that it can be used as a blit source
-	auto [textureImage, textureImageMemory] = CreateImageAndMemory
+	Image texture = CreateImage
 	(
 		physicalDevice,
 		logicalDevice,
 		texWidth,
 		texHeight,
-		textureMipLevels, VK_SAMPLE_COUNT_1_BIT,
+		textureMipLevels, 
+		VK_SAMPLE_COUNT_1_BIT,
 		VK_FORMAT_R8G8B8A8_SRGB,
 		VK_IMAGE_TILING_OPTIMAL,
 		// VK_IMAGE_USAGE_TRANSFER_DST_BIT - The image is going to be used as a destination for the buffer copy from the staging buffer
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT - We will create mipmaps by transfering the image
 		// VK_IMAGE_USAGE_SAMPLED_BIT - The texture will be sampled later
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkImageView textureImageView = CreateImageView(logicalDevice, textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, textureMipLevels);
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT
+	);
 
 	// Before we use vkCmdCopyBufferToImage, the image must be in a proper layout.
 	// Hence, transfer the image layout from undefined to transfer optimal
@@ -451,7 +462,7 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(Vk
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 
-		.image = textureImage,
+		.image = texture._image,
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -470,17 +481,17 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(Vk
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 
 	// Now copy the buffer to the image
-	CopyBufferToImage(logicalDevice, commandPool, graphicsQueue, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+	CopyBufferToImage(logicalDevice, commandPool, graphicsQueue, stagingBuffer, texture, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 	DestroyBuffer(logicalDevice, stagingBuffer);
 
 	// Generate mipmaps
 	// Will be transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
-	GenerateMipmaps(physicalDevice, logicalDevice, commandPool, graphicsQueue, textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, textureMipLevels);
+	GenerateMipmaps(physicalDevice, logicalDevice, commandPool, graphicsQueue, texture, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, textureMipLevels);
 
-	return std::make_tuple(textureImage, textureImageMemory, textureImageView, textureMipLevels);
+	return std::make_tuple(texture, textureMipLevels);
 }
 
-void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Image image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
 	// Check if the image format supports linear blitting
 	VkFormatProperties formatProperties;
@@ -499,7 +510,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image,
+		.image = image._image,
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -546,7 +557,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 			.dstOffsets = { { 0, 0, 0 }, { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 } }
 		};
 
-		vkCmdBlitImage(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
+		vkCmdBlitImage(commandBuffer, image._image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
 
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

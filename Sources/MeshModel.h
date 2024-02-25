@@ -52,9 +52,7 @@ private:
 	std::shared_ptr<std::vector<Triangle>> _triangles = std::make_shared<std::vector<Triangle>>(); // Triangles in the model space
 
 	// ==================== Texture ====================
-	VkImage _textureImage;
-	VkDeviceMemory _textureImageMemory;
-	VkImageView _textureImageView;
+	Image _texture;
 	uint32_t _textureMipLevels = 0;
 
 	VkSampler _textureSampler; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.

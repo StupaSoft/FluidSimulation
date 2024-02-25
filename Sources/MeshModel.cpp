@@ -93,9 +93,7 @@ void MeshModel::OnCleanUpOthers()
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
 	
 	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
-	vkDestroyImageView(_vulkanCore->GetLogicalDevice(), _textureImageView, nullptr);
-	vkDestroyImage(_vulkanCore->GetLogicalDevice(), _textureImage, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _textureImageMemory, nullptr);
+	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
 
 	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
@@ -135,7 +133,7 @@ void MeshModel::LoadTexture(const std::string &texturePath)
 	// Load a texture
 	std::string targetTexturePath = texturePath;
 	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
-	std::tie(_textureImage, _textureImageMemory, _textureImageView, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
+	std::tie(_texture, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
 	_textureSampler = CreateTextureSampler(_textureMipLevels);
 }
 
@@ -201,7 +199,7 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 	_descriptorHelper.BindBuffers(0, mvpBuffers);
 	_descriptorHelper.BindBuffers(1, _lightBuffers);
 	_descriptorHelper.BindBuffers(2, _materialBuffers);
-	_descriptorHelper.BindSampler(3, _textureSampler, _textureImageView);
+	_descriptorHelper.BindSampler(3, _textureSampler, _texture);
 
 	_descriptorSetsList.emplace_back(_descriptorHelper.GetDescriptorSets());
 

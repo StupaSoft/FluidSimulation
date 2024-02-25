@@ -43,9 +43,9 @@ void DescriptorHelper::BindBuffers(uint32_t binding, const std::vector<Buffer> &
 	_bindingBuffers[binding] = buffers;
 }
 
-void DescriptorHelper::BindSampler(uint32_t binding, VkSampler sampler, VkImageView imageView)
+void DescriptorHelper::BindSampler(uint32_t binding, VkSampler sampler, Image image)
 {
-	_bindingSamplers[binding] = std::make_tuple(sampler, imageView);
+	_bindingSamplers[binding] = std::make_tuple(sampler, image);
 }
 
 VkDescriptorPool DescriptorHelper::GetDescriptorPool()
@@ -174,7 +174,7 @@ void DescriptorHelper::ClearLayouts()
 	_needSetRecreation = true;
 }
 
-std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers)
+std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, Image>> &bindingSamplers)
 {
 	// 1. Create descriptor sets
 	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
@@ -205,7 +205,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 		VkDescriptorImageInfo imageInfo
 		{
 			.sampler = std::get<0>(bindingSamplers.at(samplerLayout.binding)),
-			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding)), // Now a shader can access the image view
+			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding))._imageView, // Now a shader can access the image view
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		};
 

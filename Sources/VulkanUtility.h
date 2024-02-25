@@ -37,12 +37,12 @@ void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers);
 void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers);
 
 void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize size);
-void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, VkImage image, uint32_t width, uint32_t height);
 void CopyMemoryToBuffer(VkDevice logicalDevice, Buffer buffer, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
 void CopyMemoryToBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
 
-std::tuple<VkImage, VkDeviceMemory> CreateImageAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties);
-VkImageView CreateImageView(VkDevice logicalDevice, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
+Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties, VkImageAspectFlags aspectFlags);
+void DestroyImage(VkDevice logicalDevice, Image image);
+void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 // Start a temporary command buffer
 VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool);
@@ -53,5 +53,5 @@ VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char
 std::vector<char> ReadFile(const std::string &fileName);
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJPath);
 
-std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath);
-void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath);
+void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Image image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);

@@ -20,13 +20,11 @@ void VulkanCore::InitVulkan()
 	std::tie(_logicalDevice, _graphicsQueue, _computeQueue, _presentQueue) = CreateLogicalDevice(_physicalDevice, _surface, ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS, DEVICE_EXTENSIONS);
 
 	std::tie(_swapChain, _swapChainImages, _swapChainImageFormat, _swapChainExtent) = CreateSwapChain(_physicalDevice, _logicalDevice, _surface, _window);
-	_swapChainImageViews = CreateImageViews(_logicalDevice, _swapChainImages, _swapChainImageFormat);
-
 	_renderPass = CreateRenderPass(_swapChainImageFormat);
 
-	std::tie(_colorImage, _colorImageMemory, _colorImageView) = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
-	std::tie(_depthImage, _depthImageMemory, _depthImageView) = CreateDepthResources(_swapChainExtent);
-	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImageViews, { _depthImageView, _colorImageView });
+	_colorImage = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
+	_depthImage = CreateDepthResources(_swapChainExtent);
+	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImages, { _depthImage, _colorImage });
 
 	_commandPool = CreateCommandPool(_physicalDevice, _logicalDevice, _surface);
 	_commandBuffers = CreateCommandBuffers(_logicalDevice, _commandPool, MAX_FRAMES_IN_FLIGHT);
@@ -182,7 +180,7 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 	vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data()); // 3. Get the extension info
 
 	std::vector<std::string> extensionNames(extensionCount);
-	std::transform(extensions.cbegin(), extensions.cend(), extensionNames.begin(), [](const VkExtensionProperties &vp) {return vp.extensionName; }); // 4. Extract the names of extensions
+	std::transform(extensions.cbegin(), extensions.cend(), extensionNames.begin(), [](const VkExtensionProperties &vp) { return vp.extensionName; }); // 4. Extract the names of extensions
 
 	auto glfwExtensions = GetRequiredExtensions(enableValidationLayers); // Get extensions required by glfw and the validation layer
 	uint32_t glfwExtensionCount = static_cast<uint32_t>(glfwExtensions.size());
@@ -518,7 +516,7 @@ VkSurfaceKHR VulkanCore::CreateSurface(VkInstance instance, GLFWwindow *window)
 // Vulkan does not have the concepth of a default framebuffer, hence it requires an infrastructure that will own the buffers we will render to, before we visualize them on the screen.
 // This infrastructure is known as swap chain and must be created explicitly.
 // Ths swap chain is a queue of images that are waiting to be presented to the screen.
-std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> VulkanCore::CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window)
+std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore::CreateSwapChain(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface, GLFWwindow *window)
 {
 	SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice, surface);
 
@@ -580,14 +578,50 @@ std::tuple<VkSwapchainKHR, std::vector<VkImage>, VkFormat, VkExtent2D> VulkanCor
 
 	// Retrieve images that can be drawn to from the swap chain
 	// The implementation is allowed to create a swap chain with more images, so pass imageCount as an argument to get the real image count.
-	std::vector<VkImage> swapChainImages;
+	std::vector<VkImage> swapChainImageHandles;
 	vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, nullptr);
-	swapChainImages.resize(imageCount);
-	vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, swapChainImages.data());
+	swapChainImageHandles.resize(imageCount);
+	vkGetSwapchainImagesKHR(logicalDevice, swapChain, &imageCount, swapChainImageHandles.data());
 
 	// Store the format and extent for later use
 	VkFormat swapChainImageFormat = surfaceFormat.format;
 	VkExtent2D swapChainExtent = extent;
+
+	std::vector<Image> swapChainImages;
+	for (size_t i = 0; i < imageCount; ++i)
+	{
+		VkImageViewCreateInfo viewInfo
+		{
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = swapChainImageHandles[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = swapChainImageFormat,
+
+			// What the image's purpose is
+			.subresourceRange
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.baseMipLevel = 0,
+				.levelCount = 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			}
+		};
+
+		VkImageView swapChainImageView = VK_NULL_HANDLE;
+		if (vkCreateImageView(logicalDevice, &viewInfo, nullptr, &swapChainImageView) != VK_SUCCESS)
+		{
+			throw std::runtime_error("Failed to create a texture image view.");
+		}
+
+		Image swapChainImage
+		{
+			._image = swapChainImageHandles[i],
+			._imageView = swapChainImageView
+		};
+
+		swapChainImages.emplace_back(swapChainImage);
+	}
 
 	return std::make_tuple(swapChain, swapChainImages, swapChainImageFormat, swapChainExtent);
 }
@@ -697,14 +731,13 @@ void VulkanCore::RecreateSwapChain()
 	CleanUpSwapChain();
 
 	std::tie(_swapChain, _swapChainImages, _swapChainImageFormat, _swapChainExtent) = CreateSwapChain(_physicalDevice, _logicalDevice, _surface, _window);
-	_swapChainImageViews = CreateImageViews(_logicalDevice, _swapChainImages, _swapChainImageFormat);
 
 	_mainCamera->SetFOV(FOV_Y);
 	_mainCamera->SetExtent(_swapChainExtent.width, _swapChainExtent.height);
 
-	std::tie(_colorImage, _colorImageMemory, _colorImageView) = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
-	std::tie(_depthImage, _depthImageMemory, _depthImageView) = CreateDepthResources(_swapChainExtent);
-	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImageViews, { _depthImageView, _colorImageView });
+	_colorImage = CreateColorResources(_swapChainImageFormat, _swapChainExtent);
+	_depthImage = CreateDepthResources(_swapChainExtent);
+	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImages, { _depthImage, _colorImage });
 
 	_onRecreateSwapChain.Invoke();
 }
@@ -713,36 +746,20 @@ void VulkanCore::CleanUpSwapChain()
 {
 	_onCleanUpSwapChain.Invoke();
 
-	vkDestroyImageView(_logicalDevice, _depthImageView, nullptr);
-	vkDestroyImage(_logicalDevice, _depthImage, nullptr);
-	vkFreeMemory(_logicalDevice, _depthImageMemory, nullptr);
-
-	vkDestroyImageView(_logicalDevice, _colorImageView, nullptr);
-	vkDestroyImage(_logicalDevice, _colorImage, nullptr);
-	vkFreeMemory(_logicalDevice, _colorImageMemory, nullptr);
+	DestroyImage(_logicalDevice, _depthImage);
+	DestroyImage(_logicalDevice, _colorImage);
 
 	for (auto &framebuffer : _frameBuffers)
 	{
 		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
 	}
 
-	for (auto &imageView : _swapChainImageViews) // Explicitly destroy image views, unlike images
+	for (auto &swapChainImage : _swapChainImages) // Explicitly destroy image views, unlike images
 	{
-		vkDestroyImageView(_logicalDevice, imageView, nullptr);
+		vkDestroyImageView(_logicalDevice, swapChainImage._imageView, nullptr);
 	}
 
 	vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
-}
-
-std::vector<VkImageView> VulkanCore::CreateImageViews(VkDevice logicalDevice, const std::vector<VkImage> &swapChainImages, VkFormat swapChainImageFormat)
-{
-	std::vector<VkImageView> swapChainImageViews(swapChainImages.size()); // Resize the vector to fit all of the image views
-	for (size_t i = 0; i < swapChainImages.size(); ++i)
-	{
-		swapChainImageViews[i] = CreateImageView(_logicalDevice, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-	}
-
-	return swapChainImageViews;
 }
 
 VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
@@ -866,17 +883,18 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 }
 
 // A framebuffer object references all of the VkImageView objects that represent the attachments
-std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<VkImageView> &swapChainImageViews, const std::vector<VkImageView> &additionalImageViews)
+std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<Image> &swapChainImages, const std::vector<Image> &additionalImages)
 {
-	std::vector<VkFramebuffer> swapChainFramebuffers(swapChainImageViews.size());
+	std::vector<VkFramebuffer> swapChainFramebuffers(swapChainImages.size());
 
-	for (size_t i = 0; i < swapChainImageViews.size(); ++i)
+	for (size_t i = 0; i < swapChainImages.size(); ++i)
 	{
 		// In CreateRenderPass - std::array<VkAttachmentDescription, 3> attachments = { depthAttachment, colorAttachment, colorAttachmentResolve };
 		// Provide corresponding attachements
 		// { _depthImageView, _colorImageView, _swapChainImageViews[i] }
-		std::vector<VkImageView> attachments = additionalImageViews;
-		attachments.push_back(swapChainImageViews[i]);
+		std::vector<VkImageView> attachments(additionalImages.size());
+		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img._imageView; }); // 4. Extract the names of extensions
+		attachments.push_back(swapChainImages[i]._imageView);
 
 		VkFramebufferCreateInfo framebufferInfo =
 		{
@@ -1080,10 +1098,10 @@ std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSem
 	return std::make_tuple(imageAvailableSemaphores, renderFinishedSemaphores, computeFinishedSemaphores, inFlightFences, computeInFlightFences);
 }
 
-std::tuple<VkImage, VkDeviceMemory, VkImageView> VulkanCore::CreateDepthResources(VkExtent2D swapChainExtent)
+Image VulkanCore::CreateDepthResources(VkExtent2D swapChainExtent)
 {
 	VkFormat depthFormat = FindSupportedFormat(_physicalDevice, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT); // Find suitable format for a depth image
-	auto [depthImage, depthImageMemory] = CreateImageAndMemory
+	return CreateImage
 	(	
 		_physicalDevice,
 		_logicalDevice,
@@ -1093,10 +1111,9 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView> VulkanCore::CreateDepthResource
 		GetMaxUsableSampleCount(_physicalDevice),
 		depthFormat,
 		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VkImageView depthImageView = CreateImageView(_logicalDevice, depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
-
-	return std::make_tuple(depthImage, depthImageMemory, depthImageView);
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		VK_IMAGE_ASPECT_DEPTH_BIT
+	);
 }
 
 VkFormat VulkanCore::FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags desiredFeatures)
@@ -1120,11 +1137,9 @@ VkFormat VulkanCore::FindSupportedFormat(VkPhysicalDevice physicalDevice, const 
 
 // Create an offsreen buffer for MSAA
 // Since there is only one ongoing rendering operation, create only one such buffer.
-std::tuple<VkImage, VkDeviceMemory, VkImageView> VulkanCore::CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent)
+Image VulkanCore::CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent)
 {
-	VkFormat colorFormat = swapChainImageFormat;
-
-	auto [colorImage, colorImageMemory] = CreateImageAndMemory
+	return CreateImage
 	(	
 		_physicalDevice,
 		_logicalDevice,
@@ -1132,14 +1147,12 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView> VulkanCore::CreateColorResource
 		swapChainExtent.height,
 		1,
 		GetMaxUsableSampleCount(_physicalDevice),
-		colorFormat,
+		swapChainImageFormat,
 		VK_IMAGE_TILING_OPTIMAL,
 		// Texels are laid out in an implementation-defined order for optimal access.
 		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // Will be used as a color attachment
 		// VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT - Will stay on the GPU and not accessible by the CPU
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	VkImageView colorImageView = CreateImageView(_logicalDevice, colorImage, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-
-	return std::make_tuple(colorImage, colorImageMemory, colorImageView);
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT
+	);
 }
