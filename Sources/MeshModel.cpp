@@ -6,7 +6,7 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	_descriptorHelper(vulkanCore)
 {
 	// Create resources
-	std::tie(_lightBuffers, _lightBuffersMemory) = CreateBuffersAndMemory
+	_lightBuffers = CreateBuffers
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -16,7 +16,7 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 
-	std::tie(_materialBuffers, _materialBuffersMemory) = CreateBuffersAndMemory
+	_materialBuffers = CreateBuffers
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -56,10 +56,10 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
-	VkBuffer vertexBuffers[] = { _vertexBuffer };
+	VkBuffer vertexBuffers[] = { _vertexBuffer._buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
-	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
+	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 
 	size_t meshObjectCount = _meshObjects.size();
 	for (size_t i = 0; i < meshObjectCount; ++i)
@@ -80,13 +80,11 @@ void MeshModel::OnCleanUpOthers()
 		meshObject->CleanUp();
 	}
 
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory);
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory, nullptr);
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer);
 
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory);
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, nullptr);
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer);
 
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
@@ -102,20 +100,11 @@ void MeshModel::OnCleanUpOthers()
 	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
 
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _vertexBufferMemory, nullptr);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
 
-	vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer, nullptr);
-	vkFreeMemory(_vulkanCore->GetLogicalDevice(), _indexBufferMemory, nullptr);
-
-	for (size_t i = 0; i < _lightBuffers.size(); ++i)
-	{
-		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _materialBuffers[i], nullptr);
-		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory[i], nullptr);
-
-		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _lightBuffers[i], nullptr);
-		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory[i], nullptr);
-	}
+	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers);
+	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers);
 }
 
 void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
@@ -154,33 +143,29 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 {
 	// Create a vertex (creation, update)
 	uint32_t vertexBufferSize = static_cast<uint32_t>(sizeof(vertices[0]) * vertices.size());
-	std::tie(_vertexBuffer, _vertexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_vertexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_vertexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	// Allocate separate buffer, one on the CPU and the other on the GPU.
 	// Temporary, host-visible buffer that resides on the CPU
-	std::tie(_vertexStagingBuffer, _vertexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBufferMemory, 0, vertexBufferSize, 0, &_vertexOnHost);
+	_vertexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory, 0, vertexBufferSize, 0, &_vertexOnHost);
 	UpdateVertices(vertices);
 
 	// Create an index buffer
 	uint32_t indexBufferSize = static_cast<uint32_t>(sizeof(indices[0]) * indices.size());
-	std::tie(_indexBuffer, _indexBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_indexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_indexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	std::tie(_indexStagingBuffer, _indexStagingBufferMemory) = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBufferMemory, 0, indexBufferSize, 0, &_indexOnHost);
+	_indexStagingBuffer= CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory, 0, indexBufferSize, 0, &_indexOnHost);
 	UpdateIndices(indices);
 }
 
-void MeshModel::SetMeshBuffers(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory, uint32_t indexCount)
+void MeshModel::SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer, uint32_t indexCount)
 {
 	_vertexBuffer = vertexBuffer;
-	_vertexBufferMemory = vertexBufferMemory;
-
 	_indexBuffer = indexBuffer;
-	_indexBufferMemory = indexBufferMemory;
-
 	_indexCount = indexCount;
 }
 
@@ -327,7 +312,7 @@ void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
 	memcpy(_vertexOnHost, vertices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, bufferSize);
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, bufferSize);
 
 	UpdateTriangles(_vertices, _indices);
 }
@@ -340,7 +325,7 @@ void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
 	memcpy(_indexOnHost, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	CopyBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, bufferSize);
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, bufferSize);
 
 	UpdateTriangles(_vertices, _indices);
 }
@@ -552,12 +537,12 @@ void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(Light);
-	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffersMemory, &light, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers, &light, copyOffset, copySize);
 }
 
 void MeshModel::ApplyMaterialAdjustment()
 {
 	auto copyOffset = 0;
 	auto copySize = sizeof(Material);
-	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffersMemory, &_material, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers, &_material, copyOffset, copySize);
 }

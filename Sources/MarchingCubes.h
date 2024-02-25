@@ -73,33 +73,17 @@ private:
 	std::vector<VkDescriptorSet> _presentationDescriptorSets;
 
 	// Basic buffers
-	VkBuffer _particlePropertyBuffer;
-	VkDeviceMemory _particlePropertyBufferMemory;
-
-	VkBuffer _setupBuffer;
-	VkDeviceMemory _setupBufferMemory;
-
-	std::vector<VkBuffer> _particlePositionBuffers;
-	std::vector<VkDeviceMemory> _particlePositionBufferMemory;
+	Buffer _particlePropertyBuffer;
+	Buffer _setupBuffer;
 
 	// Mesh construction buffers
-	VkBuffer _indexTableBuffer;
-	VkDeviceMemory _indexTableMemory;
-
-	VkBuffer _voxelBuffer;
-	VkDeviceMemory _voxelBufferMemory;
-
-	VkBuffer _vertexPositionBuffer; // Buffers that contains the vertex position result from the construction shader
-	VkDeviceMemory _vertexPositionBufferMemory;
-
-	VkBuffer _normalBuffer;
-	VkDeviceMemory _normalBufferMemory;
-
-	VkBuffer _indexBuffer;
-	VkDeviceMemory _indexBufferMemory;
-
-	VkBuffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
-	VkDeviceMemory _vertexOutputBufferMemory;
+	std::vector<Buffer> _particlePositionBuffers;
+	Buffer _indexTableBuffer;
+	Buffer _voxelBuffer;
+	Buffer _vertexPositionBuffer; // Buffers that contains the vertex position result from the construction shader
+	Buffer _normalBuffer;
+	Buffer _indexBuffer;
+	Buffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
 
 	// Constants
 	static const uint32_t MAX_SET_COUNT = 100;
@@ -113,8 +97,8 @@ public:
 	void UpdatePositions(const std::vector<glm::vec3> &positions);
 	void UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters);
 
-	std::tuple<VkBuffer, VkDeviceMemory> GetVertexBuffer() { return std::make_tuple(_vertexOutputBuffer, _vertexOutputBufferMemory); }
-	std::tuple<VkBuffer, VkDeviceMemory> GetIndexBuffer() { return std::make_tuple(_indexBuffer, _indexBufferMemory); }
+	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
+	Buffer GetIndexBuffer() { return _indexBuffer; }
 
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override;
@@ -124,6 +108,7 @@ public:
 private:
 	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);
 	void UpdateSetup(const MarchingCubesSetup &setup);
+	void CreateSetupBuffers(const MarchingCubesSetup &setup);
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);

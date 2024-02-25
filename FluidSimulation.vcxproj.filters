@@ -201,5 +201,8 @@
     <ClInclude Include="Sources\SimulationParameters.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
+    <ClInclude Include="Sources\VulkanStructs.h">
+      <Filter>sources\Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

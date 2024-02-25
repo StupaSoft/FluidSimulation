@@ -35,8 +35,7 @@ private:
 	bool _isCollidable = true;
 
 	// ==================== Vulkan resources ====================
-	std::vector<VkBuffer> _mvpBuffers; // Create multiple buffers for each frame
-	std::vector<VkDeviceMemory> _mvpBuffersMemory;
+	std::vector<Buffer> _mvpBuffers; // Create multiple buffers for each frame
 
 	// ==================== Transform ====================
 	glm::mat4 _position = glm::mat4(1.0f);
@@ -54,7 +53,7 @@ public:
 	MeshObject &operator=(MeshObject &&other) = default;
 	virtual ~MeshObject() = default;
 
-	std::vector<VkBuffer> GetMVPBuffers();
+	std::vector<Buffer> GetMVPBuffers();
 	void CleanUp();
 
 	const std::vector<Triangle> &GetWorldTriangles() const { return _worldTriangles; }

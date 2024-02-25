@@ -30,6 +30,7 @@
 #include "Delegate.h"
 #include "Camera.h"
 #include "DirectionalLight.h"
+#include "VulkanStructs.h"
 
 struct SwapChainSupportDetails
 {
@@ -123,10 +124,6 @@ private:
 
 	// ==================== Window resizing ====================
 	bool _framebufferResized = false;
-
-	// ==================== Uniform buffers ====================
-	std::vector<VkBuffer> _uniformBuffers; // Create multiple buffers for each frame
-	std::vector<VkDeviceMemory> _uniformBuffersMemory;
 
 	// ==================== Images ====================
 	VkImage _colorImage;

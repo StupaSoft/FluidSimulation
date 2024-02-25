@@ -22,9 +22,9 @@ void DescriptorHelper::AddSamplerLayout(const SamplerLayout &samplerLayout)
 	_needLayoutRecreation = true;
 }
 
-void DescriptorHelper::BindBuffer(uint32_t binding, VkBuffer buffer)
+void DescriptorHelper::BindBuffer(uint32_t binding, Buffer buffer)
 {
-	std::vector<VkBuffer> buffers;
+	std::vector<Buffer> buffers;
 	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
 	{
 		buffers.push_back(buffer);
@@ -33,7 +33,7 @@ void DescriptorHelper::BindBuffer(uint32_t binding, VkBuffer buffer)
 	_bindingBuffers[binding] = std::move(buffers);
 }
 
-void DescriptorHelper::BindBuffers(uint32_t binding, const std::vector<VkBuffer> &buffers)
+void DescriptorHelper::BindBuffers(uint32_t binding, const std::vector<Buffer> &buffers)
 {
 	if (buffers.size() != _vulkanCore->GetMaxFramesInFlight())
 	{
@@ -174,7 +174,7 @@ void DescriptorHelper::ClearLayouts()
 	_needSetRecreation = true;
 }
 
-std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<VkBuffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers)
+std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers)
 {
 	// 1. Create descriptor sets
 	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
@@ -222,7 +222,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 
 			VkDescriptorBufferInfo bufferInfo
 			{
-				.buffer = bindingBuffers.at(bufferLayout.binding)[frame],
+				.buffer = bindingBuffers.at(bufferLayout.binding)[frame]._buffer,
 				.offset = 0,
 				.range = bufferLayout.dataSize
 			};

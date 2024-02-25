@@ -35,22 +35,18 @@ private:
 
 	// ==================== Vertex input ====================
 	std::vector<Vertex> _vertices;
-	VkBuffer _vertexBuffer;
-	VkDeviceMemory _vertexBufferMemory;
+	Buffer _vertexBuffer;
 
 	void *_vertexOnHost;
-	VkBuffer _vertexStagingBuffer;
-	VkDeviceMemory _vertexStagingBufferMemory;
+	Buffer _vertexStagingBuffer;
 
 	// ==================== Index input ====================
 	std::vector<uint32_t> _indices;
-	VkBuffer _indexBuffer;
-	VkDeviceMemory _indexBufferMemory;
+	Buffer _indexBuffer;
 	uint32_t _indexCount = 0;
 
 	void *_indexOnHost;
-	VkBuffer _indexStagingBuffer;
-	VkDeviceMemory _indexStagingBufferMemory;
+	Buffer _indexStagingBuffer;
 
 	// ==================== Triangles ====================
 	std::shared_ptr<std::vector<Triangle>> _triangles = std::make_shared<std::vector<Triangle>>(); // Triangles in the model space
@@ -72,13 +68,11 @@ private:
 	std::vector<std::vector<VkDescriptorSet>> _descriptorSetsList; // [Mesh object count][Frames in flight]
 
 	// ==================== Light ====================
-	std::vector<VkBuffer> _lightBuffers;
-	std::vector<VkDeviceMemory> _lightBuffersMemory;
+	std::vector<Buffer> _lightBuffers;
 
 	// ==================== Material ====================
 	Material _material;
-	std::vector<VkBuffer> _materialBuffers;
-	std::vector<VkDeviceMemory> _materialBuffersMemory;
+	std::vector<Buffer> _materialBuffers;
 
 public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
@@ -87,7 +81,7 @@ public:
 	virtual uint32_t GetOrder() override { return 1000; }
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
-	void SetMeshBuffers(VkBuffer vertexBuffer, VkDeviceMemory vertexBufferMemory, VkBuffer indexBuffer, VkDeviceMemory indexBufferMemory, uint32_t indexCount);
+	void SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer, uint32_t indexCount);
 	void LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
 	void LoadTexture(const std::string &texturePath);
 

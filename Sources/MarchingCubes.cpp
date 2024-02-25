@@ -7,6 +7,7 @@ MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size
 	_particleProperty->_particleCount = particleCount;
 
 	// Create and populate buffers
+	CreateSetupBuffers(setup);
 	UpdateSetup(setup);
 	UpdateParticleProperty(particleCount, simulationParameters);
 	CreateComputeBuffers(*_setup);
@@ -102,9 +103,30 @@ std::tuple<VkPipeline, VkPipelineLayout> MarchingCubes::CreateComputePipeline(Vk
 	return std::make_tuple(computePipeline, computePipelineLayout);
 }
 
+void MarchingCubes::CreateSetupBuffers(const MarchingCubesSetup &setup)
+{
+	_particlePropertyBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(ParticleProperty),
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	_setupBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(MarchingCubesSetup),
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+}
+
 void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 {
-	std::tie(_particlePositionBuffers, _particlePositionBufferMemory) = CreateBuffersAndMemory
+	_particlePositionBuffers = CreateBuffers
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -114,7 +136,7 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::tie(_indexTableBuffer, _indexTableMemory) = CreateBuffer
+	_indexTableBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -122,9 +144,9 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _indexTableMemory, const_cast<uint32_t *>(INDICES_TABLE.data()), 0, sizeof(uint32_t) * CODES_COUNT * MAX_INDICES_IN_CELL); // Will never change
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _indexTableBuffer, const_cast<uint32_t *>(INDICES_TABLE.data()), 0, sizeof(uint32_t) * CODES_COUNT * MAX_INDICES_IN_CELL); // Will never change
 
-	std::tie(_voxelBuffer, _voxelBufferMemory) = CreateBuffer
+	_voxelBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -133,7 +155,7 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::tie(_vertexPositionBuffer, _vertexPositionBufferMemory) = CreateBuffer
+	_vertexPositionBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(), 
 		_vulkanCore->GetLogicalDevice(), 
@@ -142,7 +164,7 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::tie(_normalBuffer, _normalBufferMemory) = CreateBuffer
+	_normalBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -151,7 +173,7 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::tie(_indexBuffer, _indexBufferMemory) = CreateBuffer
+	_indexBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(), 
 		_vulkanCore->GetLogicalDevice(), 
@@ -160,7 +182,7 @@ void MarchingCubes::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::tie(_vertexOutputBuffer, _vertexOutputBufferMemory) = CreateBuffer
+	_vertexOutputBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
@@ -379,16 +401,9 @@ void MarchingCubes::UpdateParticleProperty(size_t particleCount, const Simulatio
 	_particleProperty->_r1 = kernelRadius;
 	_particleProperty->_r2 = kernelRadius * kernelRadius;
 	_particleProperty->_r3 = kernelRadius * kernelRadius * kernelRadius;
-
-	std::tie(_particlePropertyBuffer, _particlePropertyBufferMemory) = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(ParticleProperty),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBufferMemory, const_cast<ParticleProperty *>(_particleProperty.get()), 0, sizeof(ParticleProperty));
+	
+	// Synchronize with the storage buffer
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBuffer, const_cast<ParticleProperty *>(_particleProperty.get()), 0, sizeof(ParticleProperty));
 }
 
 void MarchingCubes::UpdateSetup(const MarchingCubesSetup &setup)
@@ -411,20 +426,12 @@ void MarchingCubes::UpdateSetup(const MarchingCubesSetup &setup)
 	_setup->_indexCount = _setup->_cellCount * MAX_INDICES_IN_CELL;
 
 	// Synchronize with the storage buffer
-	std::tie(_setupBuffer, _setupBufferMemory) = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(MarchingCubesSetup),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-	CopyToBuffer(_vulkanCore->GetLogicalDevice(), _setupBufferMemory, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
 }
 
 void MarchingCubes::UpdatePositions(const std::vector<glm::vec3> &positions)
 {
-	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _particlePositionBufferMemory, const_cast<glm::vec3 *>(positions.data()), 0, sizeof(glm::vec3) * positions.size());
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _particlePositionBuffers, const_cast<glm::vec3 *>(positions.data()), 0, sizeof(glm::vec3) * positions.size());
 }
 
 uint32_t MarchingCubes::GetOrder()

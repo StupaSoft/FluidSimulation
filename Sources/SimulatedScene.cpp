@@ -90,12 +90,10 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	if (_marchingCubes == nullptr)
 	{
 		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, MarchingCubesSetup{});
-		auto vertexBuffer = _marchingCubes->GetVertexBuffer();
-		auto indexBuffer = _marchingCubes->GetIndexBuffer();
 		_marchingCubes->SetEnable(false);
 
 		_marchingCubesModel = std::make_unique<MeshModel>(_vulkanCore);
-		_marchingCubesModel->SetMeshBuffers(std::get<0>(vertexBuffer), std::get<1>(vertexBuffer), std::get<0>(indexBuffer), std::get<1>(indexBuffer), _marchingCubes->GetIndexCount());
+		_marchingCubesModel->SetMeshBuffers(_marchingCubes->GetVertexBuffer(), _marchingCubes->GetIndexBuffer(), _marchingCubes->GetIndexCount());
 		_marchingCubesModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
 
 		MeshModel::Material marchingCubesMat

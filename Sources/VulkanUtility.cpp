@@ -22,7 +22,7 @@ uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, co
 	throw std::runtime_error("Failed to find a suitable memory type.");
 }
 
-std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties)
+Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties)
 {
 	VkBufferCreateInfo bufferInfo =
 	{
@@ -32,8 +32,8 @@ std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevic
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 
-	VkBuffer buffer = VK_NULL_HANDLE;
-	if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
+	VkBuffer bufferHandle = VK_NULL_HANDLE;
+	if (vkCreateBuffer(logicalDevice, &bufferInfo, nullptr, &bufferHandle) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a buffer.");
 	}
@@ -41,7 +41,7 @@ std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevic
 
 	// Assign memory
 	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(logicalDevice, buffer, &memRequirements); // Query memory requirements
+	vkGetBufferMemoryRequirements(logicalDevice, bufferHandle, &memRequirements); // Query memory requirements
 
 	VkMemoryAllocateInfo allocInfo =
 	{
@@ -58,12 +58,45 @@ std::tuple<VkBuffer, VkDeviceMemory> CreateBuffer(VkPhysicalDevice physicalDevic
 	}
 
 	// Associate this memory with the buffer
-	vkBindBufferMemory(logicalDevice, buffer, bufferMemory, 0);
+	vkBindBufferMemory(logicalDevice, bufferHandle, bufferMemory, 0);
 
-	return std::make_tuple(buffer, bufferMemory);
+	Buffer buffer
+	{
+		._buffer = bufferHandle,
+		._memory = bufferMemory
+	};
+	return buffer;
 }
 
-void CopyBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+std::vector<Buffer> CreateBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty)
+{
+	VkDeviceSize bufferSize = objectSize;
+
+	std::vector<Buffer> buffers(maxFramesInFlight);
+	for (size_t i = 0; i < maxFramesInFlight; ++i)
+	{
+		buffers[i] = CreateBuffer(physicalDevice, logicalDevice, bufferSize, usage, memoryProperty);
+	}
+
+	return buffers;
+}
+
+void DestroyBuffer(VkDevice logicalDevice, Buffer buffer)
+{
+	vkDestroyBuffer(logicalDevice, buffer._buffer, nullptr);
+	vkFreeMemory(logicalDevice, buffer._memory, nullptr);
+}
+
+void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers)
+{
+	for (size_t i = 0; i < buffers.size(); ++i)
+	{
+		vkDestroyBuffer(logicalDevice, buffers[i]._buffer, nullptr);
+		vkFreeMemory(logicalDevice, buffers[i]._memory, nullptr);
+	}
+}
+
+void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize size)
 {
 	// Memory transfer operations are executed using command buffers.
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
@@ -73,9 +106,34 @@ void CopyBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graph
 	{
 		.size = size
 	};
-	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+	vkCmdCopyBuffer(commandBuffer, srcBuffer._buffer, dstBuffer._buffer, 1, &copyRegion);
 
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
+}
+
+void CopyMemoryToBuffer(VkDevice logicalDevice, Buffer buffer, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
+{
+	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
+	source = offsetPtr;
+
+	void *data;
+	vkMapMemory(logicalDevice, buffer._memory, copyOffset, copySize, 0, &data);
+	memcpy(data, source, copySize);
+	vkUnmapMemory(logicalDevice, buffer._memory);
+}
+
+void CopyMemoryToBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
+{
+	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
+	source = offsetPtr;
+
+	for (size_t i = 0; i < buffers.size(); ++i)
+	{
+		void *data;
+		vkMapMemory(logicalDevice, buffers[i]._memory, copyOffset, copySize, 0, &data);
+		memcpy(data, source, copySize);
+		vkUnmapMemory(logicalDevice, buffers[i]._memory);
+	}
 }
 
 VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool)
@@ -120,7 +178,7 @@ void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, Vk
 	vkFreeCommandBuffers(logicalDevice, commandPool, 1, &commandBuffer);
 }
 
-void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
 	VkBufferImageCopy region =
 	{
@@ -141,7 +199,7 @@ void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueu
 	};
 
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
-	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(commandBuffer, buffer._buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 }
 
@@ -329,46 +387,6 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string
 	return std::make_tuple(std::move(vertices), std::move(indices));
 }
 
-std::tuple<std::vector<VkBuffer>, std::vector<VkDeviceMemory>> CreateBuffersAndMemory(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty)
-{
-	VkDeviceSize bufferSize = objectSize;
-
-	std::vector<VkBuffer> buffers(maxFramesInFlight);
-	std::vector<VkDeviceMemory> buffersMemory(maxFramesInFlight);
-
-	for (size_t i = 0; i < maxFramesInFlight; ++i)
-	{
-		std::tie(buffers[i], buffersMemory[i]) = CreateBuffer(physicalDevice, logicalDevice, bufferSize, usage, memoryProperty);
-	}
-
-	return std::make_tuple(buffers, buffersMemory);
-}
-
-void CopyToBuffer(VkDevice logicalDevice, VkDeviceMemory bufferMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
-{
-	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
-	source = offsetPtr;
-
-	void *data;
-	vkMapMemory(logicalDevice, bufferMemory, copyOffset, copySize, 0, &data);
-	memcpy(data, source, copySize);
-	vkUnmapMemory(logicalDevice, bufferMemory);
-}
-
-void CopyToBuffers(VkDevice logicalDevice, const std::vector<VkDeviceMemory> &buffersMemory, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
-{
-	std::byte *offsetPtr = reinterpret_cast<std::byte *>(source) + copyOffset;
-	source = offsetPtr;
-
-	for (size_t i = 0; i < buffersMemory.size(); ++i)
-	{
-		void *data;
-		vkMapMemory(logicalDevice, buffersMemory[i], copyOffset, copySize, 0, &data);
-		memcpy(data, source, copySize);
-		vkUnmapMemory(logicalDevice, buffersMemory[i]);
-	}
-}
-
 std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath)
 {
 	// Load a texture image
@@ -386,12 +404,12 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(Vk
 	// We hire two buffers; one staging buffer in CPU-accessible memory to upload the data and the final buffer in device-local memory.
 	// Then, use a buffer copy command to move the data from the staging buffer to the actual vertex buffer.
 	// Create a buffer in host-visible memory so that we can use vkMapMemory and copy the pixels to it.
-	auto [stagingBuffer, stagingBufferMemory] = CreateBuffer(physicalDevice, logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	Buffer stagingBuffer = CreateBuffer(physicalDevice, logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	void *data = nullptr;
-	vkMapMemory(logicalDevice, stagingBufferMemory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
+	vkMapMemory(logicalDevice, stagingBuffer._memory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
 	memcpy(data, pixels, static_cast<size_t>(imageSize)); // Copy pixels -> data
-	vkUnmapMemory(logicalDevice, stagingBufferMemory);
+	vkUnmapMemory(logicalDevice, stagingBuffer._memory);
 
 	// Clean up the original pixel array
 	stbi_image_free(pixels);
@@ -453,8 +471,7 @@ std::tuple<VkImage, VkDeviceMemory, VkImageView, uint32_t> CreateTextureImage(Vk
 
 	// Now copy the buffer to the image
 	CopyBufferToImage(logicalDevice, commandPool, graphicsQueue, stagingBuffer, textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-	vkDestroyBuffer(logicalDevice, stagingBuffer, nullptr);
-	vkFreeMemory(logicalDevice, stagingBufferMemory, nullptr);
+	DestroyBuffer(logicalDevice, stagingBuffer);
 
 	// Generate mipmaps
 	// Will be transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps

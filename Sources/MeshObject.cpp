@@ -4,7 +4,7 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 	_vulkanCore(vulkanCore),
 	_triangles(triangles)
 {
-	std::tie(_mvpBuffers, _mvpBuffersMemory) = CreateBuffersAndMemory
+	_mvpBuffers = CreateBuffers
 	(
 		_vulkanCore->GetPhysicalDevice(), 
 		_vulkanCore->GetLogicalDevice(), 
@@ -36,18 +36,14 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 	);
 }
 
-std::vector<VkBuffer> MeshObject::GetMVPBuffers()
+std::vector<Buffer> MeshObject::GetMVPBuffers()
 {
 	return _mvpBuffers;
 }
 
 void MeshObject::CleanUp()
 {
-	for (size_t i = 0; i < _mvpBuffers.size(); ++i)
-	{
-		vkDestroyBuffer(_vulkanCore->GetLogicalDevice(), _mvpBuffers[i], nullptr);
-		vkFreeMemory(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory[i], nullptr);
-	}
+	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers);
 }
 
 void MeshObject::SetPosition(glm::vec3 position)
@@ -88,7 +84,7 @@ void MeshObject::ApplyModelTransformation()
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
-	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers, &mvp, copyOffset, copySize);
 
 	UpdateWorldTriangles(mvp._model);
 }
@@ -103,7 +99,7 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
-	CopyToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffersMemory, &mvp, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers, &mvp, copyOffset, copySize);
 }
 
 void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)

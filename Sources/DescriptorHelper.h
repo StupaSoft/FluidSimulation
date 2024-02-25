@@ -3,6 +3,7 @@
 #include <vector>
 #include <memory>
 #include "VulkanCore.h"
+#include "VulkanStructs.h"
 
 struct BufferLayout
 {
@@ -29,7 +30,7 @@ private:
 	std::vector<BufferLayout> _bufferLayouts;
 	std::vector<SamplerLayout> _samplerLayouts;
 
-	std::unordered_map<uint32_t, std::vector<VkBuffer>> _bindingBuffers; // max frames in flight
+	std::unordered_map<uint32_t, std::vector<Buffer>> _bindingBuffers; // max frames in flight
 	std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> _bindingSamplers;
 
 	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
@@ -49,8 +50,8 @@ public:
 	void AddSamplerLayout(const SamplerLayout &samplerLayout);
 
 	// buffer[max frames in flight]
-	void BindBuffer(uint32_t binding, VkBuffer buffer);
-	void BindBuffers(uint32_t binding, const std::vector<VkBuffer> &buffers);
+	void BindBuffer(uint32_t binding, Buffer buffer);
+	void BindBuffers(uint32_t binding, const std::vector<Buffer> &buffers);
 	void BindSampler(uint32_t binding, VkSampler sampler, VkImageView imageView);
 
 	// Finally, get descriptor set layout or descriptor sets
@@ -63,6 +64,6 @@ public:
 private:
 	VkDescriptorPool CreateDescriptorPool(uint32_t maxSetCount, const std::vector<VkDescriptorPoolSize> &poolSizes);
 	VkDescriptorSetLayout CreateDescriptorSetLayout(const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts);
-	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<VkBuffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers);
+	std::vector<VkDescriptorSet> CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, VkImageView>> &bindingSamplers);
 };
 
