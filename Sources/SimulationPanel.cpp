@@ -12,13 +12,19 @@ void SimulationPanel::Draw()
 	ImGui::SliderFloat("EOS Exponent", &simulationParameters._eosExponent, 0.1f, 10.0f);
 	ImGui::SliderFloat("Kernel Radius Factor", &simulationParameters._kernelRadiusFactor, 1.0f, 10.0f);
 	ImGui::SliderFloat("Drag Coefficient", &simulationParameters._dragCoefficient, 0.0001f, 1.0f);
-	ImGui::SliderFloat("Viscosity Coefficient", &simulationParameters._viscosityCoefficient, 0.0001f, 1.0f);
+	ImGui::SliderFloat("Viscosity Coefficient", &simulationParameters._viscosityCoefficient, 0.0005f, 0.5f);
 	ImGui::SliderFloat("Restitution Coefficient", &simulationParameters._restitutionCoefficient, 0.1f, 1.0f);
 	ImGui::SliderFloat("Friction Coefficient", &simulationParameters._frictionCoefficient, 0.0f, 1.0f);
 
+	if (ImGui::Button("Reset Simulation Parameters"))
+	{
+		simulationParameters = SimulationParameters{};
+	}
+
 	if (ImGui::Button("Start Simulation"))
 	{
-		_simulatedScene->InitializeParticles(0.03f, 0.07f, { -0.8f, 0.8f }, { 1.0f, 2.0f }, { -0.8f, 0.8f }); // Temp
+		_simulatedScene->InitializeParticles(0.03f, 0.07f, { -2.3f, -0.4f }, { 1.0f, 4.0f }, { -1.4f, 1.4f }); // Temp
+		//_simulatedScene->InitializeParticles(0.03f, 0.07f, { -0.8f, 0.8f }, { 1.0f, 4.0f }, { -0.8f, 0.8f }); // Temp
 		_simulatedScene->SetPlay(true);
 	}
 

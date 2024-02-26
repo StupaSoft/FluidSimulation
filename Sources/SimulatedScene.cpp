@@ -92,7 +92,7 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 		MarchingCubesGrid marchingCubesGrid
 		{
 			._xRange{ -3.0f, 3.0f },
-			._yRange{ -1.0f, 5.0f },
+			._yRange{ -3.0f, 5.0f },
 			._zRange{ -3.0f, 3.0f },
 			._voxelInterval = 0.05f
 		};
@@ -106,7 +106,7 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 		MeshModel::Material marchingCubesMat
 		{
-			._color = glm::vec4(0.0f, 0.1f, 1.0f, 1.0f),
+			._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
 			._glossiness = 1.0f
 		};
 		_marchingCubesModel->SetMaterial(std::move(marchingCubesMat));
@@ -295,7 +295,7 @@ void SimulatedScene::ResolveCollision()
 		{
 			// Target point is the closest non-penetrating position from the current position.
 			glm::vec3 targetNormal = intersection.normal;
-			glm::vec3 targetPoint = intersection.point + _simulationParameters->_particleRadius * targetNormal * 0.1f;
+			glm::vec3 targetPoint = intersection.point + _simulationParameters->_particleRadius * targetNormal * 0.5f;
 			glm::vec3 collisionPointVelocity = intersection.pointVelocity;
 
 			// Get new candidate relative velocities from the target point
