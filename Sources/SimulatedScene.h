@@ -60,13 +60,13 @@ private:
 	Delegate<void(ParticleRenderingMode)> _onSetParticleRenderingMode;
 
 	// Rendering with particles
-	std::shared_ptr<MeshModel> _particleModel = nullptr;
+	std::unique_ptr<MeshModel> _particleModel = nullptr;
 	std::shared_ptr<MeshObject> _particleObject = nullptr;
 	std::vector<Vertex> _particleVertices;
 	std::vector<uint32_t> _particleIndices;
 
 	// Rendering with marching cubes
-	std::shared_ptr<MarchingCubes> _marchingCubes = nullptr;
+	std::unique_ptr<MarchingCubes> _marchingCubes = nullptr;
 	std::shared_ptr<MeshModel> _marchingCubesModel = nullptr;
 	std::shared_ptr<MeshObject> _marchingCubesObject = nullptr;
 

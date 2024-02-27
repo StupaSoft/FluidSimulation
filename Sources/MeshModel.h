@@ -74,6 +74,7 @@ private:
 
 public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
+	virtual ~MeshModel();
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override { return 1000; }
@@ -99,8 +100,6 @@ private:
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
-
-	void OnCleanUpOthers();
 
 	void ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 	void ApplyMaterialAdjustment();

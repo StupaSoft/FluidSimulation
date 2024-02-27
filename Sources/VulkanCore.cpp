@@ -230,7 +230,6 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 void VulkanCore::CleanUp()
 {
 	CleanUpSwapChain();
-	_onCleanUpSwapChain.Invoke();
 
 	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
 
@@ -238,6 +237,8 @@ void VulkanCore::CleanUp()
 	{
 		vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
 		vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
+		vkDestroySemaphore(_logicalDevice, _computeFinishedSemaphores[i], nullptr);
+
 		vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
 		vkDestroyFence(_logicalDevice, _computeInFlightFences[i], nullptr);
 	}
@@ -744,8 +745,6 @@ void VulkanCore::RecreateSwapChain()
 
 void VulkanCore::CleanUpSwapChain()
 {
-	_onCleanUpSwapChain.Invoke();
-
 	DestroyImage(_logicalDevice, _depthImage);
 	DestroyImage(_logicalDevice, _colorImage);
 

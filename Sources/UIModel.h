@@ -19,6 +19,7 @@ private:
 
 public:
 	explicit UIModel(const std::shared_ptr<VulkanCore> &vulkanCore);
+	virtual ~UIModel();
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
 	virtual uint32_t GetOrder() override { return 2000; }

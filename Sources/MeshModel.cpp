@@ -28,15 +28,6 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
 
-	// Initialize & add callbacks
-	_vulkanCore->OnCleanUpOthers().AddListener
-	(
-		[this]()
-		{
-			OnCleanUpOthers();
-		}
-	);
-
 	ApplyMaterialAdjustment();
 
 	auto &mainLight = _vulkanCore->GetMainLight();
@@ -51,6 +42,38 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 	// Load a fallback texture
 	LoadTexture("");
+}
+
+MeshModel::~MeshModel()
+{
+	for (auto &meshObject : _meshObjects)
+	{
+		meshObject->CleanUp();
+	}
+
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer);
+
+	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer);
+
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
+
+	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
+
+	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
+
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer);
+	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
+
+	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers);
+	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers);
 }
 
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
@@ -71,38 +94,6 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFra
 			vkCmdDrawIndexed(commandBuffer, _indexCount, 1, 0, 0, 0);
 		}
 	}
-}
-
-void MeshModel::OnCleanUpOthers()
-{
-	for (auto &meshObject : _meshObjects)
-	{
-		meshObject->CleanUp();
-	}
-
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer);
-
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer);
-
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
-
-	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
-	
-	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
-	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
-
-	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
-
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
-
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers);
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers);
 }
 
 void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
@@ -130,6 +121,10 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 
 void MeshModel::LoadTexture(const std::string &texturePath)
 {
+	// We have to free prior images
+	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
+	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+
 	// Load a texture
 	std::string targetTexturePath = texturePath;
 	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
@@ -146,7 +141,6 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 
 	// Allocate separate buffer, one on the CPU and the other on the GPU.
 	// Temporary, host-visible buffer that resides on the CPU
-	_vertexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory, 0, vertexBufferSize, 0, &_vertexOnHost);
 	UpdateVertices(vertices);
 
@@ -155,7 +149,6 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	_indexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_indexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	_indexStagingBuffer= CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory, 0, indexBufferSize, 0, &_indexOnHost);
 	UpdateIndices(indices);
 }

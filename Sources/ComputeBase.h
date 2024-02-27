@@ -21,8 +21,10 @@ public:
 	ComputeBase &operator=(ComputeBase &&other) = default;
 	virtual ~ComputeBase();
 
+	void SetEnable(bool enable);
+
+protected:
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) = 0;
 	virtual uint32_t GetOrder() = 0;
-	void SetEnable(bool enable);
 };
 

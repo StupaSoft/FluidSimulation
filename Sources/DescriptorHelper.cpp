@@ -159,6 +159,8 @@ VkDescriptorSetLayout DescriptorHelper::CreateDescriptorSetLayout(const std::vec
 		throw std::runtime_error("Failed to create a descriptor set layout.");
 	}
 
+	_needLayoutRecreation = false;
+
 	return descriptorSetLayout;
 }
 

@@ -102,6 +102,7 @@ private:
 
 public:
 	MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesGrid &marchingCubesGrid);
+	virtual ~MarchingCubes();
 
 	void UpdatePositions(const std::vector<glm::vec3> &positions);
 	void UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters);
@@ -113,10 +114,11 @@ public:
 	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
 
-	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
-	virtual uint32_t GetOrder() override;
-
 	uint32_t GetIndexCount() { return _setup->_indexCount; }
+
+protected:
+	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
+	virtual uint32_t GetOrder() override { return 0; };
 
 private:
 	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);

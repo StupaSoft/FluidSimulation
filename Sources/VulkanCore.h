@@ -140,8 +140,6 @@ private:
 	// ==================== Events ====================
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordComputeCommand;
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordDrawCommand;
-	Delegate<void()> _onCleanUpSwapChain;
-	Delegate<void()> _onCleanUpOthers;
 	Delegate<void()> _onRecreateSwapChain;
 
 public:
@@ -179,8 +177,6 @@ public:
 
 	auto &OnComputeCommand() { return _onRecordComputeCommand; }
 	auto &OnDrawCommand() { return _onRecordDrawCommand; }
-	auto &OnCleanUpSwapChain() { return _onCleanUpSwapChain; }
-	auto &OnCleanUpOthers() { return _onCleanUpOthers; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
 
 private:
