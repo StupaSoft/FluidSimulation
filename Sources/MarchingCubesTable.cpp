@@ -1,7 +1,7 @@
 #include "MarchingCubes.h"
 
 const uint32_t N = -1;
-const std::vector<uint32_t> MarchingCubes::INDICES_TABLE
+const std::vector<uint32_t> MarchingCubesCompute::INDICES_TABLE
 {
 	N, N, N, N, N, N, N, N, N, N, N, N, N, N, N,
 	3, 8, 0, N, N, N, N, N, N, N, N, N, N, N, N,

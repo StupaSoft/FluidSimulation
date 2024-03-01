@@ -67,8 +67,6 @@ private:
 
 	// Rendering with marching cubes
 	std::unique_ptr<MarchingCubes> _marchingCubes = nullptr;
-	std::shared_ptr<MeshModel> _marchingCubesModel = nullptr;
-	std::shared_ptr<MeshObject> _marchingCubesObject = nullptr;
 
 	// 3 2
 	// 0 1

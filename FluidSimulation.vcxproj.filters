@@ -29,6 +29,12 @@
     <Filter Include="sources\Compute">
       <UniqueIdentifier>{f233e260-46f7-4093-9f8f-147abc549897}</UniqueIdentifier>
     </Filter>
+    <Filter Include="sources\Presentation">
+      <UniqueIdentifier>{3cb1306b-84e6-45b8-9630-66eda93a90f9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sources\Presentation\MarchingCubes">
+      <UniqueIdentifier>{4733ced5-6efb-4911-932c-1f76a5deb865}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -97,9 +103,6 @@
     <ClCompile Include="Sources\BVH.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\MarchingCubes.cpp">
-      <Filter>sources\Compute</Filter>
-    </ClCompile>
     <ClCompile Include="Sources\DescriptorHelper.cpp">
       <Filter>sources\Utility</Filter>
     </ClCompile>
@@ -112,8 +115,14 @@
     <ClCompile Include="Sources\RenderingPanel.cpp">
       <Filter>sources\UI</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\MarchingCubesCompute.cpp">
+      <Filter>sources\Presentation\MarchingCubes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\MarchingCubes.cpp">
+      <Filter>sources\Presentation\MarchingCubes</Filter>
+    </ClCompile>
     <ClCompile Include="Sources\MarchingCubesTable.cpp">
-      <Filter>sources\Compute</Filter>
+      <Filter>sources\Presentation\MarchingCubes</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -186,9 +195,6 @@
     <ClInclude Include="Sources\Triangle.h">
       <Filter>sources\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\MarchingCubes.h">
-      <Filter>sources\Compute</Filter>
-    </ClInclude>
     <ClInclude Include="Sources\ComputeBase.h">
       <Filter>sources\Compute</Filter>
     </ClInclude>
@@ -203,6 +209,12 @@
     </ClInclude>
     <ClInclude Include="Sources\VulkanStructs.h">
       <Filter>sources\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MarchingCubesCompute.h">
+      <Filter>sources\Presentation\MarchingCubes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\MarchingCubes.h">
+      <Filter>sources\Presentation\MarchingCubes</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

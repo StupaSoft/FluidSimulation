@@ -171,6 +171,7 @@ public:
 	auto GetExtent() const { return _swapChainExtent; }
 	auto GetCommandPool() const { return _commandPool; }
 	auto GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
+	auto GetCurrentFrame() const { return _currentFrame; }
 
 	auto &GetMainCamera() const { return _mainCamera; }
 	auto &GetMainLight() const { return _mainLight; }

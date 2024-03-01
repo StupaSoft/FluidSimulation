@@ -46,10 +46,10 @@ void RenderingPanel::Draw()
         auto marchingCubes = _simulatedScene->GetMarchingCubes();
         if (marchingCubes != nullptr)
         {
-            float isovalue = marchingCubes->GetIsovalue();
+            float isovalue = marchingCubes->GetCompute()->GetIsovalue();
             if (ImGui::SliderFloat("Isovalue", &isovalue, 0.0f, 5000.0f))
             {
-                marchingCubes->SetIsovalue(isovalue);
+                marchingCubes->GetCompute()->SetIsovalue(isovalue);
             }
         }
     }

@@ -33,6 +33,7 @@
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
     <ClCompile Include="Sources\MarchingCubes.cpp" />
+    <ClCompile Include="Sources\MarchingCubesCompute.cpp" />
     <ClCompile Include="Sources\MarchingCubesTable.cpp" />
     <ClCompile Include="Sources\ModelBase.cpp" />
     <ClCompile Include="Sources\RenderingPanel.cpp" />
@@ -62,6 +63,7 @@
     <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\Kernel.h" />
     <ClInclude Include="Sources\MarchingCubes.h" />
+    <ClInclude Include="Sources\MarchingCubesCompute.h" />
     <ClInclude Include="Sources\RenderingPanel.h" />
     <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />

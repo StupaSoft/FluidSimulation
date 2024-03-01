@@ -99,20 +99,6 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, marchingCubesGrid);
 		_marchingCubes->SetEnable(false);
-
-		_marchingCubesModel = std::make_unique<MeshModel>(_vulkanCore);
-		_marchingCubesModel->SetMeshBuffers(_marchingCubes->GetVertexBuffer(), _marchingCubes->GetIndexBuffer(), _marchingCubes->GetIndexCount());
-		_marchingCubesModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
-
-		MeshModel::Material marchingCubesMat
-		{
-			._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
-			._glossiness = 1.0f
-		};
-		_marchingCubesModel->SetMaterial(std::move(marchingCubesMat));
-
-		_marchingCubesObject = _marchingCubesModel->AddMeshObject();
-		_marchingCubesObject->SetVisible(false);
 	}
 
 	_onSetPlay.AddListener
@@ -149,8 +135,6 @@ void SimulatedScene::ApplyRenderMode(ParticleRenderingMode particleRenderingMode
 	bool isMarchingCubes = (particleRenderingMode == ParticleRenderingMode::MarchingCubes);
 
 	_marchingCubes->SetEnable(isMarchingCubes && play);
-	_marchingCubesObject->SetVisible(isMarchingCubes && play);
-
 	_particleObject->SetVisible(!isMarchingCubes && play);
 }
 
@@ -393,6 +377,7 @@ void SimulatedScene::ApplyParticlePositions()
 	}
 	else if (_particleRenderingMode == ParticleRenderingMode::MarchingCubes)
 	{
-		_marchingCubes->UpdatePositions(_positions);
+		const auto &particleInputBuffers = _marchingCubes->GetCompute()->GetParticleInputBuffers();
+		CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), particleInputBuffers[_vulkanCore->GetCurrentFrame()], const_cast<glm::vec3 *>(_positions.data()), 0, sizeof(glm::vec3) * _positions.size());
 	}
 }
