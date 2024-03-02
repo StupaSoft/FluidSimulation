@@ -35,6 +35,9 @@
     <Filter Include="sources\Presentation\MarchingCubes">
       <UniqueIdentifier>{4733ced5-6efb-4911-932c-1f76a5deb865}</UniqueIdentifier>
     </Filter>
+    <Filter Include="sources\Presentation\Billboards">
+      <UniqueIdentifier>{66d99433-0fe6-439f-9944-12e221ce8e10}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Libraries\imgui\imgui.cpp">
@@ -123,6 +126,12 @@
     </ClCompile>
     <ClCompile Include="Sources\MarchingCubesTable.cpp">
       <Filter>sources\Presentation\MarchingCubes</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\Billboards.cpp">
+      <Filter>sources\Presentation\Billboards</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\BillboardsCompute.cpp">
+      <Filter>sources\Presentation\Billboards</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -215,6 +224,12 @@
     </ClInclude>
     <ClInclude Include="Sources\MarchingCubes.h">
       <Filter>sources\Presentation\MarchingCubes</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\Billboards.h">
+      <Filter>sources\Presentation\Billboards</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\BillboardsCompute.h">
+      <Filter>sources\Presentation\Billboards</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

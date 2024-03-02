@@ -19,14 +19,14 @@ void RenderingPanel::Draw()
             {
                 currentItem = items[i];
 
-                ParticleRenderingMode particleRenderingMode = ParticleRenderingMode::Particle;
+                ParticleRenderingMode particleRenderingMode = ParticleRenderingMode::Billboards;
                 if (currentItem == MARCHING_CUBES)
                 {
                     particleRenderingMode = ParticleRenderingMode::MarchingCubes;
                 }
                 else if (currentItem == PARTICLE)
                 {
-                    particleRenderingMode = ParticleRenderingMode::Particle;
+                    particleRenderingMode = ParticleRenderingMode::Billboards;
                 }
 
                 _simulatedScene->SetParticleRenderingMode(particleRenderingMode);

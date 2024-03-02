@@ -3,12 +3,14 @@
 #include <omp.h>
 
 #include "VulkanCore.h"
-#include "MeshModel.h"
-#include "MarchingCubes.h"
 #include "HashGrid.h"
 #include "BVH.h"
 #include "SimulationParameters.h"
 #include "Delegate.h"
+
+#include "MeshModel.h"
+#include "Billboards.h"
+#include "MarchingCubes.h"
 
 enum class ColliderRenderMode
 {
@@ -19,7 +21,7 @@ enum class ColliderRenderMode
 
 enum class ParticleRenderingMode
 {
-	Particle,
+	Billboards,
 	MarchingCubes
 };
 
@@ -57,21 +59,10 @@ private:
 	ParticleRenderingMode _particleRenderingMode = ParticleRenderingMode::MarchingCubes;
 
 	// Rendering
-	Delegate<void(ParticleRenderingMode)> _onSetParticleRenderingMode;
-
-	// Rendering with particles
-	std::unique_ptr<MeshModel> _particleModel = nullptr;
-	std::shared_ptr<MeshObject> _particleObject = nullptr;
-	std::vector<Vertex> _particleVertices;
-	std::vector<uint32_t> _particleIndices;
-
-	// Rendering with marching cubes
+	std::unique_ptr<Billboards> _billboards = nullptr;
 	std::unique_ptr<MarchingCubes> _marchingCubes = nullptr;
 
-	// 3 2
-	// 0 1
-	const std::vector<glm::vec2> VERTICES_IN_PARTICLE{ {-1.0f, -1.0f }, { 1.0f, -1.0f }, { 1.0f, 1.0f }, { -1.0f, 1.0f } }; // (Camera right component, camera up component, 0.0f)
-	const std::vector<uint32_t> INDICES_IN_PARTICLE{ 0, 1, 2, 0, 2, 3 };
+	Delegate<void(ParticleRenderingMode)> _onSetParticleRenderingMode;
 
 	// Prop
 	std::vector<std::unique_ptr<MeshModel>> _propModels;

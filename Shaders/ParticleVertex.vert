@@ -28,7 +28,7 @@ material;
 // Input
 layout(location = 0) in vec3 inPosition; // Particle center position (not this vertex position)
 layout(location = 1) in vec3 inNormal; // In this shader, this is used as [radius, 0.0f, 0.0f]
-layout(location = 2) in vec2 inTexCoord; // In this shader, this is used as offset
+layout(location = 2) in vec2 inTexCoord; // In this shader, this is used as a position offset
 
 // Output
 layout(location = 0) out vec3 particlePos;

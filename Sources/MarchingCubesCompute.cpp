@@ -21,13 +21,13 @@ MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vu
 
 	// Create compute pipeline
 	VkShaderModule accumulationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesAccumulation.spv"));
-	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(accumulationShaderModule, _accumulationDescriptorSetLayout);
+	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
 
 	VkShaderModule constructionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesConstruction.spv"));
-	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(constructionShaderModule, _constructionDescriptorSetLayout);
+	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
 
 	VkShaderModule presentationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesPresentation.spv"));
-	std::tie(_presentationPipeline, _presentationPipelineLayout) = CreateComputePipeline(presentationShaderModule, _presentationDescriptorSetLayout);
+	std::tie(_presentationPipeline, _presentationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), presentationShaderModule, _presentationDescriptorSetLayout);
 }
 
 MarchingCubesCompute::~MarchingCubesCompute()
@@ -69,8 +69,6 @@ MarchingCubesCompute::~MarchingCubesCompute()
 
 void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
 {
-	auto divisionCeil = [](auto x, auto y) { return (x + y - 1) / y;  };
-
 	VkMemoryBarrier memoryBarrier
 	{
 		.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER,
@@ -81,7 +79,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, u
 	// 1. Accumulate particle kernel values into voxels
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline);
 	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipelineLayout, 0, 1, &_accumulationDescriptorSets[currentFrame], 0, 0);
-	vkCmdDispatch(computeCommandBuffer, divisionCeil(_particleProperty->_particleCount, 1024), 1, 1); // Temp
+	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleProperty->_particleCount, 1024), 1, 1); // Temp
 
 	// Synchronization - construction commences only after the accumulation finishes
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -89,7 +87,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, u
 	// 2. Construct meshes from the particles
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipeline);
 	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipelineLayout, 0, 1, &_constructionDescriptorSets[currentFrame], 0, 0);
-	vkCmdDispatch(computeCommandBuffer, divisionCeil(_setup->_cellCount, 1024), 1, 1);
+	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_cellCount, 1024), 1, 1);
 
 	// Synchronization - presentation commences only after the construction finishes
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -97,46 +95,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, u
 	// 3. Build a presentable mesh
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _presentationPipeline);
 	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _presentationPipelineLayout, 0, 1, &_presentationDescriptorSets[currentFrame], 0, 0);
-	vkCmdDispatch(computeCommandBuffer, divisionCeil(_setup->_vertexCount, 1024), 1, 1);
-}
-
-std::tuple<VkPipeline, VkPipelineLayout> MarchingCubesCompute::CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout)
-{
-	VkPipelineShaderStageCreateInfo computeShaderStageInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = computeShaderModule,
-		.pName = "main"
-	};
-
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout
-	};
-
-	VkPipelineLayout computePipelineLayout = VK_NULL_HANDLE;
-	if (vkCreatePipelineLayout(_vulkanCore->GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &computePipelineLayout))
-	{
-		throw std::runtime_error("Failed to create a compute pipeline layout.");
-	}
-
-	VkComputePipelineCreateInfo pipelineInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-		.stage = computeShaderStageInfo,
-		.layout = computePipelineLayout
-	};
-
-	VkPipeline computePipeline = VK_NULL_HANDLE;
-	if (vkCreateComputePipelines(_vulkanCore->GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline))
-	{
-		throw std::runtime_error("Failed to create a compute pipeline.");
-	}
-
-	return std::make_tuple(computePipeline, computePipelineLayout);
+	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_vertexCount, 1024), 1, 1);
 }
 
 void MarchingCubesCompute::CreateSetupBuffers()
@@ -231,8 +190,8 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 VkDescriptorPool MarchingCubesCompute::CreateDescriptorPool(DescriptorHelper *descriptorHelper)
 {
 	// Create descriptor pool
-	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SET_COUNT });
-	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_SET_COUNT });
+	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 });
+	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 });
 	auto descriptorPool = descriptorHelper->GetDescriptorPool();
 
 	return descriptorPool;

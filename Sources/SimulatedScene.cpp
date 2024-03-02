@@ -15,13 +15,6 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	_particleCount = xCount * yCount * zCount;
 	glm::vec3 startingPoint = glm::vec3(xRange.r, yRange.r, zRange.r);
 
-	// Prepare render data
-	_particleVertices.clear();
-	_particleVertices.resize(_particleCount * VERTICES_IN_PARTICLE.size());
-
-	_particleIndices.clear();
-	_particleIndices.resize(_particleCount * INDICES_IN_PARTICLE.size());
-
 	// Prepare particles themselves
 	_positions = std::vector<glm::vec3>(_particleCount);
 	_velocities = std::vector<glm::vec3>(_particleCount);
@@ -32,26 +25,6 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 
 	_nextPositions = std::vector<glm::vec3>(_particleCount);
 	_nextVelocities = std::vector<glm::vec3>(_particleCount);
-
-	// Initialize particles
-	for (size_t i = 0; i < _particleCount; ++i)
-	{
-		// Set attributes within each particle
-		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
-		{
-			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].normal.x = particleRadius;
-			_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].texCoord = VERTICES_IN_PARTICLE[j];
-		}
-
-		// Set global indices of triangles
-		for (size_t j = 0; j < INDICES_IN_PARTICLE.size(); ++j)
-		{
-			// First particle: 0, 1, 2, 0, 2, 3
-			// Second particle: 4, 5, 6, 4, 6, 7
-			// ...
-			_particleIndices[i * INDICES_IN_PARTICLE.size() + j] = static_cast<uint32_t>(i * VERTICES_IN_PARTICLE.size() + INDICES_IN_PARTICLE[j]);
-		}
-	}
 
 	// Place particles
 	for (size_t z = 0; z < zCount; ++z)
@@ -70,21 +43,9 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
 
 	// Initialize render systems
-	if (_particleModel == nullptr)
+	if (_billboards == nullptr)
 	{
-		_particleModel = std::make_unique<MeshModel>(_vulkanCore);
-		_particleModel->LoadMesh(_particleVertices, _particleIndices);
-		_particleModel->LoadShaders("Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
-
-		MeshModel::Material particleMat
-		{
-			._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
-			._glossiness = 1.0f
-		};
-		_particleModel->SetMaterial(std::move(particleMat));
-
-		_particleObject = _particleModel->AddMeshObject();
-		_particleObject->SetVisible(false);
+		_billboards = std::make_unique<Billboards>(_vulkanCore, _particleCount, particleRadius);
 	}
 
 	if (_marchingCubes == nullptr)
@@ -135,7 +96,7 @@ void SimulatedScene::ApplyRenderMode(ParticleRenderingMode particleRenderingMode
 	bool isMarchingCubes = (particleRenderingMode == ParticleRenderingMode::MarchingCubes);
 
 	_marchingCubes->SetEnable(isMarchingCubes && play);
-	_particleObject->SetVisible(!isMarchingCubes && play);
+	_billboards->SetEnable(!isMarchingCubes && play);
 }
 
 void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
@@ -361,23 +322,7 @@ void SimulatedScene::UpdateDensities()
 // Reflect the particle positions to the render system
 void SimulatedScene::ApplyParticlePositions()
 {
-	if (_particleRenderingMode == ParticleRenderingMode::Particle)
-	{
-		#pragma omp parallel for
-		for (size_t i = 0; i < _particleCount; ++i)
-		{
-			glm::vec3 particlePosition = _positions[i];
-			for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
-			{
-				_particleVertices[i * VERTICES_IN_PARTICLE.size() + j].pos = particlePosition;
-			}
-		}
-
-		_particleModel->UpdateVertices(_particleVertices);
-	}
-	else if (_particleRenderingMode == ParticleRenderingMode::MarchingCubes)
-	{
-		const auto &particleInputBuffers = _marchingCubes->GetCompute()->GetParticleInputBuffers();
-		CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), particleInputBuffers[_vulkanCore->GetCurrentFrame()], const_cast<glm::vec3 *>(_positions.data()), 0, sizeof(glm::vec3) * _positions.size());
-	}
+	const auto &particleInputBuffers = _particleRenderingMode == ParticleRenderingMode::MarchingCubes ? _marchingCubes->GetCompute()->GetParticleInputBuffers() : _billboards->GetCompute()->GetParticlePositionBuffers();
+	const auto &currentBuffer = particleInputBuffers[_vulkanCore->GetCurrentFrame()];
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), currentBuffer, const_cast<glm::vec3 *>(_positions.data()), 0, sizeof(glm::vec3) * _positions.size());
 }

@@ -26,6 +26,7 @@
     <ClCompile Include="Libraries\imgui\imgui_draw.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_tables.cpp" />
     <ClCompile Include="Libraries\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="Sources\BillboardsCompute.cpp" />
     <ClCompile Include="Sources\BVH.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\ComputeBase.cpp" />
@@ -36,6 +37,7 @@
     <ClCompile Include="Sources\MarchingCubesCompute.cpp" />
     <ClCompile Include="Sources\MarchingCubesTable.cpp" />
     <ClCompile Include="Sources\ModelBase.cpp" />
+    <ClCompile Include="Sources\Billboards.cpp" />
     <ClCompile Include="Sources\RenderingPanel.cpp" />
     <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
@@ -55,6 +57,7 @@
     <ClInclude Include="Libraries\imgui\imconfig.h" />
     <ClInclude Include="Libraries\imgui\imgui.h" />
     <ClInclude Include="Libraries\imgui\imgui_internal.h" />
+    <ClInclude Include="Sources\BillboardsCompute.h" />
     <ClInclude Include="Sources\BVH.h" />
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\ComputeBase.h" />
@@ -64,6 +67,7 @@
     <ClInclude Include="Sources\Kernel.h" />
     <ClInclude Include="Sources\MarchingCubes.h" />
     <ClInclude Include="Sources\MarchingCubesCompute.h" />
+    <ClInclude Include="Sources\Billboards.h" />
     <ClInclude Include="Sources\RenderingPanel.h" />
     <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />

@@ -95,7 +95,6 @@ private:
 	Buffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
 
 	// Constants
-	static const uint32_t MAX_SET_COUNT = 100;
 	static const uint32_t CODES_COUNT = 256;
 	static const uint32_t MAX_INDICES_IN_CELL = 15;
 	static const std::vector<uint32_t> INDICES_TABLE;
@@ -121,7 +120,6 @@ protected:
 	virtual uint32_t GetOrder() override { return 0; };
 
 private:
-	std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);
 	void CreateSetupBuffers();
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
