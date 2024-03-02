@@ -11,7 +11,7 @@ void WindowApplication::Run()
 	_vulkanCore->InitVulkan();
 	_vulkanCore->SetUpScene();
 
-	_simulatedScene = std::make_shared<SimulatedScene>(_vulkanCore);
+	_simulatedScene = std::make_shared<CPUSimulatedScene>(_vulkanCore);
 	//_simulatedScene->AddProp("Models/Filter.obj", "", true, true);
 	_simulatedScene->AddProp("Models/Bath.obj", "", false, true); // Temp
 	_simulatedScene->AddProp("Models/BathWireframe.obj", "", true, false); // Temp

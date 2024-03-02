@@ -94,9 +94,6 @@
     <ClCompile Include="Sources\DirectionalLight.cpp">
       <Filter>sources\Render</Filter>
     </ClCompile>
-    <ClCompile Include="Sources\SimulatedScene.cpp">
-      <Filter>sources\Simulation</Filter>
-    </ClCompile>
     <ClCompile Include="Sources\HashGrid.cpp">
       <Filter>sources\Simulation</Filter>
     </ClCompile>
@@ -132,6 +129,12 @@
     </ClCompile>
     <ClCompile Include="Sources\BillboardsCompute.cpp">
       <Filter>sources\Presentation\Billboards</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\CPUSimulatedScene.cpp">
+      <Filter>sources\Simulation</Filter>
+    </ClCompile>
+    <ClCompile Include="Sources\SimulatedSceneBase.cpp">
+      <Filter>sources\Simulation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -189,9 +192,6 @@
     <ClInclude Include="Sources\DirectionalLight.h">
       <Filter>sources\Render</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\SimulatedScene.h">
-      <Filter>sources\Simulation</Filter>
-    </ClInclude>
     <ClInclude Include="Sources\HashGrid.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
@@ -230,6 +230,12 @@
     </ClInclude>
     <ClInclude Include="Sources\VulkanStructs.h">
       <Filter>sources\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\CPUSimulatedScene.h">
+      <Filter>sources\Simulation</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\SimulatedSceneBase.h">
+      <Filter>sources\Simulation</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

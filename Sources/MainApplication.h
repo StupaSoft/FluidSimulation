@@ -22,7 +22,7 @@
 
 #include "VulkanCore.h"
 
-#include "SimulatedScene.h"
+#include "CPUSimulatedScene.h"
 #include "UIModel.h"
 
 #include "SimulationPanel.h"
@@ -32,7 +32,7 @@ class WindowApplication
 {
 private:
 	std::shared_ptr<VulkanCore> _vulkanCore;
-	std::shared_ptr<SimulatedScene> _simulatedScene;
+	std::shared_ptr<SimulatedSceneBase> _simulatedScene;
 
 public:
 	void Run();

@@ -30,6 +30,7 @@
     <ClCompile Include="Sources\BVH.cpp" />
     <ClCompile Include="Sources\Camera.cpp" />
     <ClCompile Include="Sources\ComputeBase.cpp" />
+    <ClCompile Include="Sources\CPUSimulatedScene.cpp" />
     <ClCompile Include="Sources\DescriptorHelper.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
@@ -39,13 +40,13 @@
     <ClCompile Include="Sources\ModelBase.cpp" />
     <ClCompile Include="Sources\Billboards.cpp" />
     <ClCompile Include="Sources\RenderingPanel.cpp" />
+    <ClCompile Include="Sources\SimulatedSceneBase.cpp" />
     <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
     <ClCompile Include="Sources\MainApplication.cpp" />
     <ClCompile Include="Sources\MeshModel.cpp" />
     <ClCompile Include="Sources\MeshObject.cpp" />
-    <ClCompile Include="Sources\SimulatedScene.cpp" />
     <ClCompile Include="Sources\UIModel.cpp" />
     <ClCompile Include="Sources\Vertex.cpp" />
     <ClCompile Include="Sources\VulkanCore.cpp" />
@@ -61,6 +62,7 @@
     <ClInclude Include="Sources\BVH.h" />
     <ClInclude Include="Sources\Camera.h" />
     <ClInclude Include="Sources\ComputeBase.h" />
+    <ClInclude Include="Sources\CPUSimulatedScene.h" />
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\DescriptorHelper.h" />
     <ClInclude Include="Sources\HashGrid.h" />
@@ -69,6 +71,7 @@
     <ClInclude Include="Sources\MarchingCubesCompute.h" />
     <ClInclude Include="Sources\Billboards.h" />
     <ClInclude Include="Sources\RenderingPanel.h" />
+    <ClInclude Include="Sources\SimulatedSceneBase.h" />
     <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />
@@ -76,7 +79,6 @@
     <ClInclude Include="Sources\MeshObject.h" />
     <ClInclude Include="Sources\ModelBase.h" />
     <ClInclude Include="Sources\PanelBase.h" />
-    <ClInclude Include="Sources\SimulatedScene.h" />
     <ClInclude Include="Sources\SimulationParameters.h" />
     <ClInclude Include="Sources\Triangle.h" />
     <ClInclude Include="Sources\UIModel.h" />

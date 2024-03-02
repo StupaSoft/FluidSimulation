@@ -1,12 +1,19 @@
-#include "SimulatedScene.h"
+#include "CPUSimulatedScene.h"
 
-const glm::vec3 SimulatedScene::GRAVITY = glm::vec3(0.0f, -9.8f, 0.0f);
-
-void SimulatedScene::InitializeParticles(float particleRadius, float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
+CPUSimulatedScene::CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) :
+	SimulatedSceneBase(vulkanCore)
 {
-	_simulationParameters->_particleRadius = particleRadius;
-	_kernel = Kernel(_simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
+	_onUpdateSimulationParameters.AddListener
+	(
+		[this](const SimulationParameters &simulationParameters)
+		{
+			_kernel = Kernel(simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
+		}
+	);
+}
 
+void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
+{
 	// Setup
 	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
 	size_t yCount = std::ceil((yRange.g - yRange.r) / particleDistance);
@@ -39,34 +46,26 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 		}
 	}
 
-	// Build the hash grid and BVH
-	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
-
-	// Initialize render systems
-	if (_billboards == nullptr)
-	{
-		_billboards = std::make_unique<Billboards>(_vulkanCore, _particleCount, particleRadius);
-	}
-
-	if (_marchingCubes == nullptr)
-	{
-		MarchingCubesGrid marchingCubesGrid
-		{
-			._xRange{ -3.0f, 3.0f },
-			._yRange{ -3.0f, 5.0f },
-			._zRange{ -3.0f, 3.0f },
-			._voxelInterval = 0.05f
-		};
-
-		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, *_simulationParameters, marchingCubesGrid);
-		_marchingCubes->SetEnable(false);
-	}
-
+	// Possible only after initializing the particle system
 	_onSetPlay.AddListener
 	(
 		[this](bool play)
 		{
+			_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
+			InitializeRenderSystems(*_simulationParameters);
 			ApplyRenderMode(_particleRenderingMode, play);
+		}
+	);
+
+	_onUpdateSimulationParameters.AddListener
+	(
+		[this](const SimulationParameters &simulationParameters)
+		{
+			if (_simulationParameters->_particleRadius != simulationParameters._particleRadius || _simulationParameters->_kernelRadiusFactor != simulationParameters._kernelRadiusFactor)
+			{
+				_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
+			}
+			InitializeRenderSystems(simulationParameters);
 		}
 	);
 
@@ -79,27 +78,7 @@ void SimulatedScene::InitializeParticles(float particleRadius, float particleDis
 	);
 }
 
-void SimulatedScene::SetPlay(bool play)
-{
-	_isPlaying = play;
-	_onSetPlay.Invoke(play);
-}
-
-void SimulatedScene::SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode)
-{
-	_particleRenderingMode = particleRenderingMode;
-	_onSetParticleRenderingMode.Invoke(particleRenderingMode);
-}
-
-void SimulatedScene::ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play)
-{
-	bool isMarchingCubes = (particleRenderingMode == ParticleRenderingMode::MarchingCubes);
-
-	_marchingCubes->SetEnable(isMarchingCubes && play);
-	_billboards->SetEnable(!isMarchingCubes && play);
-}
-
-void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
+void CPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
 {
 	auto obj = LoadOBJ(OBJPath);
 
@@ -116,13 +95,13 @@ void SimulatedScene::AddProp(const std::string &OBJPath, const std::string &text
 	_bvh->AddPropObject(propObject);
 }
 
-void SimulatedScene::BeginTimeStep()
+void CPUSimulatedScene::BeginTimeStep()
 {
 	_hashGrid->UpdateGrid(_positions);
 	UpdateDensities();
 }
 
-void SimulatedScene::EndTimeStep()
+void CPUSimulatedScene::EndTimeStep()
 {
 	// Apply velocities and positions are applied
 	std::copy(_nextPositions.cbegin(), _nextPositions.cend(), _positions.begin());
@@ -135,7 +114,7 @@ void SimulatedScene::EndTimeStep()
 	std::fill(_pressureForces.begin(), _pressureForces.end(), glm::vec3{});
 }
 
-void SimulatedScene::Update(float deltaSecond)
+void CPUSimulatedScene::Update(float deltaSecond)
 {
 	if (!_isPlaying) return;
 
@@ -152,14 +131,14 @@ void SimulatedScene::Update(float deltaSecond)
 	ApplyParticlePositions();
 }
 
-void SimulatedScene::AccumulateForces(float deltaSecond)
+void CPUSimulatedScene::AccumulateForces(float deltaSecond)
 {
 	AccumulateExternalForce(deltaSecond);
 	AccumulateViscosityForce(deltaSecond);
 	AccumulatePressureForce(deltaSecond);
 }
 
-void SimulatedScene::AccumulateExternalForce(float deltaSecond)
+void CPUSimulatedScene::AccumulateExternalForce(float deltaSecond)
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -175,7 +154,7 @@ void SimulatedScene::AccumulateExternalForce(float deltaSecond)
 	}
 }
 
-void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
+void CPUSimulatedScene::AccumulateViscosityForce(float deltaSecond)
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -193,7 +172,7 @@ void SimulatedScene::AccumulateViscosityForce(float deltaSecond)
 	}
 }
 
-void SimulatedScene::AccumulatePressureForce(float deltaSecond)
+void CPUSimulatedScene::AccumulatePressureForce(float deltaSecond)
 {
 	// Compute pressures
 	#pragma omp parallel for
@@ -229,7 +208,7 @@ void SimulatedScene::AccumulatePressureForce(float deltaSecond)
 	}
 }
 
-void SimulatedScene::ResolveCollision()
+void CPUSimulatedScene::ResolveCollision()
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -273,7 +252,7 @@ void SimulatedScene::ResolveCollision()
 	}
 }
 
-void SimulatedScene::TimeIntegration(float deltaSecond)
+void CPUSimulatedScene::TimeIntegration(float deltaSecond)
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -286,19 +265,19 @@ void SimulatedScene::TimeIntegration(float deltaSecond)
 	}
 }
 
-glm::vec3 SimulatedScene::GetWindVelocityAt(glm::vec3 samplePosition)
+glm::vec3 CPUSimulatedScene::GetWindVelocityAt(glm::vec3 samplePosition)
 {
 	return glm::vec3{}; // Temp
 }
 
-float SimulatedScene::ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent)
+float CPUSimulatedScene::ComputePressureFromEOS(float density, float targetDensity, float eosScale, float eosExponent)
 {
 	float pressure = eosScale * (std::pow(density / targetDensity, eosExponent) - 1.0f) / eosExponent;
 	if (pressure < 0.0f) pressure = 0.0f;
 	return pressure;
 }
 
-void SimulatedScene::UpdateDensities()
+void CPUSimulatedScene::UpdateDensities()
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -320,7 +299,7 @@ void SimulatedScene::UpdateDensities()
 }
 
 // Reflect the particle positions to the render system
-void SimulatedScene::ApplyParticlePositions()
+void CPUSimulatedScene::ApplyParticlePositions()
 {
 	const auto &particleInputBuffers = _particleRenderingMode == ParticleRenderingMode::MarchingCubes ? _marchingCubes->GetCompute()->GetParticleInputBuffers() : _billboards->GetCompute()->GetParticlePositionBuffers();
 	const auto &currentBuffer = particleInputBuffers[_vulkanCore->GetCurrentFrame()];
