@@ -216,9 +216,6 @@
     <ClInclude Include="Sources\SimulationParameters.h">
       <Filter>sources\Simulation</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\VulkanStructs.h">
-      <Filter>sources\Core</Filter>
-    </ClInclude>
     <ClInclude Include="Sources\MarchingCubesCompute.h">
       <Filter>sources\Presentation\MarchingCubes</Filter>
     </ClInclude>
@@ -230,6 +227,9 @@
     </ClInclude>
     <ClInclude Include="Sources\BillboardsCompute.h">
       <Filter>sources\Presentation\Billboards</Filter>
+    </ClInclude>
+    <ClInclude Include="Sources\VulkanStructs.h">
+      <Filter>sources\Utility</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -31,17 +31,12 @@ VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice);
 
 Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties);
 std::vector<Buffer> CreateBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, size_t objectSize, size_t maxFramesInFlight, VkBufferUsageFlags usage, VkMemoryPropertyFlags memoryProperty);
-void DestroyBuffer(VkDevice logicalDevice, Buffer buffer);
-void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers);
-
-void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers);
 
 void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize size);
 void CopyMemoryToBuffer(VkDevice logicalDevice, Buffer buffer, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
 void CopyMemoryToBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize);
 
 Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties, VkImageAspectFlags aspectFlags);
-void DestroyImage(VkDevice logicalDevice, Image image);
 void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, VkImage image, uint32_t width, uint32_t height);
 
 // Start a temporary command buffer

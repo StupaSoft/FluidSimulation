@@ -22,26 +22,19 @@ MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vu
 	// Create compute pipeline
 	VkShaderModule accumulationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesAccumulation.spv"));
 	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, nullptr);
 
 	VkShaderModule constructionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesConstruction.spv"));
 	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), constructionShaderModule, nullptr);
 
 	VkShaderModule presentationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesPresentation.spv"));
 	std::tie(_presentationPipeline, _presentationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), presentationShaderModule, _presentationDescriptorSetLayout);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), presentationShaderModule, nullptr);
 }
 
 MarchingCubesCompute::~MarchingCubesCompute()
 {
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer);
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _particlePositionBuffers);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexTableBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _voxelBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexPositionBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _normalBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexOutputBuffer);
-
 	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _accumulationPipeline, nullptr);
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _accumulationPipelineLayout, nullptr);
 
@@ -51,20 +44,11 @@ MarchingCubesCompute::~MarchingCubesCompute()
 	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _presentationPipeline, nullptr);
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _presentationPipelineLayout, nullptr);
 
+	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
+
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _accumulationDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _constructionDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _presentationDescriptorSetLayout, nullptr);
-
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer);
-
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _particlePositionBuffers);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexTableBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _voxelBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexPositionBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _normalBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexOutputBuffer);
 }
 
 void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)

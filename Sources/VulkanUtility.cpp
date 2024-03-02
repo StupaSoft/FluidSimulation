@@ -60,11 +60,8 @@ Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkD
 	// Associate this memory with the buffer
 	vkBindBufferMemory(logicalDevice, bufferHandle, bufferMemory, 0);
 
-	Buffer buffer
-	{
-		._buffer = bufferHandle,
-		._memory = bufferMemory
-	};
+	Buffer buffer(new BufferMemory{ logicalDevice, bufferHandle, bufferMemory }, BufferDeleter());
+
 	return buffer;
 }
 
@@ -81,21 +78,6 @@ std::vector<Buffer> CreateBuffers(VkPhysicalDevice physicalDevice, VkDevice logi
 	return buffers;
 }
 
-void DestroyBuffer(VkDevice logicalDevice, Buffer buffer)
-{
-	vkDestroyBuffer(logicalDevice, buffer._buffer, nullptr);
-	vkFreeMemory(logicalDevice, buffer._memory, nullptr);
-}
-
-void DestroyBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers)
-{
-	for (size_t i = 0; i < buffers.size(); ++i)
-	{
-		vkDestroyBuffer(logicalDevice, buffers[i]._buffer, nullptr);
-		vkFreeMemory(logicalDevice, buffers[i]._memory, nullptr);
-	}
-}
-
 void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize size)
 {
 	// Memory transfer operations are executed using command buffers.
@@ -106,7 +88,7 @@ void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQue
 	{
 		.size = size
 	};
-	vkCmdCopyBuffer(commandBuffer, srcBuffer._buffer, dstBuffer._buffer, 1, &copyRegion);
+	vkCmdCopyBuffer(commandBuffer, srcBuffer->_buffer, dstBuffer->_buffer, 1, &copyRegion);
 
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 }
@@ -117,9 +99,9 @@ void CopyMemoryToBuffer(VkDevice logicalDevice, Buffer buffer, void *source, VkD
 	source = offsetPtr;
 
 	void *data;
-	vkMapMemory(logicalDevice, buffer._memory, copyOffset, copySize, 0, &data);
+	vkMapMemory(logicalDevice, buffer->_memory, copyOffset, copySize, 0, &data);
 	memcpy(data, source, copySize);
-	vkUnmapMemory(logicalDevice, buffer._memory);
+	vkUnmapMemory(logicalDevice, buffer->_memory);
 }
 
 void CopyMemoryToBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buffers, void *source, VkDeviceSize copyOffset, VkDeviceSize copySize)
@@ -130,9 +112,9 @@ void CopyMemoryToBuffers(VkDevice logicalDevice, const std::vector<Buffer> &buff
 	for (size_t i = 0; i < buffers.size(); ++i)
 	{
 		void *data;
-		vkMapMemory(logicalDevice, buffers[i]._memory, copyOffset, copySize, 0, &data);
+		vkMapMemory(logicalDevice, buffers[i]->_memory, copyOffset, copySize, 0, &data);
 		memcpy(data, source, copySize);
-		vkUnmapMemory(logicalDevice, buffers[i]._memory);
+		vkUnmapMemory(logicalDevice, buffers[i]->_memory);
 	}
 }
 
@@ -199,7 +181,7 @@ void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueu
 	};
 
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
-	vkCmdCopyBufferToImage(commandBuffer, buffer._buffer, image._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(commandBuffer, buffer->_buffer, image->_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 }
 
@@ -280,21 +262,9 @@ Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint3
 		throw std::runtime_error("Failed to create a texture image view.");
 	}
 
-	// return
-	Image image
-	{
-		._image = imageHandle,
-		._imageMemory = imageMemory,
-		._imageView = imageView
-	};
-	return image;
-}
+	Image image(new ImageMemoryView{ logicalDevice, imageHandle, imageMemory, imageView }, ImageDeleter());
 
-void DestroyImage(VkDevice logicalDevice, Image image)
-{
-	vkDestroyImageView(logicalDevice, image._imageView, nullptr);
-	vkDestroyImage(logicalDevice, image._image, nullptr);
-	vkFreeMemory(logicalDevice, image._imageMemory, nullptr);
+	return image;
 }
 
 VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code)
@@ -417,9 +387,9 @@ std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, 
 	Buffer stagingBuffer = CreateBuffer(physicalDevice, logicalDevice, imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	void *data = nullptr;
-	vkMapMemory(logicalDevice, stagingBuffer._memory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
+	vkMapMemory(logicalDevice, stagingBuffer->_memory, 0, imageSize, 0, &data); // Map data <-> stagingBufferMemory
 	memcpy(data, pixels, static_cast<size_t>(imageSize)); // Copy pixels -> data
-	vkUnmapMemory(logicalDevice, stagingBuffer._memory);
+	vkUnmapMemory(logicalDevice, stagingBuffer->_memory);
 
 	// Clean up the original pixel array
 	stbi_image_free(pixels);
@@ -462,7 +432,7 @@ std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, 
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 
-		.image = texture._image,
+		.image = texture->_image,
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -482,7 +452,6 @@ std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, 
 
 	// Now copy the buffer to the image
 	CopyBufferToImage(logicalDevice, commandPool, graphicsQueue, stagingBuffer, texture, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-	DestroyBuffer(logicalDevice, stagingBuffer);
 
 	// Generate mipmaps
 	// Will be transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
@@ -510,7 +479,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = image._image,
+		.image = image->_image,
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -557,7 +526,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 			.dstOffsets = { { 0, 0, 0 }, { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 } }
 		};
 
-		vkCmdBlitImage(commandBuffer, image._image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image._image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
+		vkCmdBlitImage(commandBuffer, image->_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, image->_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
 
 		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

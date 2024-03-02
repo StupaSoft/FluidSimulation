@@ -24,7 +24,6 @@ private:
 
 public:
 	Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, float particleRadius);
-	~Billboards();
 
 	void SetEnable(bool enable);
 

@@ -43,7 +43,6 @@ std::vector<Buffer> MeshObject::GetMVPBuffers()
 
 void MeshObject::CleanUp()
 {
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers);
 }
 
 void MeshObject::SetPosition(glm::vec3 position)

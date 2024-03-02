@@ -615,11 +615,7 @@ std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore:
 			throw std::runtime_error("Failed to create a texture image view.");
 		}
 
-		Image swapChainImage
-		{
-			._image = swapChainImageHandles[i],
-			._imageView = swapChainImageView
-		};
+		Image swapChainImage(new ImageMemoryView{ logicalDevice, swapChainImageHandles[i], VK_NULL_HANDLE, swapChainImageView}, ImageDeleter());
 
 		swapChainImages.emplace_back(swapChainImage);
 	}
@@ -745,18 +741,20 @@ void VulkanCore::RecreateSwapChain()
 
 void VulkanCore::CleanUpSwapChain()
 {
-	DestroyImage(_logicalDevice, _depthImage);
-	DestroyImage(_logicalDevice, _colorImage);
+	_depthImage.reset();
+	_colorImage.reset();
 
 	for (auto &framebuffer : _frameBuffers)
 	{
 		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
 	}
 
-	for (auto &swapChainImage : _swapChainImages) // Explicitly destroy image views, unlike images
+	for (auto &swapChainImage : _swapChainImages)
 	{
-		vkDestroyImageView(_logicalDevice, swapChainImage._imageView, nullptr);
+		swapChainImage->_image = VK_NULL_HANDLE; // Do not explicitly destroy image views
+		swapChainImage.reset(); // Explicitly destroy image views, unlike images
 	}
+
 
 	vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
 }
@@ -892,8 +890,8 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice
 		// Provide corresponding attachements
 		// { _depthImageView, _colorImageView, _swapChainImageViews[i] }
 		std::vector<VkImageView> attachments(additionalImages.size());
-		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img._imageView; }); // 4. Extract the names of extensions
-		attachments.push_back(swapChainImages[i]._imageView);
+		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->_imageView; }); // 4. Extract the names of extensions
+		attachments.push_back(swapChainImages[i]->_imageView);
 
 		VkFramebufferCreateInfo framebufferInfo =
 		{

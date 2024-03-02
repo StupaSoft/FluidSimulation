@@ -51,11 +51,8 @@ MeshModel::~MeshModel()
 		meshObject->CleanUp();
 	}
 
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer);
-
-	vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer);
+	if (_vertexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer->_memory);
+	if (_indexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer->_memory);
 
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
@@ -64,25 +61,18 @@ MeshModel::~MeshModel()
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
 
 	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
-	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
 
 	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
-
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
-
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers);
-	DestroyBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers);
 }
 
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
-	VkBuffer vertexBuffers[] = { _vertexBuffer._buffer };
+	VkBuffer vertexBuffers[] = { _vertexBuffer->_buffer };
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
-	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer._buffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
+	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->_buffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 
 	size_t meshObjectCount = _meshObjects.size();
 	for (size_t i = 0; i < meshObjectCount; ++i)
@@ -122,7 +112,6 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 void MeshModel::LoadTexture(const std::string &texturePath)
 {
 	// We have to free prior images
-	DestroyImage(_vulkanCore->GetLogicalDevice(), _texture);
 	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
 
 	// Load a texture
@@ -141,7 +130,7 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 
 	// Allocate separate buffer, one on the CPU and the other on the GPU.
 	// Temporary, host-visible buffer that resides on the CPU
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer._memory, 0, vertexBufferSize, 0, &_vertexOnHost);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer->_memory, 0, vertexBufferSize, 0, &_vertexOnHost);
 	UpdateVertices(vertices);
 
 	// Create an index buffer
@@ -149,7 +138,7 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	_indexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_indexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer._memory, 0, indexBufferSize, 0, &_indexOnHost);
+	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer->_memory, 0, indexBufferSize, 0, &_indexOnHost);
 	UpdateIndices(indices);
 }
 

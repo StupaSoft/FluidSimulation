@@ -66,12 +66,6 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t par
 	_meshObject = _meshModel->AddMeshObject();
 }
 
-Billboards::~Billboards()
-{
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer);
-	DestroyBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer);
-}
-
 void Billboards::SetEnable(bool enable)
 {
 	_compute->SetEnable(enable);
