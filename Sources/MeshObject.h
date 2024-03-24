@@ -15,7 +15,7 @@
 #include "Camera.h"
 #include "Triangle.h"
 
-class MeshObject
+class MeshObject : public DelegateRegistrable<MeshObject>
 {
 public:
 	// Descriptor used in shaders
@@ -51,7 +51,9 @@ public:
 	MeshObject(MeshObject &&other) = default;
 	MeshObject &operator=(const MeshObject &other) = delete;
 	MeshObject &operator=(MeshObject &&other) = default;
-	virtual ~MeshObject() = default;
+	virtual ~MeshObject() = default; 
+	
+	virtual void Register() override;
 
 	std::vector<Buffer> GetMVPBuffers();
 	void CleanUp();

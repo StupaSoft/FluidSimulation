@@ -23,6 +23,8 @@
 #include "VulkanCore.h"
 
 #include "CPUSimulatedScene.h"
+#include "GPUSimulatedScene.h"
+
 #include "UIModel.h"
 
 #include "SimulationPanel.h"

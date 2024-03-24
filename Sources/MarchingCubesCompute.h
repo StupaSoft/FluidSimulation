@@ -29,7 +29,6 @@ private:
 	struct ParticleProperty
 	{
 		alignas(4) uint32_t _particleCount = 0;
-		alignas(4) float _kernelRadiusFactor = 0.0f;
 		alignas(4) float _r1 = 0.0f;
 		alignas(4) float _r2 = 0.0f;
 		alignas(4) float _r3 = 0.0f;
@@ -55,44 +54,42 @@ private:
 	};
 
 	// Setup
-	std::unique_ptr<ParticleProperty> _particleProperty = std::make_unique<ParticleProperty>();
-	std::unique_ptr<MarchingCubesSetup> _setup = std::make_unique<MarchingCubesSetup>();
-
-	// Compute pipeline
-	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _accumulationPipelineLayout = VK_NULL_HANDLE;
-
-	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
-
-	VkPipeline _presentationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _presentationPipelineLayout = VK_NULL_HANDLE;
-
-	// Descriptor sets
-	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
-	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-
-	VkDescriptorSetLayout _accumulationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _accumulationDescriptorSets;
-
-	VkDescriptorSetLayout _constructionDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _constructionDescriptorSets;
-
-	VkDescriptorSetLayout _presentationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _presentationDescriptorSets;
+	std::shared_ptr<ParticleProperty> _particleProperty = std::make_shared<ParticleProperty>();
+	std::shared_ptr<MarchingCubesSetup> _setup = std::make_shared<MarchingCubesSetup>();
 
 	// Basic buffers
 	Buffer _particlePropertyBuffer;
 	Buffer _setupBuffer;
 
 	// Mesh construction buffers
-	std::vector<Buffer> _particlePositionBuffers;
+	std::vector<Buffer> _particlePositionInputBuffers;
 	Buffer _indexTableBuffer;
 	Buffer _voxelBuffer;
 	Buffer _vertexPositionBuffer; // Buffers that contains the vertex position result from the construction shader
+	Buffer _vertexValidityBuffer;
 	Buffer _normalBuffer;
 	Buffer _indexBuffer;
 	Buffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
+
+	// Descriptor sets
+	std::shared_ptr<DescriptorHelper> _descriptorHelper = nullptr;
+	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
+
+	// Compute pipeline
+	VkDescriptorSetLayout _accumulationDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _accumulationDescriptorSets;
+	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _accumulationPipelineLayout = VK_NULL_HANDLE;
+
+	VkDescriptorSetLayout _constructionDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _constructionDescriptorSets;
+	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
+
+	VkDescriptorSetLayout _presentationDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _presentationDescriptorSets;
+	VkPipeline _presentationPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _presentationPipelineLayout = VK_NULL_HANDLE;
 
 	// Constants
 	static const uint32_t CODES_COUNT = 256;
@@ -100,23 +97,24 @@ private:
 	static const std::vector<uint32_t> INDICES_TABLE;
 
 public:
-	MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesGrid &marchingCubesGrid);
+	MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid);
 	virtual ~MarchingCubesCompute();
 
-	void UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters);
-	void UpdateGrid(const MarchingCubesGrid &parameters);
+	void UpdateParticleProperty(const SimulationParameters &simulationParameters);
 
 	float GetIsovalue() { return _setup->_isovalue; }
 	void SetIsovalue(float isovalue);
 
-	const std::vector<Buffer> &GetParticleInputBuffers() { return _particlePositionBuffers; }
+	const std::vector<Buffer> &GetParticleInputBuffers() { return _particlePositionInputBuffers; }
 	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
 
 	uint32_t GetIndexCount() { return _setup->_indexCount; }
 
 protected:
-	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) override;
+	void InitializeGrid(const MarchingCubesGrid &parameters);
+
+	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
 	virtual uint32_t GetOrder() override { return 0; };
 
 private:

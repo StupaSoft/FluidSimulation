@@ -32,6 +32,7 @@
     <ClCompile Include="Sources\ComputeBase.cpp" />
     <ClCompile Include="Sources\CPUSimulatedScene.cpp" />
     <ClCompile Include="Sources\DescriptorHelper.cpp" />
+    <ClCompile Include="Sources\GPUSimulatedScene.cpp" />
     <ClCompile Include="Sources\HashGrid.cpp" />
     <ClCompile Include="Sources\Kernel.cpp" />
     <ClCompile Include="Sources\MarchingCubes.cpp" />
@@ -41,6 +42,7 @@
     <ClCompile Include="Sources\Billboards.cpp" />
     <ClCompile Include="Sources\RenderingPanel.cpp" />
     <ClCompile Include="Sources\SimulatedSceneBase.cpp" />
+    <ClCompile Include="Sources\SimulationCompute.cpp" />
     <ClCompile Include="Sources\SimulationPanel.cpp" />
     <ClCompile Include="Sources\DirectionalLight.cpp" />
     <ClCompile Include="Sources\main.cpp" />
@@ -65,6 +67,7 @@
     <ClInclude Include="Sources\CPUSimulatedScene.h" />
     <ClInclude Include="Sources\Delegate.h" />
     <ClInclude Include="Sources\DescriptorHelper.h" />
+    <ClInclude Include="Sources\GPUSimulatedScene.h" />
     <ClInclude Include="Sources\HashGrid.h" />
     <ClInclude Include="Sources\Kernel.h" />
     <ClInclude Include="Sources\MarchingCubes.h" />
@@ -72,6 +75,7 @@
     <ClInclude Include="Sources\Billboards.h" />
     <ClInclude Include="Sources\RenderingPanel.h" />
     <ClInclude Include="Sources\SimulatedSceneBase.h" />
+    <ClInclude Include="Sources\SimulationCompute.h" />
     <ClInclude Include="Sources\SimulationPanel.h" />
     <ClInclude Include="Sources\DirectionalLight.h" />
     <ClInclude Include="Sources\MainApplication.h" />

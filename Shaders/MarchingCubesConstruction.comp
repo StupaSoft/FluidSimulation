@@ -77,17 +77,22 @@ layout (std430, binding = 2) buffer IndexTableInSSBO
 };
 
 // ========== Outputs ==========
-layout (std430, binding = 3) buffer VertexPositionOutSSBO 
+layout (std430, binding = 3) buffer VertexValidityOutSSBO
+{
+    uint vertexValidities[];
+};
+
+layout (std430, binding = 4) buffer VertexPositionOutSSBO 
 {
     vec3 vertexPositions[]; // [vertex count]
 };
 
-layout (std430, binding = 4) buffer NormalOutSSBO
+layout (std430, binding = 5) buffer NormalOutSSBO
 {
     vec3 normals[]; // [vertex count][4] maximum four normals per vertex
 };
 
-layout (std430, binding = 5) buffer IndexOutSSBO
+layout (std430, binding = 6) buffer IndexOutSSBO
 {
     uint indices[]; // [cell count][INDICES_IN_CELL]
 };
@@ -193,6 +198,7 @@ void main()
         if (localVertexIndex == 0 || localVertexIndex == 3 || localVertexIndex == 8)
         {
             vertexPositions[globalVertexIndex] = interpolatedPosition;
+            vertexValidities[globalVertexIndex] = 1;
         }
 
         vertexPositionsInCell[i] = interpolatedPosition;

@@ -1,10 +1,12 @@
 #include "Billboards.h"
 
-Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, float particleRadius) :
+Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount) :
 	_vulkanCore(vulkanCore)
 {
-	uint32_t vertexCount = static_cast<uint32_t>(particleCount * VERTICES_IN_PARTICLE.size());
-	uint32_t indexCount = static_cast<uint32_t>(particleCount * INDICES_IN_PARTICLE.size());
+	_particleCount = particleCount;
+
+	uint32_t vertexCount = static_cast<uint32_t>(_particleCount * VERTICES_IN_PARTICLE.size());
+	uint32_t indexCount = static_cast<uint32_t>(_particleCount * INDICES_IN_PARTICLE.size());
 
 	// Buffers
 	_vertexBuffer = CreateBuffer
@@ -25,15 +27,16 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t par
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	std::vector<Vertex> billboardVertices(vertexCount);
-	std::vector<uint32_t> billboardIndices(indexCount);
-	for (size_t i = 0; i < particleCount; ++i)
+	_billboardVertices.clear();
+	_billboardVertices.resize(vertexCount);
+	_billboardIndices.clear();
+	_billboardIndices.resize(indexCount);
+	for (size_t i = 0; i < _particleCount; ++i)
 	{
 		// Set attributes within each particle
 		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
 		{
-			billboardVertices[i * VERTICES_IN_PARTICLE.size() + j].normal.x = particleRadius;
-			billboardVertices[i * VERTICES_IN_PARTICLE.size() + j].texCoord = VERTICES_IN_PARTICLE[j];
+			_billboardVertices[i * VERTICES_IN_PARTICLE.size() + j].texCoord = VERTICES_IN_PARTICLE[j];
 		}
 
 		// Set global indices of triangles
@@ -42,18 +45,18 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t par
 			// First particle: 0, 1, 2, 0, 2, 3
 			// Second particle: 4, 5, 6, 4, 6, 7
 			// ...
-			billboardIndices[i * INDICES_IN_PARTICLE.size() + j] = static_cast<uint32_t>(i * VERTICES_IN_PARTICLE.size() + INDICES_IN_PARTICLE[j]);
+			_billboardIndices[i * INDICES_IN_PARTICLE.size() + j] = static_cast<uint32_t>(i * VERTICES_IN_PARTICLE.size() + INDICES_IN_PARTICLE[j]);
 		}
 	}
 
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _vertexBuffer, billboardVertices.data(), 0, sizeof(Vertex) * vertexCount);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _indexBuffer, billboardIndices.data(), 0, sizeof(uint32_t) * indexCount);
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardVertices.data(), _vertexBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardIndices.data(), _indexBuffer, 0);
 
 	// Cmpute
-	_compute = std::make_unique<BillboardsCompute>(vulkanCore, particleCount, _vertexBuffer);
+	_compute = BillboardsCompute::Instantiate<BillboardsCompute>(vulkanCore, inputBuffers, _particleCount, _vertexBuffer);
 
 	// Presentation mesh
-	_meshModel = std::make_unique<MeshModel>(_vulkanCore);
+	_meshModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
 	_meshModel->LoadShaders("Shaders/ParticleVertex.spv", "Shaders/ParticleFragment.spv");
 	_meshModel->SetMeshBuffers(_vertexBuffer, _indexBuffer, indexCount);
 
@@ -70,4 +73,18 @@ void Billboards::SetEnable(bool enable)
 {
 	_compute->SetEnable(enable);
 	_meshObject->SetVisible(enable);
+}
+
+void Billboards::UpdateRadius(float particleRadius)
+{
+	for (size_t i = 0; i < _particleCount; ++i)
+	{
+		// Set attributes within each particle
+		for (size_t j = 0; j < VERTICES_IN_PARTICLE.size(); ++j)
+		{
+			_billboardVertices[i * VERTICES_IN_PARTICLE.size() + j].normal.x = particleRadius;
+		}
+	}
+
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardVertices.data(), _vertexBuffer, 0);
 }

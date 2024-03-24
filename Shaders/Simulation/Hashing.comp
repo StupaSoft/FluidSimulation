@@ -1,0 +1,179 @@
+#version 450
+
+const uint OVERLAPPING_BUCKETS = 8;
+
+struct SimulationSetup
+{
+    uint particleCount;
+};
+
+struct GridSetup
+{
+    uvec4 dimension;
+};
+
+struct SimulationParameters
+{
+	float particleRadius;
+	float particleMass;
+
+	float timeStep;
+
+	vec4 gravitiy;
+
+	float targetDensity;
+	float soundSpeed;
+	float eosExponent;
+	float kernelRadiusFactor;
+
+	float dragCoefficient;
+	float viscosityCoefficient;
+	float restitutionCoefficient;
+	float frictionCoefficient;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SimulationSetupInSSBO
+{
+    SimulationSetup simulationSetup;
+};
+
+layout (std430, binding = 1) buffer gridSetupInSSBO
+{
+    GridSetup gridSetup;
+};
+
+layout (std430, binding = 2) buffer SimulationParametersInSSBO
+{
+    SimulationParameters simulationParameters;
+};
+
+layout (std430, binding = 3) buffer PositionInSSBO
+{
+    vec3 positions[];
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 4) buffer AccumulationOutSSBO
+{
+    uint accumulations[]; // [# of buckets]
+};
+
+layout (std430, binding = 5) buffer HashResultOutSSBO
+{
+	uint hashResults[]; // [# of particles]
+};
+
+layout (std430, binding = 6) buffer AdjacentBucketOutSSBO 
+{
+	uint adjacentBuckets[]; // [# of particles * 8]
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+ivec3 PositionToBucketIndex(vec3 position, float gridSpacing)
+{
+	ivec3 bucketIndex = ivec3
+	(
+		int(floor(position.x / gridSpacing)),
+		int(floor(position.y / gridSpacing)),
+		int(floor(position.z / gridSpacing))
+	);
+
+	return bucketIndex;
+}
+
+uint BucketIndexToHashKey(ivec3 bucketIndex, uvec3 dimension)
+{
+	ivec3 wrappedIndex = bucketIndex;
+	wrappedIndex.x = bucketIndex.x % int(dimension.x);
+	wrappedIndex.y = bucketIndex.y % int(dimension.y);
+	wrappedIndex.z = bucketIndex.z % int(dimension.z);
+
+	if (wrappedIndex.x < 0) wrappedIndex.x += int(dimension.x);
+	if (wrappedIndex.y < 0) wrappedIndex.y += int(dimension.y);
+	if (wrappedIndex.z < 0) wrappedIndex.z += int(dimension.z);
+
+	return uint((wrappedIndex.z * dimension.y + wrappedIndex.y) * dimension.x + wrappedIndex.x);
+}
+
+void FilladjacentBuckets(uint particleIndex, ivec3 bucketIndex, vec3 position, uvec3 dimension, float gridSpacing)
+{
+	// Refer to the comments in HashGrid::GetadjacentBuckets
+	ivec3 adjacentBucketIndices[8];
+	for (uint i = 0; i < OVERLAPPING_BUCKETS; ++i)
+	{
+		adjacentBucketIndices[i] = bucketIndex;
+	}
+
+	if ((bucketIndex.x + 0.5f) * gridSpacing <= position.x)
+	{
+		adjacentBucketIndices[4].x += 1;
+		adjacentBucketIndices[5].x += 1;
+		adjacentBucketIndices[6].x += 1;
+		adjacentBucketIndices[7].x += 1;
+	}
+	else
+	{
+		adjacentBucketIndices[4].x -= 1;
+		adjacentBucketIndices[5].x -= 1;
+		adjacentBucketIndices[6].x -= 1;
+		adjacentBucketIndices[7].x -= 1;
+	}
+
+	if ((bucketIndex.y + 0.5f) * gridSpacing <= position.y)
+	{
+		adjacentBucketIndices[2].y += 1;
+		adjacentBucketIndices[3].y += 1;
+		adjacentBucketIndices[6].y += 1;
+		adjacentBucketIndices[7].y += 1;
+	}
+	else
+	{
+		adjacentBucketIndices[2].y -= 1;
+		adjacentBucketIndices[3].y -= 1;
+		adjacentBucketIndices[6].y -= 1;
+		adjacentBucketIndices[7].y -= 1;
+	}
+
+	if ((bucketIndex.z + 0.5f) * gridSpacing <= position.z)
+	{
+		adjacentBucketIndices[1].z += 1;
+		adjacentBucketIndices[3].z += 1;
+		adjacentBucketIndices[5].z += 1;
+		adjacentBucketIndices[7].z += 1;
+	}
+	else
+	{
+		adjacentBucketIndices[1].z -= 1;
+		adjacentBucketIndices[3].z -= 1;
+		adjacentBucketIndices[5].z -= 1;
+		adjacentBucketIndices[7].z -= 1;
+	}
+
+	// Fill in the SSBO
+	for (uint i = 0; i < OVERLAPPING_BUCKETS; ++i)
+	{
+		adjacentBuckets[particleIndex * OVERLAPPING_BUCKETS + i] = BucketIndexToHashKey(adjacentBucketIndices[i], dimension);
+	}
+}
+
+void main() 
+{
+	uint particleIndex = gl_GlobalInvocationID.x;
+	if (particleIndex >= simulationSetup.particleCount) return;
+
+	vec3 particlePosition = positions[particleIndex];
+	float gridSpacing = 2.0f * simulationParameters.particleRadius * simulationParameters.kernelRadiusFactor;
+
+	// Find the bucket index this particle belongs to
+	ivec3 bucketIndex = PositionToBucketIndex(particlePosition, gridSpacing);
+	uint hashKey = BucketIndexToHashKey(bucketIndex, gridSetup.dimension.xyz);
+
+	atomicAdd(accumulations[hashKey], 1);
+	hashResults[particleIndex] = hashKey;
+
+	// Find adjacent buckets
+	FilladjacentBuckets(particleIndex, bucketIndex, particlePosition, gridSetup.dimension.xyz, gridSpacing);
+}

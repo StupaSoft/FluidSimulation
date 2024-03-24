@@ -20,6 +20,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#define GLM_FORCE_SWIZZLE
 #define GLM_FORCE_RADIANS // Force glm to use radian as arguments
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE // Force glm to project z into the range [0.0, 1.0]
@@ -52,7 +53,7 @@ struct QueueFamilyIndices
 };
 
 // ==================== Helper functions ====================
-class VulkanCore : public std::enable_shared_from_this<VulkanCore>
+class VulkanCore
 {
 private:
 	// ==================== Basic setup ====================
@@ -118,7 +119,7 @@ private:
 	std::vector<VkFence> _computeInFlightFences; // Wait until the compute shader command has ended
 
 	// ==================== Frames in flight ====================
-	static const uint32_t MAX_FRAMES_IN_FLIGHT; // Limit to 2 so that the CPU doesn't get ahead of the GPU
+	static const uint32_t MAX_FRAMES_IN_FLIGHT = 2; // Limit to 2 so that the CPU doesn't get ahead of the GPU
 	uint32_t _currentFrame = 0; // To use the right objects every frame
 
 	// ==================== Window resizing ====================
@@ -131,13 +132,14 @@ private:
 	Image _depthImage;
 
 	// ==================== Camera ====================
-	std::unique_ptr<Camera> _mainCamera;
+	std::shared_ptr<Camera> _mainCamera;
 	const float FOV_Y = glm::radians(45.0f);
 
 	// ==================== Light ====================
-	std::unique_ptr<DirectionalLight> _mainLight;
+	std::shared_ptr<DirectionalLight> _mainLight;
 
 	// ==================== Events ====================
+	Delegate<void(float, uint32_t)> _onExecuteHost;
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordComputeCommand;
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordDrawCommand;
 	Delegate<void()> _onRecreateSwapChain;
@@ -151,7 +153,7 @@ public:
 	virtual ~VulkanCore();
 
 	void InitVulkan();
-	void DrawFrame();
+	void UpdateFrame(float deltaSecond);
 	void Resize() { _framebufferResized = true; }
 
 	void SetUpScene(); // Temp
@@ -176,6 +178,7 @@ public:
 	auto &GetMainCamera() const { return _mainCamera; }
 	auto &GetMainLight() const { return _mainLight; }
 
+	auto &OnExecuteHost() { return _onExecuteHost; }
 	auto &OnComputeCommand() { return _onRecordComputeCommand; }
 	auto &OnDrawCommand() { return _onRecordDrawCommand; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
@@ -229,8 +232,8 @@ private:
 	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
 
-	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame);
-	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
+	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, size_t currentFrame);
+	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, size_t currentFrame);
 
 	// ==================== Syncronization objects ====================
 	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);

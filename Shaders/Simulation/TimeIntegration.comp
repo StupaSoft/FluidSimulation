@@ -1,0 +1,113 @@
+#version 450
+
+struct SimulationSetup
+{
+    uint particleCount;
+};
+
+struct GridSetup
+{
+    uvec4 dimension;
+};
+
+struct SimulationParameters
+{
+	float particleRadius;
+	float particleMass;
+
+	float timeStep;
+
+	vec4 gravitiy;
+
+	float targetDensity;
+	float soundSpeed;
+	float eosExponent;
+	float kernelRadiusFactor;
+
+	float dragCoefficient;
+	float viscosityCoefficient;
+	float restitutionCoefficient;
+	float frictionCoefficient;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SimulationSetupInSSBO
+{
+    SimulationSetup simulationSetup;
+};
+
+layout (std430, binding = 1) buffer SimulationParametersInSSBO
+{
+    SimulationParameters simulationParameters;
+};
+
+layout (std430, binding = 2) buffer PositionInSSBO
+{
+    vec3 positions[];
+};
+
+layout (std430, binding = 3) buffer VelocityInSSBO
+{
+    vec3 velocities[];
+};
+
+layout (std430, binding = 4) buffer ForceInSSBO
+{
+    vec3 forces[];
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 5) buffer NextVelocityOutSSBO
+{
+    vec3 nextVelocities[];
+};
+
+layout (std430, binding = 6) buffer NextPositionOutSSBO
+{
+    vec3 nextpositions[];
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+void main() 
+{
+	uint particleIndex = gl_GlobalInvocationID.x;
+	if (particleIndex >= simulationSetup.particleCount) return;
+
+	// Integrate velocity
+	nextVelocities[particleIndex] = velocities[particleIndex] + simulationParameters.timeStep * (forces[particleIndex] / simulationParameters.particleMass);
+
+	// Integrate position
+	nextpositions[particleIndex] = positions[particleIndex] + simulationParameters.timeStep * nextVelocities[particleIndex];
+
+	if (nextpositions[particleIndex].y < 0)
+	{
+		nextpositions[particleIndex].y = 0 - nextpositions[particleIndex].y * 0.5f;
+		nextVelocities[particleIndex].y = -nextVelocities[particleIndex].y * 0.5f; 
+	}
+
+    if (nextpositions[particleIndex].x < -2.5)
+	{
+		nextpositions[particleIndex].x = -2.5 + (-2.5 - nextpositions[particleIndex].x) * 0.5f;
+		nextVelocities[particleIndex].x = -nextVelocities[particleIndex].x * 0.5f; 
+	}
+
+    if (nextpositions[particleIndex].x > 1.5)
+	{
+		nextpositions[particleIndex].x = 1.5 + (1.5 - nextpositions[particleIndex].x) * 0.5f;
+		nextVelocities[particleIndex].x = -nextVelocities[particleIndex].x * 0.5f; 
+	}
+
+    if (nextpositions[particleIndex].z < -2)
+	{
+		nextpositions[particleIndex].z = -2 + (-2 - nextpositions[particleIndex].z) * 0.5f;
+		nextVelocities[particleIndex].z = -nextVelocities[particleIndex].z * 0.5f; 
+	}
+
+    if (nextpositions[particleIndex].z > 2)
+	{
+		nextpositions[particleIndex].z = 2 + (2 - nextpositions[particleIndex].z) * 0.5f;
+		nextVelocities[particleIndex].z = -nextVelocities[particleIndex].z * 0.5f; 
+	}
+}

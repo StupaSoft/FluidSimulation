@@ -11,14 +11,15 @@ void WindowApplication::Run()
 	_vulkanCore->InitVulkan();
 	_vulkanCore->SetUpScene();
 
-	_simulatedScene = std::make_shared<CPUSimulatedScene>(_vulkanCore);
+	//_simulatedScene = CPUSimulatedScene::Instantiate<CPUSimulatedScene>(_vulkanCore);
+	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>(_vulkanCore);
 	//_simulatedScene->AddProp("Models/Filter.obj", "", true, true);
 	_simulatedScene->AddProp("Models/Bath.obj", "", false, true); // Temp
 	_simulatedScene->AddProp("Models/BathWireframe.obj", "", true, false); // Temp
 	_simulatedScene->AddProp("Models/Obstacle.obj", "", false, true); // Temp
 	_simulatedScene->AddProp("Models/ObstacleWireframe.obj", "", true, false);
 
-	auto interfaceModel = std::make_shared<UIModel>(_vulkanCore);
+	auto interfaceModel = UIModel::Instantiate<UIModel>(_vulkanCore);
 	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);
 	interfaceModel->AddPanel<RenderingPanel>(_simulatedScene);
 
@@ -42,12 +43,16 @@ GLFWwindow *WindowApplication::InitMainWindow(int width, int height, const std::
 void WindowApplication::MainLoop()
 {
 	// Application loop
+	float deltaSecond = 0.0f;
 	while (!glfwWindowShouldClose(_window))
 	{
-		glfwPollEvents();
+		auto prevTime = std::chrono::high_resolution_clock::now();
 
-		_simulatedScene->Update(0.002f);
-		_vulkanCore->DrawFrame();
+		glfwPollEvents();
+		_vulkanCore->UpdateFrame(deltaSecond);
+
+		auto currentTime = std::chrono::high_resolution_clock::now();
+		deltaSecond = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - prevTime).count();
 	}
 }
 

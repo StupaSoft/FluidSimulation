@@ -16,9 +16,13 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 
 	SetPosition(glm::vec3());
 	SetRotation(glm::vec3());
+}
 
+void MeshObject::Register()
+{
 	_vulkanCore->OnRecreateSwapChain().AddListener
 	(
+		weak_from_this(),
 		[this]()
 		{
 			ApplyModelTransformation();
@@ -29,6 +33,7 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 	SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
 	mainCamera->OnChanged().AddListener
 	(
+		weak_from_this(),
 		[this](const Camera &camera)
 		{
 			SetCameraTransformation(camera.GetViewMatrix(), camera.GetProjectionMatrix());
@@ -83,7 +88,7 @@ void MeshObject::ApplyModelTransformation()
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers, &mvp, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &mvp, _mvpBuffers, copyOffset, copySize);
 
 	UpdateWorldTriangles(mvp._model);
 }
@@ -98,7 +103,7 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _mvpBuffers, &mvp, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &mvp, _mvpBuffers, copyOffset, copySize);
 }
 
 void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)

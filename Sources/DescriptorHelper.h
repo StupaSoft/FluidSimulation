@@ -46,8 +46,8 @@ public:
 
 	// Preparation
 	void AddDescriptorPoolSize(const VkDescriptorPoolSize &poolSize);
-	void AddBufferLayout(const BufferLayout &bufferLayout);
-	void AddSamplerLayout(const SamplerLayout &samplerLayout);
+	void AddBufferLayout(uint32_t binding, VkDeviceSize dataSize, VkDescriptorType descriptorType, VkShaderStageFlags shaderStages);
+	void AddSamplerLayout(uint32_t binding, VkShaderStageFlags shaderStages = VK_SHADER_STAGE_ALL);
 
 	// buffer[max frames in flight]
 	void BindBuffer(uint32_t binding, Buffer buffer);

@@ -19,11 +19,12 @@ private:
 	std::vector<std::vector<uint32_t>> _buckets;
 	std::vector<std::vector<uint32_t>> _neighbors;
 
-	static const size_t OVERLAPPING_GRID;
+	static const size_t OVERLAPPING_BUCKETS = 8;
 
 public:
-	HashGrid(size_t particleCount, glm::ivec3 resolution, float gridSpacing);
+	HashGrid(size_t particleCount, glm::ivec3 resolution);
 	void UpdateGrid(const std::vector<glm::vec3> &positions);
+	void UpdateSpacing(float gridSpacing);
 	void ForEachNeighborParticle(const std::vector<glm::vec3> &positions, size_t particleIndex, const std::function<void(size_t)> &callback) const;
 
 private:

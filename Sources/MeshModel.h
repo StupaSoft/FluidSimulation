@@ -55,10 +55,10 @@ private:
 	Image _texture;
 	uint32_t _textureMipLevels = 0;
 
-	VkSampler _textureSampler; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
+	VkSampler _textureSampler = VK_NULL_HANDLE; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
 
 	// ==================== Descriptor ====================
-	DescriptorHelper _descriptorHelper;
+	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
 
 	static const uint32_t MAX_SET_COUNT = 1000;
 	VkDescriptorPool _descriptorPool;
@@ -76,7 +76,9 @@ public:
 	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
 	virtual ~MeshModel();
 
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame) override;
+	virtual void Register() override;
+
+	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
 	virtual uint32_t GetOrder() override { return 1000; }
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	

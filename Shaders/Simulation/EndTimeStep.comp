@@ -1,0 +1,90 @@
+#version 450
+
+struct SimulationSetup
+{
+    uint particleCount;
+};
+
+struct GridSetup
+{
+    uvec4 dimension;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SimulationSetupInSSBO
+{
+    SimulationSetup simulationSetup;
+};
+
+layout (std430, binding = 1) buffer gridSetupInSSBO
+{
+    GridSetup gridSetup;
+};
+
+layout (std430, binding = 2) buffer NextVelocityInSSBO
+{
+    vec3 nextVelocities[];
+};
+
+layout (std430, binding = 3) buffer NextPositionInSSBO
+{
+    vec3 nextpositions[];
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 4) buffer PositionOutSSBO
+{
+    vec3 positions[];
+};
+
+layout (std430, binding = 5) buffer VelocityOutSSBO
+{
+    vec3 velocities[];
+};
+
+layout (std430, binding = 6) buffer ForceOutSSBO
+{
+    vec3 forces[];
+};
+
+layout (std430, binding = 7) buffer DensityOutSSBO
+{
+    float densities[];
+};
+
+layout (std430, binding = 8) buffer PressureOutSSBO
+{
+    float pressures[];
+};
+
+layout (std430, binding = 9) buffer AccumulationInSSBO
+{
+    uint accumulations[]; // [# of buckets]
+};
+
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+void main() 
+{
+    // Reset per-particle values
+	uint particleIndex = gl_GlobalInvocationID.x;
+	if (particleIndex < simulationSetup.particleCount)
+    {
+        positions[particleIndex] = nextpositions[particleIndex];
+        velocities[particleIndex] = nextVelocities[particleIndex];
+
+        forces[particleIndex] = vec3(0.0f, 0.0f, 0.0f);
+        densities[particleIndex] = 0.0f;
+        pressures[particleIndex] = 0.0f;
+    }
+
+    // Reset per-bucket values
+    uint bucketIndex = gl_GlobalInvocationID.x;
+    uint bucketCount = gridSetup.dimension.x * gridSetup.dimension.y * gridSetup.dimension.z;
+    if (bucketIndex < bucketCount)
+    {
+        accumulations[bucketIndex] = 0;
+    }
+}

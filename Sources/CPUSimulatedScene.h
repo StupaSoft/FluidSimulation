@@ -18,33 +18,34 @@ private:
 	std::vector<glm::vec3> _forces;
 	std::vector<float> _densities;
 	std::vector<float> _pressures;
-	std::vector<glm::vec3> _pressureForces;
 
 	std::vector<glm::vec3> _nextPositions;
 	std::vector<glm::vec3> _nextVelocities;
 
-	glm::uvec3 _gridResolution = glm::uvec3(100, 100, 100);
 	std::unique_ptr<HashGrid> _hashGrid = nullptr;
-	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
+	std::unique_ptr<Kernel> _kernel = nullptr;
 
-	Kernel _kernel = Kernel(0.0f);
+	size_t _particleCount = 0;
+
+	std::vector<Buffer> _particlePositionInputBuffers;
 
 public:
 	CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore);
+	virtual void Register() override;
 
 	virtual void InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange) override;
 	virtual void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true) override;
 
-	virtual void Update(float deltaSecond) override;
-	
 private:
+	void Update();
+
 	void BeginTimeStep();
 	void EndTimeStep();
 
-	void AccumulateForces(float deltaSecond);
-	void AccumulateExternalForce(float deltaSecond);
-	void AccumulateViscosityForce(float deltaSecond);
-	void AccumulatePressureForce(float deltaSecond);
+	void AccumulateForces();
+	void AccumulateExternalForce();
+	void AccumulateViscosityForce();
+	void AccumulatePressureForce();
 	void ResolveCollision();
 
 	void TimeIntegration(float deltaSecond);
@@ -56,5 +57,5 @@ private:
 	void UpdateDensities();
 
 	// Reflect the particle status to the render system
-	void ApplyParticlePositions();
+	void Applypositions();
 };

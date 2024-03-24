@@ -1,7 +1,5 @@
 #include "CPUSimulatedScene.h"
 
-const glm::vec3 SimulatedSceneBase::GRAVITY = glm::vec3(0.0f, -9.8f, 0.0f);
-
 void SimulatedSceneBase::SetPlay(bool play)
 {
 	_isPlaying = play;
@@ -14,33 +12,64 @@ void SimulatedSceneBase::SetParticleRenderingMode(ParticleRenderingMode particle
 	_onSetParticleRenderingMode.Invoke(particleRenderingMode);
 }
 
-void SimulatedSceneBase::InitializeRenderSystems(const SimulationParameters &simulationParameters)
+void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuffers, size_t particleCount)
 {
-	if (_billboards == nullptr)
-	{
-		_billboards = std::make_unique<Billboards>(_vulkanCore, _particleCount, simulationParameters._particleRadius);
-	}
+	// Initialize renderers
+	_billboards = std::make_unique<Billboards>(_vulkanCore, inputBuffers, particleCount);
+	_billboards->UpdateRadius(_simulationParameters->_particleRadius);
 
-	if (_marchingCubes == nullptr)
+	MarchingCubesGrid marchingCubesGrid // Temp
 	{
-		MarchingCubesGrid marchingCubesGrid
+		._xRange{ -3.0f, 3.0f },
+		._yRange{ -1.0f, 5.0f },
+		._zRange{ -2.0f, 2.0f },
+		._voxelInterval = 0.05f
+	};
+
+	_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, inputBuffers, particleCount, marchingCubesGrid);
+	_marchingCubes->GetCompute()->UpdateParticleProperty(*_simulationParameters);
+	_marchingCubes->SetEnable(false);
+	
+	// Add callbacks
+	_onUpdateSimulationParameters.AddListener
+	(
+		weak_from_this(),
+		[this](const SimulationParameters &simulationParameters)
 		{
-			._xRange{ -3.0f, 3.0f },
-			._yRange{ -3.0f, 5.0f },
-			._zRange{ -3.0f, 3.0f },
-			._voxelInterval = 0.05f
-		};
+			_marchingCubes->GetCompute()->UpdateParticleProperty(simulationParameters);
+			_billboards->UpdateRadius(simulationParameters._particleRadius);
+		},
+		__FUNCTION__,
+		__LINE__
+	);
 
-		_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, _particleCount, simulationParameters, marchingCubesGrid);
-		_marchingCubes->SetEnable(false);
-	}
+	_onSetPlay.AddListener
+	(
+		weak_from_this(),
+		[this](bool play)
+		{
+			ApplyRenderMode(_particleRenderingMode, play);
+		},
+		__FUNCTION__,
+		__LINE__
+	);
+
+	_onSetParticleRenderingMode.AddListener
+	(
+		weak_from_this(),
+		[this](ParticleRenderingMode particleRenderingMode)
+		{
+			ApplyRenderMode(particleRenderingMode, _isPlaying);
+		},
+		__FUNCTION__,
+		__LINE__
+	);
 }
 
-void SimulatedSceneBase::UpdateSimulationParamters(const SimulationParameters &simulationParamters)
+void SimulatedSceneBase::UpdateSimulationParameters(const SimulationParameters &simulationParameters)
 {
-	if (_simulationParameters == nullptr) _simulationParameters = std::make_unique<SimulationParameters>();
-	_onUpdateSimulationParameters.Invoke(simulationParamters);
-	*_simulationParameters = simulationParamters;
+	*_simulationParameters = simulationParameters;
+	_onUpdateSimulationParameters.Invoke(*_simulationParameters);
 }
 
 void SimulatedSceneBase::ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play)

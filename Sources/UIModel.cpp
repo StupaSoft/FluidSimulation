@@ -46,7 +46,7 @@ UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	ImGui_ImplVulkan_Init(&initInfo, _vulkanCore->GetRenderPass());
 }
 
-void UIModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
+void UIModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	// Dear ImGui
 	ImGui_ImplVulkan_NewFrame();

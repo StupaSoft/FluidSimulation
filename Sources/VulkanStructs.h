@@ -15,6 +15,8 @@ struct BufferMemory
 
 	VkBuffer _buffer = VK_NULL_HANDLE;
 	VkDeviceMemory _memory = VK_NULL_HANDLE;
+
+	VkDeviceSize _size = 0;
 };
 
 struct BufferDeleter 

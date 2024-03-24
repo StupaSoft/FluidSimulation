@@ -1,0 +1,152 @@
+#version 450
+
+const uint OVERLAPPING_BUCKETS = 8;
+const float PI = 3.141592;
+
+struct SimulationSetup
+{
+    uint particleCount;
+};
+
+struct GridSetup
+{
+    uvec4 dimension;
+};
+
+struct SimulationParameters
+{
+	float particleRadius;
+	float particleMass;
+
+	float timeStep;
+
+	vec4 gravitiy;
+
+	float targetDensity;
+	float soundSpeed;
+	float eosExponent;
+	float kernelRadiusFactor;
+
+	float dragCoefficient;
+	float viscosityCoefficient;
+	float restitutionCoefficient;
+	float frictionCoefficient;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SimulationSetupInSSBO
+{
+    SimulationSetup simulationSetup;
+};
+
+layout (std430, binding = 1) buffer gridSetupInSSBO
+{
+    GridSetup gridSetup;
+};
+
+layout (std430, binding = 2) buffer PositionInSSBO
+{
+    vec3 positions[];
+};
+
+layout (std430, binding = 3) buffer SimulationParametersInSSBO
+{
+    SimulationParameters simulationParameters;
+};
+
+layout (std430, binding = 4) buffer HashResultInSSBO
+{
+	uint hashResults[]; // [# of particles]
+};
+
+layout (std430, binding = 5) buffer AccumulationInSSBO
+{
+	// After this stage, the accumulations will contain starting indices of each bucket 
+    uint accumulations[]; // [# of buckets]
+};
+
+layout (std430, binding = 6) buffer BucketOutSSBO
+{
+	uint buckets[]; // [# of particles]
+};
+
+layout (std430, binding = 7) buffer AdjacentBucketInSSBO 
+{
+	uint adjacentBuckets[]; // [# of particles * 8]
+};
+
+
+layout (std430, binding = 8) buffer VelocityInSSBO
+{
+    vec3 velocities[];
+};
+
+layout (std430, binding = 9) buffer DensityInSSBO
+{
+    float densities[];
+};
+
+layout (std430, binding = 10) buffer PressureInSSBO
+{
+    float pressures[];
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 11) buffer ForceOutSSBO
+{
+    vec3 forces[];
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+float FirstDerivative(float dist, float r1, float r4)
+{
+	float x = 1.0f - dist / r1;
+	return -45.0f * x * x / (PI * r4);
+}
+
+vec3 Gradient(float dist, vec3 directionToCenter, float r1, float r4)
+{
+    return -FirstDerivative(dist, r1, r4) * directionToCenter;
+}
+
+void main() 
+{
+	uint particleIndex = gl_GlobalInvocationID.x;
+	if (particleIndex >= simulationSetup.particleCount) return;
+
+	vec3 particlePosition = positions[particleIndex];
+	float pressureOverSquaredDensity = pressures[particleIndex] / (densities[particleIndex] * densities[particleIndex]);
+	float kernelRange1 = simulationParameters.particleRadius * simulationParameters.kernelRadiusFactor;
+	float kernelRange4 = pow(kernelRange1, 4.0f);
+	float squaredMass = simulationParameters.particleMass * simulationParameters.particleMass;
+
+	vec3 sum = vec3(0.0f, 0.0f, 0.0f);
+	for (uint i = 0; i < OVERLAPPING_BUCKETS; ++i)
+	{
+		uint hashKey = adjacentBuckets[particleIndex * OVERLAPPING_BUCKETS + i];
+
+		uint neighborStart = hashKey == 0 ? 0 : accumulations[hashKey - 1];
+		uint neighborEnd = accumulations[hashKey]; // Exclusive end
+
+		for (uint j = neighborStart; j < neighborEnd; ++j)
+		{
+			uint neighborIndex = buckets[j];
+			if (particleIndex != neighborIndex)
+			{
+				float distanceToNeighbor = distance(particlePosition, positions[neighborIndex]);
+				if (distanceToNeighbor < kernelRange1)
+				{
+					vec3 direction = (positions[neighborIndex] - particlePosition) / distanceToNeighbor;
+					sum -=
+						squaredMass * 
+						Gradient(distanceToNeighbor, direction, kernelRange1, kernelRange4) * 
+						(pressureOverSquaredDensity + pressures[neighborIndex] / (densities[neighborIndex] * densities[neighborIndex]));
+				}
+			}
+		}
+	}
+
+	forces[particleIndex] += sum;
+}

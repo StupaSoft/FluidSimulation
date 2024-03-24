@@ -1,34 +1,33 @@
 #include "MarchingCubesCompute.h"
 #include "VulkanCore.h"
 
-MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, const SimulationParameters &simulationParameters, const MarchingCubesGrid &marchingCubesGrid) :
-	ComputeBase(vulkanCore)
+MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid) :
+	ComputeBase(vulkanCore),
+	_particlePositionInputBuffers(inputBuffers)
 {
-	_particleProperty->_particleCount = particleCount;
+	_particleProperty->_particleCount = static_cast<uint32_t>(particleCount); // Will be used for range check in the shader
 
 	// Create and populate buffers
 	CreateSetupBuffers();
-	UpdateGrid(marchingCubesGrid);
-	UpdateParticleProperty(particleCount, simulationParameters);
+	InitializeGrid(marchingCubesGrid);
 
 	// Create descriptor pool and sets
-	_descriptorHelper = std::make_unique<DescriptorHelper>(_vulkanCore);
+	_descriptorHelper = std::make_shared<DescriptorHelper>(_vulkanCore);
 	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
-
-	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
-	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
-	std::tie(_presentationDescriptorSetLayout, _presentationDescriptorSets) = CreatePresentationDescriptors(_descriptorHelper.get());
 
 	// Create compute pipeline
 	VkShaderModule accumulationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesAccumulation.spv"));
+	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
 	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, nullptr);
 
 	VkShaderModule constructionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesConstruction.spv"));
+	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
 	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), constructionShaderModule, nullptr);
 
 	VkShaderModule presentationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/MarchingCubesPresentation.spv"));
+	std::tie(_presentationDescriptorSetLayout, _presentationDescriptorSets) = CreatePresentationDescriptors(_descriptorHelper.get());
 	std::tie(_presentationPipeline, _presentationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), presentationShaderModule, _presentationDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), presentationShaderModule, nullptr);
 }
@@ -51,7 +50,7 @@ MarchingCubesCompute::~MarchingCubesCompute()
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _presentationDescriptorSetLayout, nullptr);
 }
 
-void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
+void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
 {
 	VkMemoryBarrier memoryBarrier
 	{
@@ -63,7 +62,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, u
 	// 1. Accumulate particle kernel values into voxels
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline);
 	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipelineLayout, 0, 1, &_accumulationDescriptorSets[currentFrame], 0, 0);
-	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleProperty->_particleCount, 1024), 1, 1); // Temp
+	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleProperty->_particleCount, 1024), 1, 1);
 
 	// Synchronization - construction commences only after the accumulation finishes
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -101,19 +100,6 @@ void MarchingCubesCompute::CreateSetupBuffers()
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
-}
-
-void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
-{
-	_particlePositionBuffers = CreateBuffers
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(glm::vec3) * _particleProperty->_particleCount,
-		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
 
 	_indexTableBuffer = CreateBuffer
 	(
@@ -123,14 +109,17 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _indexTableBuffer, const_cast<uint32_t *>(INDICES_TABLE.data()), 0, sizeof(uint32_t) * CODES_COUNT * MAX_INDICES_IN_CELL); // Will never change
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), INDICES_TABLE.data(), _indexTableBuffer, 0); // Will never change
+}
 
+void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
+{
 	_voxelBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(uint32_t) * setup._voxelCount,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
@@ -139,7 +128,16 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		_vulkanCore->GetPhysicalDevice(), 
 		_vulkanCore->GetLogicalDevice(), 
 		sizeof(glm::vec3) * setup._vertexCount,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	_vertexValidityBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(uint32_t) * setup._vertexCount,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
@@ -148,7 +146,7 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(glm::vec3) * setup._vertexCount * 4,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
@@ -157,7 +155,7 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		_vulkanCore->GetPhysicalDevice(), 
 		_vulkanCore->GetLogicalDevice(), 
 		sizeof(uint32_t) * setup._indexCount,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
+		VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, 
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
@@ -166,7 +164,7 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(Vertex) * setup._vertexCount,
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 }
@@ -186,48 +184,16 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	BufferLayout particlePropertyLayout
-	{
-		.binding = 0,
-		.dataSize = sizeof(ParticleProperty),
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout setupLayout
-	{
-		.binding = 1,
-		.dataSize = sizeof(MarchingCubesSetup),
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout positionLayout
-	{
-		.binding = 2,
-		.dataSize = sizeof(glm::vec3) * _particleProperty->_particleCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout voxelLayout
-	{
-		.binding = 3,
-		.dataSize = sizeof(uint32_t) * _setup->_voxelCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	descriptorHelper->AddBufferLayout(particlePropertyLayout);
-	descriptorHelper->AddBufferLayout(setupLayout);
-	descriptorHelper->AddBufferLayout(positionLayout);
-	descriptorHelper->AddBufferLayout(voxelLayout);
+	descriptorHelper->AddBufferLayout(0, _particlePropertyBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _setupBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _particlePositionInputBuffers[0]->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _voxelBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _particlePropertyBuffer);
 	descriptorHelper->BindBuffer(1, _setupBuffer);
-	descriptorHelper->BindBuffers(2, _particlePositionBuffers);
+	descriptorHelper->BindBuffers(2, _particlePositionInputBuffers);
 	descriptorHelper->BindBuffer(3, _voxelBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
@@ -239,69 +205,23 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	BufferLayout setupLayout
-	{
-		.binding = 0,
-		.dataSize = sizeof(MarchingCubesSetup),
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout voxelLayout
-	{
-		.binding = 1,
-		.dataSize = sizeof(uint32_t) * _setup->_voxelCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout indexTableLayout
-	{
-		.binding = 2,
-		.dataSize = sizeof(uint32_t) * CODES_COUNT * MAX_INDICES_IN_CELL,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout vertexPositionLayout
-	{
-		.binding = 3,
-		.dataSize = sizeof(glm::vec3) * _setup->_vertexCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout normalLayout
-	{
-		.binding = 4,
-		.dataSize = sizeof(glm::vec3) * _setup->_vertexCount * 4,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout indexLayout
-	{
-		.binding = 5,
-		.dataSize = sizeof(uint32_t) * _setup->_indexCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	descriptorHelper->AddBufferLayout(setupLayout);
-	descriptorHelper->AddBufferLayout(voxelLayout);
-	descriptorHelper->AddBufferLayout(indexTableLayout);
-	descriptorHelper->AddBufferLayout(normalLayout);
-	descriptorHelper->AddBufferLayout(vertexPositionLayout);
-	descriptorHelper->AddBufferLayout(indexLayout);
+	descriptorHelper->AddBufferLayout(0, _setupBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _voxelBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _indexTableBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _vertexValidityBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(4, _vertexPositionBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(5, _normalBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(6, _indexBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _setupBuffer);
 	descriptorHelper->BindBuffer(1, _voxelBuffer);
 	descriptorHelper->BindBuffer(2, _indexTableBuffer);
-	descriptorHelper->BindBuffer(3, _vertexPositionBuffer);
-	descriptorHelper->BindBuffer(4, _normalBuffer);
-	descriptorHelper->BindBuffer(5, _indexBuffer);
+	descriptorHelper->BindBuffer(3, _vertexValidityBuffer);
+	descriptorHelper->BindBuffer(4, _vertexPositionBuffer);
+	descriptorHelper->BindBuffer(5, _normalBuffer);
+	descriptorHelper->BindBuffer(6, _indexBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
 	return std::make_tuple(descriptorSetLayout, descriptorSets);
@@ -312,69 +232,29 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	BufferLayout setupLayout
-	{
-		.binding = 0,
-		.dataSize = sizeof(MarchingCubesSetup),
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	// Will be reset in this stage
-	BufferLayout voxelLayout
-	{
-		.binding = 1,
-		.dataSize = sizeof(uint32_t) * _setup->_voxelCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout vertexPositionLayout
-	{
-		.binding = 2,
-		.dataSize = sizeof(glm::vec3) * _setup->_vertexCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout normalLayout
-	{
-		.binding = 3,
-		.dataSize = sizeof(glm::vec3) * _setup->_vertexCount * 4,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	BufferLayout vertexOutputLayout
-	{
-		.binding = 4,
-		.dataSize = sizeof(Vertex) * _setup->_vertexCount,
-		.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_COMPUTE_BIT
-	};
-
-	descriptorHelper->AddBufferLayout(setupLayout);
-	descriptorHelper->AddBufferLayout(voxelLayout);
-	descriptorHelper->AddBufferLayout(vertexPositionLayout);
-	descriptorHelper->AddBufferLayout(normalLayout);
-	descriptorHelper->AddBufferLayout(vertexOutputLayout);
+	descriptorHelper->AddBufferLayout(0, _setupBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _voxelBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _vertexValidityBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _vertexPositionBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(4, _normalBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(5, _vertexOutputBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _setupBuffer);
 	descriptorHelper->BindBuffer(1, _voxelBuffer);
-	descriptorHelper->BindBuffer(2, _vertexPositionBuffer);
-	descriptorHelper->BindBuffer(3, _normalBuffer);
-	descriptorHelper->BindBuffer(4, _vertexOutputBuffer);
+	descriptorHelper->BindBuffer(2, _vertexValidityBuffer);
+	descriptorHelper->BindBuffer(3, _vertexPositionBuffer);
+	descriptorHelper->BindBuffer(4, _normalBuffer);
+	descriptorHelper->BindBuffer(5, _vertexOutputBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
 	return std::make_tuple(descriptorSetLayout, descriptorSets);
 }
 
-void MarchingCubesCompute::UpdateParticleProperty(size_t particleCount, const SimulationParameters &simulationParameters)
+void MarchingCubesCompute::UpdateParticleProperty(const SimulationParameters &simulationParameters)
 {
-	_particleProperty->_particleCount = particleCount;
-	_particleProperty->_kernelRadiusFactor = simulationParameters._kernelRadiusFactor;
+	// Particle count is not updatable once an object is instantiated.
 
 	float kernelRadius = simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor;
 	_particleProperty->_r1 = kernelRadius;
@@ -382,10 +262,10 @@ void MarchingCubesCompute::UpdateParticleProperty(size_t particleCount, const Si
 	_particleProperty->_r3 = kernelRadius * kernelRadius * kernelRadius;
 	
 	// Synchronize with the storage buffer
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _particlePropertyBuffer, const_cast<ParticleProperty *>(_particleProperty.get()), 0, sizeof(ParticleProperty));
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _particleProperty.get(), _particlePropertyBuffer, 0);
 }
 
-void MarchingCubesCompute::UpdateGrid(const MarchingCubesGrid &grid)
+void MarchingCubesCompute::InitializeGrid(const MarchingCubesGrid &grid)
 {
 	_setup->_xRange = grid._xRange;
 	_setup->_yRange = grid._yRange;
@@ -409,11 +289,11 @@ void MarchingCubesCompute::UpdateGrid(const MarchingCubesGrid &grid)
 
 	// Create and synchronize the storage buffer
 	CreateComputeBuffers(*_setup);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setup.get(), _setupBuffer, 0);
 }
 
 void MarchingCubesCompute::SetIsovalue(float isovalue)
 {
 	_setup->_isovalue = isovalue;
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setupBuffer, const_cast<MarchingCubesSetup *>(_setup.get()), 0, sizeof(MarchingCubesSetup));
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setup.get(), _setupBuffer, 0);
 }

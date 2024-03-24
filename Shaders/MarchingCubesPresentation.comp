@@ -38,18 +38,23 @@ layout (std430, binding = 1) buffer VoxelInSSBO
     uint voxelDensities[];
 };
 
-layout (std430, binding = 2) buffer VertexPositionInSSBO 
+layout (std430, binding = 2) buffer VertexValidityInSSBO
 {
-   vec3 vertexPositions[];
+    uint vertexValidities[];
 };
 
-layout (std430, binding = 3) buffer NormalInSSBO
+layout (std430, binding = 3) buffer VertexPositionInSSBO 
+{
+    vec3 vertexPositions[];
+};
+
+layout (std430, binding = 4) buffer NormalInSSBO
 {
     vec3 normals[];
 };
 
 // ========== Outputs ==========
-layout (std430, binding = 4) buffer VertexOutSSBO 
+layout (std430, binding = 5) buffer VertexOutSSBO 
 {
     Vertex vertices[];
 };
@@ -70,9 +75,11 @@ void main()
     // This invocation deals with a single vertex (single entry vertexPositions and vertices)
     uint vertexIndex = gl_GlobalInvocationID.x;
     if (vertexIndex >= setup.vertexCount) return;
+    if (vertexValidities[vertexIndex] == 0) return;
+    vertexValidities[vertexIndex] = 0; // Reset
 
-    vec3 vertexPosition = vertexPositions[vertexIndex];
-    vertices[vertexIndex].pos = vertexPosition;
+    // Populate the vertex struct
+    vertices[vertexIndex].pos = vertexPositions[vertexIndex];
 
     uint normalStart = vertexIndex * NORMAL_GROUP_COUNT;
     vec3 normal = vec3(0.0f, 0.0f, 0.0f);

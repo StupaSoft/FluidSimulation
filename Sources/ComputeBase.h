@@ -7,11 +7,11 @@
 
 #include "VulkanCore.h"
 
-class ComputeBase
+class ComputeBase : public DelegateRegistrable<ComputeBase>
 {
 protected:
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
-	size_t _eventID = 0;
+	size_t _commandRegisterID = 0;
 
 public:
 	ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore);
@@ -19,12 +19,14 @@ public:
 	ComputeBase(ComputeBase &&other) = default;
 	ComputeBase &operator=(const ComputeBase &other) = delete;
 	ComputeBase &operator=(ComputeBase &&other) = default;
-	virtual ~ComputeBase();
+	virtual ~ComputeBase() = default;
+
+	virtual void Register() override;
 
 	void SetEnable(bool enable);
 
 protected:
-	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame) = 0;
+	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) = 0;
 	virtual uint32_t GetOrder() = 0;
 };
 

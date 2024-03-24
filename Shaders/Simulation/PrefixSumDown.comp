@@ -1,0 +1,52 @@
+#version 450
+
+struct GridSetup
+{
+    uvec4 dimension;
+};
+
+struct PrefixSumState
+{
+    uint step;
+    uint iterCount; // log(2, n)
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer gridSetupInSSBO
+{
+    GridSetup gridSetup;
+};
+
+layout (std430, binding = 1) buffer prefixSumStateInSSBO
+{
+    PrefixSumState prefixSumState;
+};
+
+// ========== Inputs / Outputs ==========
+layout (std430, binding = 2) buffer AccumulationOutSSBO
+{
+    uint accumulations[];
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+void main() 
+{
+    // Prefix sum using Blelloch's algorithm
+    // Down-sweep phase
+    uint bucketCount = gridSetup.dimension.x * gridSetup.dimension.y * gridSetup.dimension.y;
+    uint step = prefixSumState.step; // log(2, n) - 1 down to 0
+
+    uint k = gl_GlobalInvocationID.x * (1 << (step + 1));
+
+    uint bucketIndex1 = k + (1 << step) - 1;
+    uint bucketIndex2 = k + (1 << (step + 1)) - 1;
+
+    if (bucketIndex1 < bucketCount && bucketIndex2 < bucketCount)
+    {
+        uint temp = accumulations[bucketIndex1];
+        accumulations[bucketIndex1] = accumulations[bucketIndex2];
+        accumulations[bucketIndex2] = temp + accumulations[bucketIndex2];
+    }
+}

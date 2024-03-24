@@ -2,9 +2,10 @@
 #include "VulkanCore.h"
 
 MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) : 
-	ModelBase(vulkanCore),
-	_descriptorHelper(vulkanCore)
+	ModelBase(vulkanCore)
 {
+	_descriptorHelper = std::make_unique<DescriptorHelper>(vulkanCore);
+
 	// Create resources
 	_lightBuffers = CreateBuffers
 	(
@@ -29,16 +30,6 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
 
 	ApplyMaterialAdjustment();
-
-	auto &mainLight = _vulkanCore->GetMainLight();
-	ApplyLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
-	mainLight->OnChanged().AddListener
-	(
-		[this](const DirectionalLight &light)
-		{
-			ApplyLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
-		}
-	);
 
 	// Load a fallback texture
 	LoadTexture("");
@@ -66,7 +57,23 @@ MeshModel::~MeshModel()
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
 }
 
-void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, uint32_t currentFrame)
+void MeshModel::Register()
+{
+	ModelBase::Register();
+
+	auto &mainLight = _vulkanCore->GetMainLight();
+	ApplyLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
+	mainLight->OnChanged().AddListener
+	(
+		weak_from_this(),
+		[this](const DirectionalLight &light)
+		{
+			ApplyLightAdjustment(light.GetDirection(), light.GetColor(), light.GetIntensity());
+		}
+	);
+}
+
+void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
 	VkBuffer vertexBuffers[] = { _vertexBuffer->_buffer };
@@ -112,7 +119,10 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 void MeshModel::LoadTexture(const std::string &texturePath)
 {
 	// We have to free prior images
-	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+	if (_textureSampler != VK_NULL_HANDLE)
+	{
+		vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+	}
 
 	// Load a texture
 	std::string targetTexturePath = texturePath;
@@ -173,17 +183,17 @@ void MeshModel::SetMaterial(Material &&material)
 
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
-	std::shared_ptr<MeshObject> meshObject = std::make_shared<MeshObject>(_vulkanCore, _triangles);
+	std::shared_ptr<MeshObject> meshObject = MeshObject::Instantiate<MeshObject>(_vulkanCore, _triangles);
 	_meshObjects.push_back(meshObject);
 
 	const auto &mvpBuffers = meshObject->GetMVPBuffers();
 
-	_descriptorHelper.BindBuffers(0, mvpBuffers);
-	_descriptorHelper.BindBuffers(1, _lightBuffers);
-	_descriptorHelper.BindBuffers(2, _materialBuffers);
-	_descriptorHelper.BindSampler(3, _textureSampler, _texture);
+	_descriptorHelper->BindBuffers(0, mvpBuffers);
+	_descriptorHelper->BindBuffers(1, _lightBuffers);
+	_descriptorHelper->BindBuffers(2, _materialBuffers);
+	_descriptorHelper->BindSampler(3, _textureSampler, _texture);
 
-	_descriptorSetsList.emplace_back(_descriptorHelper.GetDescriptorSets());
+	_descriptorSetsList.emplace_back(_descriptorHelper->GetDescriptorSets());
 
 	return meshObject;
 }
@@ -199,9 +209,9 @@ void MeshModel::RemoveMeshObject(const std::shared_ptr<MeshObject> &object)
 std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptors()
 {
 	// Create descriptor pool
-	_descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SET_COUNT });
-	_descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SET_COUNT });
-	auto descriptorPool = _descriptorHelper.GetDescriptorPool();
+	_descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SET_COUNT });
+	_descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SET_COUNT });
+	auto descriptorPool = _descriptorHelper->GetDescriptorPool();
 
 	// Create descriptor set layout
 	BufferLayout mvpLayout
@@ -233,12 +243,11 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptor
 		.binding = 3
 	};
 
-	_descriptorHelper.AddBufferLayout(mvpLayout);
-	_descriptorHelper.AddBufferLayout(lightLayout);
-	_descriptorHelper.AddBufferLayout(materialLayout);
-	_descriptorHelper.AddSamplerLayout(samplerLayout);
-
-	auto descriptorSetLayout = _descriptorHelper.GetDescriptorSetLayout();
+	_descriptorHelper->AddBufferLayout(0, sizeof(MeshObject::MVP), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+	_descriptorHelper->AddBufferLayout(1, sizeof(Light), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+	_descriptorHelper->AddBufferLayout(2, sizeof(Material), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
+	_descriptorHelper->AddSamplerLayout(3);
+	auto descriptorSetLayout = _descriptorHelper->GetDescriptorSetLayout();
 
 	return std::make_tuple(descriptorPool, descriptorSetLayout);
 }
@@ -517,12 +526,12 @@ void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(Light);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _lightBuffers, &light, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &light, _lightBuffers, copyOffset, copySize);
 }
 
 void MeshModel::ApplyMaterialAdjustment()
 {
 	auto copyOffset = 0;
 	auto copySize = sizeof(Material);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), _materialBuffers, &_material, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &_material, _materialBuffers, copyOffset, copySize);
 }

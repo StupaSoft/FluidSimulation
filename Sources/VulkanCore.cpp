@@ -1,7 +1,5 @@
 #include "VulkanCore.h"
 
-const uint32_t VulkanCore::MAX_FRAMES_IN_FLIGHT = 2;
-
 // ======================================== Interface ========================================
 VulkanCore::~VulkanCore()
 {
@@ -32,8 +30,12 @@ void VulkanCore::InitVulkan()
 	std::tie(_imageAvailableSemaphores, _renderFinishedSemaphores, _computeFinishedSemaphores, _inFlightFences, _computeInFlightFences) = CreateSyncObjects(MAX_FRAMES_IN_FLIGHT);
 }
 
-void VulkanCore::DrawFrame()
+void VulkanCore::UpdateFrame(float deltaSecond)
 {
+	// CPU side
+	_onExecuteHost.Invoke(deltaSecond, _currentFrame);
+
+	// GPU side
 	std::vector<VkSemaphore> waitSemaphores = { _imageAvailableSemaphores[_currentFrame] };
 
 	// Submit compute commands
@@ -142,8 +144,8 @@ void VulkanCore::DrawFrame()
 
 void VulkanCore::SetUpScene()
 {
-	_mainCamera = std::make_unique<Camera>(glm::vec3(7.0f, 7.0f, 7.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
-	_mainLight = std::make_unique<DirectionalLight>(glm::vec3(3.0f, -3.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), 2.0f);
+	_mainCamera = std::make_shared<Camera>(glm::vec3(7.0f, 7.0f, 7.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
+	_mainLight = std::make_shared<DirectionalLight>(glm::vec3(3.0f, -3.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), 2.0f);
 }
 
 // ======================================== Internal logics ========================================
@@ -952,7 +954,7 @@ std::vector<VkCommandBuffer> VulkanCore::CreateCommandBuffers(VkDevice logicalDe
 	return commandBuffers;
 }
 
-void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
+void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
 {
 	VkCommandBufferBeginInfo beginInfo
 	{
@@ -972,7 +974,7 @@ void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer
 	}
 }
 
-void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame)
+void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	// Begin to record a command buffer
 	VkCommandBufferBeginInfo beginInfo =

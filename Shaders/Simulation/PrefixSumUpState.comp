@@ -1,0 +1,21 @@
+#version 450
+
+struct PrefixSumState
+{
+    uint step;
+    uint iterCount; // log(2, n)
+};
+
+// ========== Inputs / Outputs ==========
+layout (std430, binding = 0) buffer prefixSumStateInOutSSBO
+{
+    PrefixSumState prefixSumState;
+};
+
+// ========== Execution ==========
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+void main() 
+{
+    if (prefixSumState.step < prefixSumState.iterCount - 1) ++prefixSumState.step;
+}

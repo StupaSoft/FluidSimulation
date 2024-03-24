@@ -9,7 +9,7 @@ class SimulationPanel : public PanelBase
 {
 private:
 	std::shared_ptr<SimulatedSceneBase> _simulatedScene;
-	std::unique_ptr<SimulationParameters> _simulationParameters = std::make_unique<SimulationParameters>();
+	std::shared_ptr<SimulationParameters> _simulationParameters = std::make_shared<SimulationParameters>();
 
 public:
 	SimulationPanel(const std::shared_ptr<SimulatedSceneBase> &simulatedScene);

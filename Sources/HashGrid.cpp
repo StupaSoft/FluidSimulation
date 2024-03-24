@@ -1,12 +1,12 @@
 #include "HashGrid.h"
 
-const size_t HashGrid::OVERLAPPING_GRID = 8;
-
-HashGrid::HashGrid(size_t particleCount, glm::ivec3 resolution, float kernelRadius) :
-	_resolution(resolution),
-	_gridSpacing(kernelRadius)
+HashGrid::HashGrid(size_t particleCount, glm::ivec3 resolution) :
+	_resolution(resolution)
 {
+	_buckets.clear();
 	_buckets.resize(_resolution.x * _resolution.y * _resolution.z);
+
+	_neighbors.clear();
 	_neighbors.resize(particleCount);
 }
 
@@ -22,9 +22,12 @@ void HashGrid::UpdateGrid(const std::vector<glm::vec3> &positions)
 		_buckets[i].clear();
 	}
 
+	#pragma omp parallel for num_threads(4)
 	for (size_t particleIndex = 0; particleIndex < particleCount; ++particleIndex)
 	{
 		size_t key = PositionToHashKey(positions[particleIndex]);
+
+		#pragma omp critical
 		_buckets[key].push_back(particleIndex); // Store the index of the particle
 	}
 
@@ -36,15 +39,26 @@ void HashGrid::UpdateGrid(const std::vector<glm::vec3> &positions)
 
 		// For each adjacent overlapping grid key
 		std::vector<size_t> adjacentKeys = GetAdjacentKeys(positions[particleIndex]);
-		for (size_t i = 0; i < OVERLAPPING_GRID; ++i)
+		for (size_t i = 0; i < OVERLAPPING_BUCKETS; ++i)
 		{
 			const auto &bucket = _buckets[adjacentKeys[i]];
 			for (size_t neighborIndex : bucket)
 			{
-				if (particleIndex != neighborIndex) _neighbors[particleIndex].push_back(neighborIndex);
+				if (particleIndex != neighborIndex)
+				{
+					if (glm::distance(positions[particleIndex], positions[neighborIndex]) <= _gridSpacing)
+					{
+						_neighbors[particleIndex].push_back(neighborIndex);
+					}
+				}
 			}
 		}
 	}
+}
+
+void HashGrid::UpdateSpacing(float gridSpacing)
+{
+	_gridSpacing = gridSpacing;
 }
 
 glm::ivec3 HashGrid::PositionToBucketIndex(glm::vec3 position) const
@@ -82,20 +96,16 @@ void HashGrid::ForEachNeighborParticle(const std::vector<glm::vec3> &positions, 
 {
 	for (size_t neighborIndex : _neighbors[particleIndex])
 	{
-		float distance = glm::distance(positions[particleIndex], positions[neighborIndex]);
-		if (distance < _gridSpacing)
-		{
-			callback(neighborIndex);
-		}
+		callback(neighborIndex);
 	}
 }
 
 std::vector<size_t> HashGrid::GetAdjacentKeys(glm::vec3 position) const
 {
 	glm::ivec3 originIndex = PositionToBucketIndex(position);
-	std::vector<glm::ivec3> adjacentBucketIndices(OVERLAPPING_GRID);
+	std::vector<glm::ivec3> adjacentBucketIndices(OVERLAPPING_BUCKETS);
 
-	for (size_t i = 0; i < OVERLAPPING_GRID; ++i)
+	for (size_t i = 0; i < OVERLAPPING_BUCKETS; ++i)
 	{
 		adjacentBucketIndices[i] = originIndex;
 	}
@@ -155,8 +165,8 @@ std::vector<size_t> HashGrid::GetAdjacentKeys(glm::vec3 position) const
 		adjacentBucketIndices[7].z -= 1;
 	}
 
-	std::vector<size_t> adjacentKeys(OVERLAPPING_GRID);
-	for (size_t i = 0; i < OVERLAPPING_GRID; ++i)
+	std::vector<size_t> adjacentKeys(OVERLAPPING_BUCKETS);
+	for (size_t i = 0; i < OVERLAPPING_BUCKETS; ++i)
 	{
 		adjacentKeys[i] = BucketIndexToHashKey(adjacentBucketIndices[i]);
 	}

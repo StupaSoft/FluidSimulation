@@ -7,12 +7,17 @@
 class Billboards
 {
 private:
+	size_t _particleCount = 0;
+
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
 
-	std::unique_ptr<BillboardsCompute> _compute = nullptr;
+	std::shared_ptr<BillboardsCompute> _compute = nullptr;
 
-	std::unique_ptr<MeshModel> _meshModel = nullptr;
+	std::shared_ptr<MeshModel> _meshModel = nullptr;
 	std::shared_ptr<MeshObject> _meshObject = nullptr;
+
+	std::vector<Vertex> _billboardVertices;
+	std::vector<uint32_t> _billboardIndices;
 
 	Buffer _vertexBuffer{};
 	Buffer _indexBuffer{};
@@ -23,11 +28,13 @@ private:
 	const std::vector<uint32_t> INDICES_IN_PARTICLE{ 0, 1, 2, 0, 2, 3 };
 
 public:
-	Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, size_t particleCount, float particleRadius);
+	Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount);
 
 	void SetEnable(bool enable);
 
+	void UpdateRadius(float particleRadius);
+
 	BillboardsCompute *GetCompute() { return _compute.get(); }
-	MeshObject *GetMeshObjecT() { return _meshObject.get(); }
+	MeshObject *GetMeshObject() { return _meshObject.get(); }
 };
 

@@ -3,7 +3,7 @@
 SimulationPanel::SimulationPanel(const std::shared_ptr<SimulatedSceneBase> &simulatedScene) :
 	_simulatedScene(simulatedScene)
 {
-	_simulatedScene->UpdateSimulationParamters(*_simulationParameters);
+	_simulatedScene->UpdateSimulationParameters(*_simulationParameters);
 }
 
 void SimulationPanel::Draw()
@@ -23,11 +23,11 @@ void SimulationPanel::Draw()
 
 	if (ImGui::Button("Reset Simulation Parameters"))
 	{
-		_simulationParameters = std::make_unique<SimulationParameters>();
+		_simulationParameters = std::make_shared<SimulationParameters>();
 		paramtersChanged = true;
 	}
 
-	if (paramtersChanged) _simulatedScene->UpdateSimulationParamters(*_simulationParameters);
+	if (paramtersChanged) _simulatedScene->UpdateSimulationParameters(*_simulationParameters);
 
 	if (ImGui::Button("Start Simulation"))
 	{

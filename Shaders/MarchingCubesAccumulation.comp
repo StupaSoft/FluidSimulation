@@ -6,7 +6,6 @@ const uint FRAC = 10000;
 struct ParticleProperty
 {
     uint particleCount;
-    float kernelRadiusFactor;
     float r1;
     float r2;
     float r3;
@@ -41,9 +40,9 @@ layout (std430, binding = 1) buffer SetupInSSBO
 };
 
 // Input positions
-layout (std430, binding = 2) buffer ParticlePositionInSSBO
+layout (std430, binding = 2) buffer PositionInSSBO
 {
-    vec3 particlePositions[];
+    vec3 positions[];
 };
 
 layout (std430, binding = 3) buffer VoxelSSBO
@@ -77,20 +76,19 @@ void main()
     uint particleIndex = gl_GlobalInvocationID.x;
     if (particleIndex >= property.particleCount) return;
 
-    vec3 particlePosition = particlePositions[particleIndex];
-    float kernelRadius = property.r1 * property.kernelRadiusFactor;
+    vec3 particlePosition = positions[particleIndex];
 
     // Get voxel ranges
     vec3 relativePosition = particlePosition - vec3(setup.xRange.x, setup.yRange.x, setup.zRange.x);
 
-    uint voxelIndexMinX = max(int((relativePosition.x - kernelRadius) / setup.voxelInterval), 0);
-    uint voxelIndexMaxX = min(int((relativePosition.x + kernelRadius) / setup.voxelInterval), setup.voxelDimension.x - 1);
+    uint voxelIndexMinX = max(int((relativePosition.x - property.r1) / setup.voxelInterval), 0);
+    uint voxelIndexMaxX = min(int((relativePosition.x + property.r1) / setup.voxelInterval), setup.voxelDimension.x - 1);
 
-    uint voxelIndexMinY = max(int((relativePosition.y - kernelRadius) / setup.voxelInterval), 0);
-    uint voxelIndexMaxY = min(int((relativePosition.y + kernelRadius) / setup.voxelInterval), setup.voxelDimension.y - 1);
+    uint voxelIndexMinY = max(int((relativePosition.y - property.r1) / setup.voxelInterval), 0);
+    uint voxelIndexMaxY = min(int((relativePosition.y + property.r1) / setup.voxelInterval), setup.voxelDimension.y - 1);
 
-    uint voxelIndexMinZ = max(int((relativePosition.z - kernelRadius) / setup.voxelInterval), 0);
-    uint voxelIndexMaxZ = min(int((relativePosition.z + kernelRadius) / setup.voxelInterval), setup.voxelDimension.z - 1);
+    uint voxelIndexMinZ = max(int((relativePosition.z - property.r1) / setup.voxelInterval), 0);
+    uint voxelIndexMaxZ = min(int((relativePosition.z + property.r1) / setup.voxelInterval), setup.voxelDimension.z - 1);
 
     // Iterate through adjacent voxels and accumulate kernel values
     vec3 voxelOrigin = vec3(setup.xRange.x, setup.yRange.x, setup.zRange.x);

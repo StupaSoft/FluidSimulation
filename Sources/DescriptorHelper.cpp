@@ -10,14 +10,28 @@ void DescriptorHelper::AddDescriptorPoolSize(const VkDescriptorPoolSize &poolSiz
 	_needPoolRecreation = true;
 }
 
-void DescriptorHelper::AddBufferLayout(const BufferLayout &bufferLayout)
+void DescriptorHelper::AddBufferLayout(uint32_t binding, VkDeviceSize dataSize, VkDescriptorType descriptorType, VkShaderStageFlags shaderStages)
 {
+	BufferLayout bufferLayout
+	{
+		.binding = binding,
+		.dataSize = dataSize,
+		.descriptorType = descriptorType,
+		.shaderStages = shaderStages
+	};
+
 	_bufferLayouts.emplace_back(bufferLayout);
 	_needLayoutRecreation = true;
 }
 
-void DescriptorHelper::AddSamplerLayout(const SamplerLayout &samplerLayout)
+void DescriptorHelper::AddSamplerLayout(uint32_t binding, VkShaderStageFlags shaderStages)
 {
+	SamplerLayout samplerLayout
+	{
+		.binding = binding,
+		.shaderStages = shaderStages
+	};
+
 	_samplerLayouts.emplace_back(samplerLayout);
 	_needLayoutRecreation = true;
 }

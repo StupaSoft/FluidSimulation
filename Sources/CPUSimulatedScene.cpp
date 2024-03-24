@@ -3,11 +3,26 @@
 CPUSimulatedScene::CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	SimulatedSceneBase(vulkanCore)
 {
+
+}
+
+void CPUSimulatedScene::Register()
+{
+	_vulkanCore->OnExecuteHost().AddListener
+	(
+		weak_from_this(),
+		[this](float deltaSecond, uint32_t currentFrame)
+		{
+			Update();
+		}
+	);
+
 	_onUpdateSimulationParameters.AddListener
 	(
+		weak_from_this(),
 		[this](const SimulationParameters &simulationParameters)
 		{
-			_kernel = Kernel(simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
+			_kernel = std::make_unique<Kernel>(simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
 		}
 	);
 }
@@ -28,12 +43,12 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	_forces = std::vector<glm::vec3>(_particleCount);
 	_densities = std::vector<float>(_particleCount);
 	_pressures = std::vector<float>(_particleCount);
-	_pressureForces = std::vector<glm::vec3>(_particleCount);
 
 	_nextPositions = std::vector<glm::vec3>(_particleCount);
 	_nextVelocities = std::vector<glm::vec3>(_particleCount);
 
 	// Place particles
+	#pragma omp parallel for
 	for (size_t z = 0; z < zCount; ++z)
 	{
 		for (size_t y = 0; y < yCount; ++y)
@@ -46,43 +61,38 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		}
 	}
 
-	// Possible only after initializing the particle system
-	_onSetPlay.AddListener
-	(
-		[this](bool play)
-		{
-			_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
-			InitializeRenderSystems(*_simulationParameters);
-			ApplyRenderMode(_particleRenderingMode, play);
-		}
-	);
-
+	// Initialize hashed buckets
+	_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridDimension);
+	_hashGrid->UpdateSpacing(2.0f * _simulationParameters->_particleRadius * _simulationParameters->_kernelRadiusFactor);
 	_onUpdateSimulationParameters.AddListener
 	(
+		weak_from_this(),
 		[this](const SimulationParameters &simulationParameters)
 		{
-			if (_simulationParameters->_particleRadius != simulationParameters._particleRadius || _simulationParameters->_kernelRadiusFactor != simulationParameters._kernelRadiusFactor)
-			{
-				_hashGrid = std::make_unique<HashGrid>(_particleCount, _gridResolution, 2.0f * simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
-			}
-			InitializeRenderSystems(simulationParameters);
-		}
+			_hashGrid->UpdateSpacing(2.0f * simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
+		},
+		__FUNCTION__, 
+		__LINE__
 	);
 
-	_onSetParticleRenderingMode.AddListener
+	// Initialize renderers (marching cubes and billboards)
+	_particlePositionInputBuffers = CreateBuffers
 	(
-		[this](ParticleRenderingMode particleRenderingMode)
-		{
-			ApplyRenderMode(particleRenderingMode, _isPlaying);
-		}
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(glm::vec3) * _particleCount,
+		_vulkanCore->GetMaxFramesInFlight(),
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
+	InitializeRenderers(_particlePositionInputBuffers, _particleCount);
 }
 
 void CPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
 {
 	auto obj = LoadOBJ(OBJPath);
 
-	auto propModel = std::make_unique<MeshModel>(_vulkanCore);
+	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
 	propModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
 	propModel->LoadTexture(texturePath);
@@ -111,40 +121,39 @@ void CPUSimulatedScene::EndTimeStep()
 	std::fill(_forces.begin(), _forces.end(), glm::vec3{});
 	std::fill(_densities.begin(), _densities.end(), 0.0f);
 	std::fill(_pressures.begin(), _pressures.end(), 0.0f);
-	std::fill(_pressureForces.begin(), _pressureForces.end(), glm::vec3{});
 }
 
-void CPUSimulatedScene::Update(float deltaSecond)
+void CPUSimulatedScene::Update()
 {
 	if (!_isPlaying) return;
 
 	// Conduct simulation
 	BeginTimeStep();
 
-	AccumulateForces(deltaSecond);
-	TimeIntegration(deltaSecond);
+	AccumulateForces();
+	TimeIntegration(_simulationParameters->_timeStep);
 	ResolveCollision();
 
 	EndTimeStep();
 
 	// Reflect the particle status to the render system
-	ApplyParticlePositions();
+	Applypositions();
 }
 
-void CPUSimulatedScene::AccumulateForces(float deltaSecond)
+void CPUSimulatedScene::AccumulateForces()
 {
-	AccumulateExternalForce(deltaSecond);
-	AccumulateViscosityForce(deltaSecond);
-	AccumulatePressureForce(deltaSecond);
+	AccumulateExternalForce();
+	AccumulateViscosityForce();
+	AccumulatePressureForce();
 }
 
-void CPUSimulatedScene::AccumulateExternalForce(float deltaSecond)
+void CPUSimulatedScene::AccumulateExternalForce()
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
 		// Apply gravity
-		glm::vec3 externalForce = _simulationParameters->_particleMass * GRAVITY;
+		glm::vec3 externalForce = _simulationParameters->_particleMass * _simulationParameters->_gravitiy.xyz;
 
 		// Apply wind forces
 		glm::vec3 relativeVelocity = _velocities[particleIndex] - GetWindVelocityAt(_positions[particleIndex]);
@@ -154,7 +163,7 @@ void CPUSimulatedScene::AccumulateExternalForce(float deltaSecond)
 	}
 }
 
-void CPUSimulatedScene::AccumulateViscosityForce(float deltaSecond)
+void CPUSimulatedScene::AccumulateViscosityForce()
 {
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
@@ -166,13 +175,13 @@ void CPUSimulatedScene::AccumulateViscosityForce(float deltaSecond)
 			[&](size_t neighborIndex)
 			{
 				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-				_forces[particleIndex] += _simulationParameters->_viscosityCoefficient * (_simulationParameters->_particleMass * _simulationParameters->_particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel.SecondDerivative(distance) / _densities[neighborIndex];
+				_forces[particleIndex] += _simulationParameters->_viscosityCoefficient * (_simulationParameters->_particleMass * _simulationParameters->_particleMass) * (_velocities[neighborIndex] - _velocities[particleIndex]) * _kernel->SecondDerivative(distance) / _densities[neighborIndex];
 			}
 		);
 	}
 }
 
-void CPUSimulatedScene::AccumulatePressureForce(float deltaSecond)
+void CPUSimulatedScene::AccumulatePressureForce()
 {
 	// Compute pressures
 	#pragma omp parallel for
@@ -196,15 +205,13 @@ void CPUSimulatedScene::AccumulatePressureForce(float deltaSecond)
 				if (distance > 0.0f)
 				{
 					glm::vec3 direction = (_positions[neighborIndex] - _positions[particleIndex]) / distance;
-					_pressureForces[particleIndex] -=
+					_forces[particleIndex] -=
 						(_simulationParameters->_particleMass * _simulationParameters->_particleMass) * 
-						_kernel.Gradient(distance, direction) * 
+						_kernel->Gradient(distance, direction) * 
 						(_pressures[particleIndex] / (_densities[particleIndex] * _densities[particleIndex]) + _pressures[neighborIndex] / (_densities[neighborIndex] * _densities[neighborIndex]));
 				}
 			}
 		);
-
-		_forces[particleIndex] += _pressureForces[particleIndex]; // Temp
 	}
 }
 
@@ -213,7 +220,7 @@ void CPUSimulatedScene::ResolveCollision()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		// Check if the new position is penetrating the surface
+		// Check if the new position is penetrating any surface
 		Intersection intersection{};
 		if (_bvh->GetIntersection(_positions[particleIndex], _nextPositions[particleIndex], &intersection))
 		{
@@ -282,7 +289,7 @@ void CPUSimulatedScene::UpdateDensities()
 	#pragma omp parallel for
 	for (size_t particleIndex = 0; particleIndex < _particleCount; ++particleIndex)
 	{
-		float sum = _kernel.GetValue(0.0f);
+		float sum = _kernel->GetValue(0.0f);
 		_hashGrid->ForEachNeighborParticle
 		(
 			_positions,
@@ -290,7 +297,7 @@ void CPUSimulatedScene::UpdateDensities()
 			[&](size_t neighborIndex)
 			{
 				float distance = glm::distance(_positions[particleIndex], _positions[neighborIndex]);
-				sum += _kernel.GetValue(distance);
+				sum += _kernel->GetValue(distance);
 			}
 		);
 
@@ -299,9 +306,7 @@ void CPUSimulatedScene::UpdateDensities()
 }
 
 // Reflect the particle positions to the render system
-void CPUSimulatedScene::ApplyParticlePositions()
+void CPUSimulatedScene::Applypositions()
 {
-	const auto &particleInputBuffers = _particleRenderingMode == ParticleRenderingMode::MarchingCubes ? _marchingCubes->GetCompute()->GetParticleInputBuffers() : _billboards->GetCompute()->GetParticlePositionBuffers();
-	const auto &currentBuffer = particleInputBuffers[_vulkanCore->GetCurrentFrame()];
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), currentBuffer, const_cast<glm::vec3 *>(_positions.data()), 0, sizeof(glm::vec3) * _positions.size());
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _positions.data(), _particlePositionInputBuffers[_vulkanCore->GetCurrentFrame()], 0);
 }
