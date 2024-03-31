@@ -64,7 +64,7 @@ layout (std430, binding = 5) buffer NextVelocityOutSSBO
 
 layout (std430, binding = 6) buffer NextPositionOutSSBO
 {
-    vec3 nextpositions[];
+    vec3 nextPositions[];
 };
 
 // ========== Execution ==========
@@ -79,35 +79,5 @@ void main()
 	nextVelocities[particleIndex] = velocities[particleIndex] + simulationParameters.timeStep * (forces[particleIndex] / simulationParameters.particleMass);
 
 	// Integrate position
-	nextpositions[particleIndex] = positions[particleIndex] + simulationParameters.timeStep * nextVelocities[particleIndex];
-
-	if (nextpositions[particleIndex].y < 0)
-	{
-		nextpositions[particleIndex].y = 0 - nextpositions[particleIndex].y * 0.5f;
-		nextVelocities[particleIndex].y = -nextVelocities[particleIndex].y * 0.5f; 
-	}
-
-    if (nextpositions[particleIndex].x < -2.5)
-	{
-		nextpositions[particleIndex].x = -2.5 + (-2.5 - nextpositions[particleIndex].x) * 0.5f;
-		nextVelocities[particleIndex].x = -nextVelocities[particleIndex].x * 0.5f; 
-	}
-
-    if (nextpositions[particleIndex].x > 1.5)
-	{
-		nextpositions[particleIndex].x = 1.5 + (1.5 - nextpositions[particleIndex].x) * 0.5f;
-		nextVelocities[particleIndex].x = -nextVelocities[particleIndex].x * 0.5f; 
-	}
-
-    if (nextpositions[particleIndex].z < -2)
-	{
-		nextpositions[particleIndex].z = -2 + (-2 - nextpositions[particleIndex].z) * 0.5f;
-		nextVelocities[particleIndex].z = -nextVelocities[particleIndex].z * 0.5f; 
-	}
-
-    if (nextpositions[particleIndex].z > 2)
-	{
-		nextpositions[particleIndex].z = 2 + (2 - nextpositions[particleIndex].z) * 0.5f;
-		nextVelocities[particleIndex].z = -nextVelocities[particleIndex].z * 0.5f; 
-	}
+	nextPositions[particleIndex] = positions[particleIndex] + simulationParameters.timeStep * nextVelocities[particleIndex];
 }

@@ -25,7 +25,7 @@ struct Intersection
 
 class BVH
 {
-private:
+public:
 	static const uint32_t NONE = std::numeric_limits<uint32_t>::max();
 
 	struct AABB
@@ -44,6 +44,7 @@ private:
 		alignas(4) uint32_t _child2 = static_cast<uint32_t>(NONE);
 	};
 
+private:
 	// Used for recursively building a tree
 	struct Range
 	{
@@ -73,6 +74,8 @@ public:
 	bool GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Intersection *intersection);
 
 	void DrawBoundingBoxes(const std::shared_ptr<VulkanCore> &vulkanCore, uint32_t nodeIndex, bool includeDescendants);
+
+	auto &GetNodes() { return _nodes; }
 
 private:
 	bool RayBoxIntersection(const AABB &boundingBox, glm::vec3 start, glm::vec3 end);

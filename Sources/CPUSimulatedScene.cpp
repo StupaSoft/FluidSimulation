@@ -8,8 +8,6 @@ CPUSimulatedScene::CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCo
 
 void CPUSimulatedScene::Register()
 {
-	SimulatedSceneBase::Register();
-
 	_vulkanCore->OnExecuteHost().AddListener
 	(
 		weak_from_this(),

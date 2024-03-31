@@ -6,6 +6,7 @@
 #include "DescriptorHelper.h"
 #include "SimulationParameters.h"
 #include "MathUtil.h"
+#include "BVH.h"
 
 class SimulationCompute : public ComputeBase
 {
@@ -40,7 +41,6 @@ private:
 	Buffer _simulationParametersBuffer = nullptr;
 
 	// Hashed grid buffer
-	
 	Buffer _hashResultBuffer = nullptr;
 	Buffer _accumulationBuffer = nullptr;
 	Buffer _bucketBuffer = nullptr;
@@ -54,6 +54,7 @@ private:
 	Buffer _pressureBuffer = nullptr;
 	Buffer _nextPositionBuffer = nullptr;
 	Buffer _nextVelocityBuffer = nullptr;
+	Buffer _BVHNodeBuffer = nullptr;
 	
 	// Push constants
 	VkPushConstantRange _prefixSumStatePushConstant{};
@@ -112,6 +113,11 @@ private:
 	VkPipeline _timeIntegrationPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _timeIntegrationPipelineLayout = VK_NULL_HANDLE;
 
+	VkDescriptorSetLayout _resolveCollisionDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _resolveCollisionDescriptorSets;
+	VkPipeline _resolveCollisionPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _resolveCollisionPipelineLayout = VK_NULL_HANDLE;
+
 	VkDescriptorSetLayout _endTimeStepDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _endTimeStepDescriptorSets;
 	VkPipeline _endTimeStepPipeline = VK_NULL_HANDLE;
@@ -123,6 +129,7 @@ public:
 	virtual ~SimulationCompute();
 
 	void UpdateSimulationParameters(const SimulationParameters &simulationParameters);
+	void InitializeLevel(const std::vector<BVH::Node> &BVHNodes);
 	void InitializeParticles(const std::vector<glm::vec3> &positions);
 
 	auto GetPositionInputBuffer() { return _positionBuffer; }
@@ -135,6 +142,7 @@ private:
 	void CreateSetupBuffers();
 	void CreateGridBuffers(glm::uvec3 gridDimension);
 	void CreateSimulationBuffers(uint32_t particleCount);
+	void CreateLevelBuffers(const std::vector<BVH::Node> &BVHNodes);
 
 	void CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension);
 
@@ -148,6 +156,7 @@ private:
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateComputePressureDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePressureForceDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateTimeIntegrationDescriptors(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateResolveCollisionDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateEndTimeStepDescriptors(DescriptorHelper *descriptorHelper);
 
 };

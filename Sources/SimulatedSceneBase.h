@@ -51,7 +51,6 @@ protected:
 
 public:
 	SimulatedSceneBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
-	virtual void Register() override;
 
 	void SetPlay(bool play);
 	bool IsPlaying() { return _isPlaying; }
@@ -59,6 +58,7 @@ public:
 	Billboards *GetBillboards() { return _billboards.get(); }
 	MarchingCubes *GetMarchingCubes() { return _marchingCubes.get(); }
 
+	virtual void InitializeLevel() { _bvh->Construct(); }
 	virtual void InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange) = 0;
 	void SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode);
 	void UpdateSimulationParameters(const SimulationParameters &simulationParameters);

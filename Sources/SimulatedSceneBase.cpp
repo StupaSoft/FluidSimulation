@@ -1,21 +1,5 @@
 #include "CPUSimulatedScene.h"
 
-void SimulatedSceneBase::Register()
-{
-	_onSetPlay.AddListener
-	(
-		weak_from_this(),
-		[this](bool play)
-		{
-			if (play)
-			{
-				_bvh->Construct();
-				// _bvh->DrawBoundingBoxes(_vulkanCore, 0, true);
-			}
-		}
-	);
-}
-
 void SimulatedSceneBase::SetPlay(bool play)
 {
 	_isPlaying = play;

@@ -37,6 +37,6 @@ void main()
 	if (particleIndex >= simulationSetup.particleCount) return;
 
 	uint hashKey = hashResults[particleIndex];
-	uint entry = atomicAdd(accumulations[hashKey], 1) - 1;
+	uint entry = atomicAdd(accumulations[hashKey], 1);
 	buckets[entry] = particleIndex;
 }

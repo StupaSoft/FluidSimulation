@@ -8,8 +8,6 @@ GPUSimulatedScene::GPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCo
 
 void GPUSimulatedScene::Register()
 {
-	SimulatedSceneBase::Register();
-
 	_onUpdateSimulationParameters.AddListener
 	(
 		weak_from_this(),
@@ -27,6 +25,13 @@ void GPUSimulatedScene::Register()
 			_simulationCompute->SetEnable(play);
 		}
 	);
+}
+
+void GPUSimulatedScene::InitializeLevel()
+{
+	SimulatedSceneBase::InitializeLevel();
+
+	_simulationCompute->InitializeLevel(_bvh->GetNodes());
 }
 
 void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)

@@ -30,14 +30,14 @@ bool BVH::GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Int
 		}
 		else
 		{
-			Intersection propIntersection{};
-			if (MollerTrumbore(node._boundingBox._triangle, currentPosition, nextPosition, &propIntersection))
+			Intersection triangleIntersection{};
+			if (MollerTrumbore(node._boundingBox._triangle, currentPosition, nextPosition, &triangleIntersection))
 			{
-				float distance = glm::distance(currentPosition, propIntersection._point);
+				float distance = glm::distance(currentPosition, triangleIntersection._point);
 				if (distance < minDistance)
 				{
 					minDistance = distance;
-					*intersection = std::move(propIntersection);
+					*intersection = std::move(triangleIntersection);
 					isHit = true;
 				}
 			}
