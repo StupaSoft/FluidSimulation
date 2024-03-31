@@ -51,6 +51,7 @@ protected:
 
 public:
 	SimulatedSceneBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
+	virtual void Register() override;
 
 	void SetPlay(bool play);
 	bool IsPlaying() { return _isPlaying; }
@@ -61,7 +62,7 @@ public:
 	virtual void InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange) = 0;
 	void SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode);
 	void UpdateSimulationParameters(const SimulationParameters &simulationParameters);
-	virtual void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true) = 0;
+	virtual void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true, RenderMode renderMode = RenderMode::Triangle);
 
 	// Reflect the particle status to the render system
 	virtual void InitializeRenderers(const std::vector<Buffer> &inputBuffers, size_t particleCount);

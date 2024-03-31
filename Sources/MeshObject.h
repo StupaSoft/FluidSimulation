@@ -38,8 +38,9 @@ private:
 	std::vector<Buffer> _mvpBuffers; // Create multiple buffers for each frame
 
 	// ==================== Transform ====================
-	glm::mat4 _position = glm::mat4(1.0f);
+	glm::mat4 _translation = glm::mat4(1.0f);
 	glm::mat4 _rotation = glm::mat4(1.0f);
+	glm::mat4 _scale = glm::mat4(1.0f);
 
 	// ==================== Triangle ====================
 	std::shared_ptr<std::vector<Triangle>> _triangles; // Triangles in the model space
@@ -66,9 +67,12 @@ public:
 	bool IsCollidable() { return _isCollidable; }
 
 	void SetPosition(glm::vec3 position);
-	void SetRotation(glm::vec3);
+	void SetRotation(glm::vec3 rotation);
+	void SetScale(glm::vec3 scale);
+
 	void Translate(glm::vec3 offset);
 	void Rotate(glm::vec3 axis, float angle);
+	void Scale(glm::vec3 scale);
 
 private:
 	void ApplyModelTransformation();

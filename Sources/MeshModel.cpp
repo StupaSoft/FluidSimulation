@@ -31,7 +31,7 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 	ApplyMaterialAdjustment();
 
-	// Load a fallback texture
+	// Load the fallback texture
 	LoadTexture("");
 }
 
@@ -81,6 +81,8 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
 	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->_buffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 
+	if (_renderMode == RenderMode::Line) vkCmdSetLineWidth(commandBuffer, _lineWidth);
+
 	size_t meshObjectCount = _meshObjects.size();
 	for (size_t i = 0; i < meshObjectCount; ++i)
 	{
@@ -88,7 +90,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 		{
 			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffer, _indexCount, 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, _indexBuffer->_size / sizeof(uint32_t), 1, 0, 0, 0);
 		}
 	}
 }
@@ -105,14 +107,14 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 	{
 		auto &triangle = _triangles->at(i);
 
-		triangle.A = vertices[indices[i * STRIDE + 0]].pos;
-		triangle.normalA = vertices[indices[i * STRIDE + 0]].normal;
+		triangle.A = glm::vec4(vertices[indices[i * STRIDE + 0]].pos, 0.0f);
+		triangle.normalA = glm::vec4(vertices[indices[i * STRIDE + 0]].normal, 1.0f);
 
-		triangle.B = vertices[indices[i * STRIDE + 1]].pos;
-		triangle.normalB = vertices[indices[i * STRIDE + 1]].normal;
+		triangle.B = glm::vec4(vertices[indices[i * STRIDE + 1]].pos, 0.0f);
+		triangle.normalB = glm::vec4(vertices[indices[i * STRIDE + 1]].normal, 1.0f);
 
-		triangle.C = vertices[indices[i * STRIDE + 2]].pos;
-		triangle.normalC = vertices[indices[i * STRIDE + 2]].normal;
+		triangle.C = glm::vec4(vertices[indices[i * STRIDE + 2]].pos, 0.0f);
+		triangle.normalC = glm::vec4(vertices[indices[i * STRIDE + 2]].normal, 1.0f);
 	}
 }
 
@@ -134,7 +136,7 @@ void MeshModel::LoadTexture(const std::string &texturePath)
 void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
 {
 	// Create a vertex (creation, update)
-	uint32_t vertexBufferSize = static_cast<uint32_t>(sizeof(vertices[0]) * vertices.size());
+	VkDeviceSize vertexBufferSize = sizeof(vertices[0]) * vertices.size();
 	_vertexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_vertexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -144,7 +146,7 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	UpdateVertices(vertices);
 
 	// Create an index buffer
-	uint32_t indexBufferSize = static_cast<uint32_t>(sizeof(indices[0]) * indices.size());
+	VkDeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
 	_indexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_indexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
@@ -152,15 +154,31 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	UpdateIndices(indices);
 }
 
-void MeshModel::SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer, uint32_t indexCount)
+void MeshModel::SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer)
 {
 	_vertexBuffer = vertexBuffer;
 	_indexBuffer = indexBuffer;
-	_indexCount = indexCount;
 }
 
-void MeshModel::LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath)
+void MeshModel::LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode)
 {
+	_renderMode = renderMode;
+	if (renderMode == RenderMode::Triangle)
+	{
+		_polygonMode = VK_POLYGON_MODE_FILL;
+		_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	}
+	else if (renderMode == RenderMode::Wireframe)
+	{
+		_polygonMode = VK_POLYGON_MODE_LINE;
+		_topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	}
+	else if (renderMode == RenderMode::Line)
+	{
+		_polygonMode = VK_POLYGON_MODE_LINE;
+		_topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	}
+
 	// Create shader modules
 	_vertShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(vertexShaderPath));
 	_fragShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(fragmentShaderPath));
@@ -309,7 +327,6 @@ void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 {
 	_indices = indices;
-	_indexCount = static_cast<uint32_t>(_indices.size());
 
 	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
@@ -322,7 +339,7 @@ void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)
 {
 	// Assign shaders to a specific pipeline stage
-	VkPipelineShaderStageCreateInfo vertShaderStageInfo =
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_VERTEX_BIT, // Shader stage
@@ -330,7 +347,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 		.pName = "main" // Entry point
 	};
 
-	VkPipelineShaderStageCreateInfo fragShaderStageInfo =
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
 		.stage = VK_SHADER_STAGE_FRAGMENT_BIT, // Shader stage
@@ -344,7 +361,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	auto vertexAttributeDescriptions = Vertex::GetAttributeDescriptions();
 
 	// Configure vertex input
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo =
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
 		.vertexBindingDescriptionCount = 1,
@@ -355,10 +372,10 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 
 	// Configure an input assembly
 	// Describles what kind of geometry will be drawn from the vertices and if primitive restart should be enabled
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly =
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, // Triangle from every three vertices without reuse
+		.topology = _topology, // Triangle from every three vertices without reuse
 		.primitiveRestartEnable = VK_FALSE
 	};
 
@@ -380,7 +397,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 		.extent = _vulkanCore->GetExtent()
 	};
 
-	VkPipelineViewportStateCreateInfo viewportState =
+	VkPipelineViewportStateCreateInfo viewportState
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
 		.viewportCount = 1,
@@ -390,20 +407,20 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	// Configure a rasterizer that turns geometry formed by the vertex shader into fragments to be colored by the fragment shader
-	VkPipelineRasterizationStateCreateInfo rasterizer =
+	VkPipelineRasterizationStateCreateInfo rasterizer
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
 		.depthClampEnable = VK_FALSE, // Whether to clamp planes out of range to near and far clipping planes
 		.rasterizerDiscardEnable = VK_FALSE, // When set to true, geometry never passes through the rasterization stage
-		.polygonMode = VK_POLYGON_MODE_FILL,
+		.polygonMode = _polygonMode,
 		.cullMode = VK_CULL_MODE_BACK_BIT,
 		.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE, // Since we flipped the projection
 		.depthBiasEnable = VK_FALSE,
-		.lineWidth = 1.0f,
+		.lineWidth = _lineWidth
 	};
 
 	// Configure multisampling
-	VkPipelineMultisampleStateCreateInfo multisampling =
+	VkPipelineMultisampleStateCreateInfo multisampling
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
 		.rasterizationSamples = GetMaxUsableSampleCount(_vulkanCore->GetPhysicalDevice()),
@@ -416,7 +433,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 
 	// After a fragment shader has returned a color, it needs to be combined with the color that is already in the framebuffer.
 	// Per-framebuffer configuration
-	VkPipelineColorBlendAttachmentState colorBlendAttachment =
+	VkPipelineColorBlendAttachmentState colorBlendAttachment
 	{
 		.blendEnable = VK_FALSE,
 		.srcColorBlendFactor = VK_BLEND_FACTOR_ONE,
@@ -429,7 +446,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	// Global color blending settings 
-	VkPipelineColorBlendStateCreateInfo colorBlending =
+	VkPipelineColorBlendStateCreateInfo colorBlending
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
 		.logicOpEnable = VK_FALSE, // Whether to use logic operation to blend colors, instead of blendEnable
@@ -440,7 +457,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	// Enable depth test
-	VkPipelineDepthStencilStateCreateInfo depthStencil =
+	VkPipelineDepthStencilStateCreateInfo depthStencil
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
 		.depthTestEnable = VK_TRUE, // Specifies if the depth of new fragments should be compared to the depth buffer to see if they should be discarded
@@ -452,7 +469,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 
 	// Dynamic state that makes it possible to modify values without recreating the pipeline
 	std::vector<VkDynamicState> dynamicStates = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH };
-	VkPipelineDynamicStateCreateInfo dynamicState =
+	VkPipelineDynamicStateCreateInfo dynamicState
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
 		.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
@@ -481,7 +498,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	// 2. Fixed-function state
 	// 3. Pipeline layout
 	// 4. Render pass
-	VkGraphicsPipelineCreateInfo pipelineInfo =
+	VkGraphicsPipelineCreateInfo pipelineInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,

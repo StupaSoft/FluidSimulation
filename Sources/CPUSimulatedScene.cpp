@@ -8,6 +8,8 @@ CPUSimulatedScene::CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCo
 
 void CPUSimulatedScene::Register()
 {
+	SimulatedSceneBase::Register();
+
 	_vulkanCore->OnExecuteHost().AddListener
 	(
 		weak_from_this(),
@@ -86,23 +88,6 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 	InitializeRenderers(_particlePositionInputBuffers, _particleCount);
-}
-
-void CPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
-{
-	auto obj = LoadOBJ(OBJPath);
-
-	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
-	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
-	propModel->LoadShaders("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv");
-	propModel->LoadTexture(texturePath);
-	
-	auto propObject = propModel->AddMeshObject();
-	propObject->SetVisible(isVisible);
-	propObject->SetCollidable(isCollidable);
-
-	_propModels.emplace_back(std::move(propModel));
-	_bvh->AddPropObject(propObject);
 }
 
 void CPUSimulatedScene::BeginTimeStep()
@@ -225,9 +210,9 @@ void CPUSimulatedScene::ResolveCollision()
 		if (_bvh->GetIntersection(_positions[particleIndex], _nextPositions[particleIndex], &intersection))
 		{
 			// Target point is the closest non-penetrating position from the current position.
-			glm::vec3 targetNormal = intersection.normal;
-			glm::vec3 targetPoint = intersection.point + _simulationParameters->_particleRadius * targetNormal * 0.5f;
-			glm::vec3 collisionPointVelocity = intersection.pointVelocity;
+			glm::vec3 targetNormal = intersection._normal;
+			glm::vec3 targetPoint = intersection._point + _simulationParameters->_particleRadius * targetNormal * 0.5f;
+			glm::vec3 collisionPointVelocity = intersection._pointVelocity;
 
 			// Get new candidate relative velocities from the target point
 			glm::vec3 relativeVelocity = _nextVelocities[particleIndex] - collisionPointVelocity;

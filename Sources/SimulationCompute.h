@@ -5,6 +5,7 @@
 #include "ComputeBase.h"
 #include "DescriptorHelper.h"
 #include "SimulationParameters.h"
+#include "MathUtil.h"
 
 class SimulationCompute : public ComputeBase
 {
@@ -23,9 +24,10 @@ private:
 	struct PrefixSumState
 	{
 		alignas(4) uint32_t _step = 0;
-		alignas(4) uint32_t _iterCount = 0;
 	};
 
+private:
+	uint32_t _prefixSumIterCount = 0;
 	static const size_t OVERLAPPING_BUCKETS = 8;
 
 	std::unique_ptr<SimulationSetup> _simulationSetup = std::make_unique<SimulationSetup>();
@@ -38,9 +40,9 @@ private:
 	Buffer _simulationParametersBuffer = nullptr;
 
 	// Hashed grid buffer
+	
 	Buffer _hashResultBuffer = nullptr;
 	Buffer _accumulationBuffer = nullptr;
-	Buffer _prefixSumStateBuffer = nullptr;
 	Buffer _bucketBuffer = nullptr;
 	Buffer _adjacentBucketBuffer = nullptr;
 
@@ -52,6 +54,9 @@ private:
 	Buffer _pressureBuffer = nullptr;
 	Buffer _nextPositionBuffer = nullptr;
 	Buffer _nextVelocityBuffer = nullptr;
+	
+	// Push constants
+	VkPushConstantRange _prefixSumStatePushConstant{};
 
 	// Descriptor sets
 	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
@@ -67,11 +72,6 @@ private:
 	VkPipeline _prefixSumUpPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _prefixSumUpPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _prefixSumUpStateDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _prefixSumUpStateDescriptorSets;
-	VkPipeline _prefixSumUpStatePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _prefixSumUpStatePipelineLayout = VK_NULL_HANDLE;
-
 	VkDescriptorSetLayout _prefixSumTurnPhaseDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _prefixSumTurnPhaseDescriptorSets;
 	VkPipeline _prefixSumTurnPhasePipeline = VK_NULL_HANDLE;
@@ -81,11 +81,6 @@ private:
 	std::vector<VkDescriptorSet> _prefixSumDownDescriptorSets;
 	VkPipeline _prefixSumDownPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _prefixSumDownPipelineLayout = VK_NULL_HANDLE;
-
-	VkDescriptorSetLayout _prefixSumDownStateDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _prefixSumDownStateDescriptorSets;
-	VkPipeline _prefixSumDownStatePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _prefixSumDownStatePipelineLayout = VK_NULL_HANDLE;
 
 	VkDescriptorSetLayout _countingSortDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _countingSortDescriptorSets;
@@ -102,20 +97,15 @@ private:
 	VkPipeline _externalForcesPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _externalForcesPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _viscosityDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _viscosityDescriptorSets;
-	VkPipeline _viscosityPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _viscosityPipelineLayout = VK_NULL_HANDLE;
-
 	VkDescriptorSetLayout _computePressureDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _computePressureDescriptorSets;
 	VkPipeline _computePressurePipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _computePressurePipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _pressureForceDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _pressureForceDescriptorSets;
-	VkPipeline _pressureForcePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _pressureForcePipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout _pressureAndViscosityDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _pressureAndViscosityDescriptorSets;
+	VkPipeline _pressureAndViscosityPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _pressureAndViscosityPipelineLayout = VK_NULL_HANDLE;
 
 	VkDescriptorSetLayout _timeIntegrationDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _timeIntegrationDescriptorSets;
@@ -151,12 +141,10 @@ private:
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateHashingDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumStateDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumTurnPhaseDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateCountingSortDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateDensityDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateExternalForcesDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateViscosityDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateComputePressureDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePressureForceDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateTimeIntegrationDescriptors(DescriptorHelper *descriptorHelper);

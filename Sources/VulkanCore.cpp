@@ -433,9 +433,10 @@ std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(
 		queueCreateInfos.push_back(queueCreateInfo);
 	}
 
-	VkPhysicalDeviceFeatures deviceFeatures =
+	VkPhysicalDeviceFeatures deviceFeatures
 	{
 		.sampleRateShading = VK_TRUE, // Enable sample shading feature for the device
+		.fillModeNonSolid = VK_TRUE,
 		.samplerAnisotropy = VK_TRUE // Enable anisotropic filtering
 	};
 

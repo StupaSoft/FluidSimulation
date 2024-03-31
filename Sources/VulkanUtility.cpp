@@ -557,6 +557,11 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 
 std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalDevice, VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout)
 {
+	return CreateComputePipeline(logicalDevice, computeShaderModule, descriptorSetLayout, {});
+}
+
+std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalDevice, VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout, const std::vector<VkPushConstantRange> &pushConstantRanges)
+{
 	VkPipelineShaderStageCreateInfo computeShaderStageInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -565,11 +570,14 @@ std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalD
 		.pName = "main"
 	};
 
+	const VkPushConstantRange *pushConstantRangesPtr = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data();
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout
+		.pSetLayouts = &descriptorSetLayout,
+		.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
+		.pPushConstantRanges = pushConstantRangesPtr
 	};
 
 	VkPipelineLayout computePipelineLayout = VK_NULL_HANDLE;

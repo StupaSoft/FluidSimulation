@@ -8,6 +8,8 @@ GPUSimulatedScene::GPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCo
 
 void GPUSimulatedScene::Register()
 {
+	SimulatedSceneBase::Register();
+
 	_onUpdateSimulationParameters.AddListener
 	(
 		weak_from_this(),
@@ -62,7 +64,7 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	InitializeRenderers(_particlePositionInputBuffers, particleCount);
 }
 
-void GPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable)
+void GPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
 {
-
+	SimulatedSceneBase::AddProp(OBJPath, texturePath, isVisible, isCollidable, renderMode);
 }

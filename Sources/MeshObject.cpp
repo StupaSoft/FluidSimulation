@@ -52,13 +52,13 @@ void MeshObject::CleanUp()
 
 void MeshObject::SetPosition(glm::vec3 position)
 {
-	_position = glm::translate(glm::mat4(1.0f), position);
+	_translation = glm::translate(glm::mat4(1.0f), position);
 	ApplyModelTransformation();
 }
 
 void MeshObject::Translate(glm::vec3 offset)
 {
-	_position = glm::translate(_position, offset);
+	_translation = glm::translate(_translation, offset);
 	ApplyModelTransformation();
 }
 
@@ -73,9 +73,21 @@ void MeshObject::SetRotation(glm::vec3 rotation)
 	ApplyModelTransformation();
 }
 
+void MeshObject::SetScale(glm::vec3 scale)
+{
+	_scale = glm::scale(glm::mat4(1.0f), scale);
+	ApplyModelTransformation();
+}
+
 void MeshObject::Rotate(glm::vec3 axis, float angle)
 {
 	_rotation = glm::rotate(_rotation, glm::radians(angle), axis);
+	ApplyModelTransformation();
+}
+
+void MeshObject::Scale(glm::vec3 scale)
+{
+	_scale = glm::scale(_scale, scale);
 	ApplyModelTransformation();
 }
 
@@ -83,7 +95,7 @@ void MeshObject::ApplyModelTransformation()
 {
 	MVP mvp
 	{
-		._model = _rotation * _position
+		._model = _translation * _rotation * _scale
 	};
 
 	auto copyOffset = 0;
@@ -119,12 +131,12 @@ void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)
 		const auto &triangle = _triangles->at(i);
 		auto &worldTriangle = _worldTriangles[i];
 
-		worldTriangle.A = model * glm::vec4(triangle.A, 1.0f);
-		worldTriangle.B = model * glm::vec4(triangle.B, 1.0f);
-		worldTriangle.C = model * glm::vec4(triangle.C, 1.0f);
+		worldTriangle.A = model * triangle.A;
+		worldTriangle.B = model * triangle.B;
+		worldTriangle.C = model * triangle.C;
 
-		worldTriangle.normalA = glm::vec4(triangle.normalA, 1.0f) * modelInverse;
-		worldTriangle.normalB = glm::vec4(triangle.normalB, 1.0f) * modelInverse;
-		worldTriangle.normalC = glm::vec4(triangle.normalC, 1.0f) * modelInverse;
+		worldTriangle.normalA = triangle.normalA * modelInverse;
+		worldTriangle.normalB = triangle.normalB * modelInverse;
+		worldTriangle.normalC = triangle.normalC * modelInverse;
 	}
 }

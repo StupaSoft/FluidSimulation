@@ -109,8 +109,6 @@ public:
 	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
 
-	uint32_t GetIndexCount() { return _setup->_indexCount; }
-
 protected:
 	void InitializeGrid(const MarchingCubesGrid &parameters);
 

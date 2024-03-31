@@ -1,9 +1,42 @@
 #include "CPUSimulatedScene.h"
 
+void SimulatedSceneBase::Register()
+{
+	_onSetPlay.AddListener
+	(
+		weak_from_this(),
+		[this](bool play)
+		{
+			if (play)
+			{
+				_bvh->Construct();
+				// _bvh->DrawBoundingBoxes(_vulkanCore, 0, true);
+			}
+		}
+	);
+}
+
 void SimulatedSceneBase::SetPlay(bool play)
 {
 	_isPlaying = play;
 	_onSetPlay.Invoke(play);
+}
+
+void SimulatedSceneBase::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
+{
+	auto obj = LoadOBJ(OBJPath);
+
+	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
+	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
+	propModel->LoadPipeline("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", renderMode);
+	propModel->LoadTexture(texturePath);
+
+	auto propObject = propModel->AddMeshObject();
+	propObject->SetVisible(isVisible);
+	propObject->SetCollidable(isCollidable);
+
+	_propModels.emplace_back(std::move(propModel));
+	_bvh->AddPropObject(propObject);
 }
 
 void SimulatedSceneBase::SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode)

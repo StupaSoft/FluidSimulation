@@ -8,12 +8,12 @@
 
 struct Triangle
 {
-	glm::vec3 A{};
-	glm::vec3 B{};
-	glm::vec3 C{};
+	alignas(16) glm::vec4 A{};
+	alignas(16) glm::vec4 B{};
+	alignas(16) glm::vec4 C{};
 
-	glm::vec3 normalA{};
-	glm::vec3 normalB{};
-	glm::vec3 normalC{};
+	alignas(16) glm::vec4 normalA{};
+	alignas(16) glm::vec4 normalB{};
+	alignas(16) glm::vec4 normalC{};
 };
 

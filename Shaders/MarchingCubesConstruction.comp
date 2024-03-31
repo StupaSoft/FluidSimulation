@@ -153,23 +153,26 @@ void main()
     // Set global vertex indices
     uint globalVertexIndices[VERTICES_IN_CELL];
 
-    // Vertices located on edges aligned with the x axis
-    globalVertexIndices[0] = z * (DY + 1) * DX + y * DX + x;
-    globalVertexIndices[2] = globalVertexIndices[0] + DX;
-    globalVertexIndices[4] = globalVertexIndices[0] + (DY + 1) * DX;
-    globalVertexIndices[6] = globalVertexIndices[0] + (DY + 2) * DX;
+    // Voxels with the codes 0 or 255 are completely inside or outside the scalar field and thus trivial. 
+    if (code != 0 && code != 255)
+    {
+        globalVertexIndices[0] = z * (DY + 1) * DX + y * DX + x;
+        globalVertexIndices[2] = globalVertexIndices[0] + DX;
+        globalVertexIndices[4] = globalVertexIndices[0] + (DY + 1) * DX;
+        globalVertexIndices[6] = globalVertexIndices[0] + (DY + 2) * DX;
 
-    // Vertices located on edges aligned with the y axis
-    globalVertexIndices[3] = (DZ + 1) * (DY + 1) * DX + z * DY * (DX + 1) + y * (DX + 1) + x;
-    globalVertexIndices[1] = globalVertexIndices[3] + 1;
-    globalVertexIndices[7] = globalVertexIndices[3] + DY * (DX + 1);
-    globalVertexIndices[5] = globalVertexIndices[3] + DY * (DX + 1) + 1;
+        // Vertices located on edges aligned with the y axis
+        globalVertexIndices[3] = (DZ + 1) * (DY + 1) * DX + z * DY * (DX + 1) + y * (DX + 1) + x;
+        globalVertexIndices[1] = globalVertexIndices[3] + 1;
+        globalVertexIndices[7] = globalVertexIndices[3] + DY * (DX + 1);
+        globalVertexIndices[5] = globalVertexIndices[3] + DY * (DX + 1) + 1;
 
-    // Vertices located on edges aligned with the z axis
-    globalVertexIndices[8] = (DZ + 1) * (DY + 1) * DX + (DZ + 1) * DY * (DX + 1) + z * (DY + 1) * (DX + 1) + y * (DX + 1) + x;
-    globalVertexIndices[9] = globalVertexIndices[8] + 1;
-    globalVertexIndices[11] = globalVertexIndices[8] + (DX + 1);
-    globalVertexIndices[10] = globalVertexIndices[8] + (DX + 2);
+        // Vertices located on edges aligned with the z axis
+        globalVertexIndices[8] = (DZ + 1) * (DY + 1) * DX + (DZ + 1) * DY * (DX + 1) + z * (DY + 1) * (DX + 1) + y * (DX + 1) + x;
+        globalVertexIndices[9] = globalVertexIndices[8] + 1;
+        globalVertexIndices[11] = globalVertexIndices[8] + (DX + 1);
+        globalVertexIndices[10] = globalVertexIndices[8] + (DX + 2);
+    }
 
     vec3 vertexPositionsInCell[INDICES_IN_CELL]; // This will be used to find normals later
     bool notLastEdge = (cellVolumeIndex.x != setup.cellDimension.x - 1) && (cellVolumeIndex.y != setup.cellDimension.y - 1) && (cellVolumeIndex.z != setup.cellDimension.z - 1);

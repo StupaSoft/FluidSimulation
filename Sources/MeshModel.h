@@ -6,6 +6,13 @@
 #include "Vertex.h"
 #include "Triangle.h"
 
+enum class RenderMode
+{
+	Triangle,
+	Line,
+	Wireframe
+};
+
 class MeshModel : public ModelBase
 {
 public:
@@ -26,6 +33,12 @@ public:
 private:
 	std::vector<std::shared_ptr<MeshObject>> _meshObjects;
 
+	// ==================== Render mode ====================
+	RenderMode _renderMode = RenderMode::Triangle;
+	VkPolygonMode _polygonMode = VK_POLYGON_MODE_FILL;
+	VkPrimitiveTopology _topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	float _lineWidth = 1.0f;
+
 	// ==================== Pipeline and shaders ====================
 	VkShaderModule _vertShaderModule;
 	VkShaderModule _fragShaderModule;
@@ -43,7 +56,6 @@ private:
 	// ==================== Index input ====================
 	std::vector<uint32_t> _indices;
 	Buffer _indexBuffer;
-	uint32_t _indexCount = 0;
 
 	void *_indexOnHost;
 	Buffer _indexStagingBuffer;
@@ -82,8 +94,8 @@ public:
 	virtual uint32_t GetOrder() override { return 1000; }
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
-	void SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer, uint32_t indexCount);
-	void LoadShaders(const std::string &vertexShaderPath, const std::string &fragmentShaderPath);
+	void SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer);
+	void LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode = RenderMode::Triangle);
 	void LoadTexture(const std::string &texturePath);
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);
@@ -91,6 +103,7 @@ public:
 
 	void SetMaterial(const Material &material);
 	void SetMaterial(Material &&material);
+	void SetLineWidth(float lineWidth) { _lineWidth = lineWidth; }
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);

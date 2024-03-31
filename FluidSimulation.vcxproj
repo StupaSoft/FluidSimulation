@@ -38,6 +38,7 @@
     <ClCompile Include="Sources\MarchingCubes.cpp" />
     <ClCompile Include="Sources\MarchingCubesCompute.cpp" />
     <ClCompile Include="Sources\MarchingCubesTable.cpp" />
+    <ClCompile Include="Sources\MathUtil.cpp" />
     <ClCompile Include="Sources\ModelBase.cpp" />
     <ClCompile Include="Sources\Billboards.cpp" />
     <ClCompile Include="Sources\RenderingPanel.cpp" />
@@ -73,6 +74,7 @@
     <ClInclude Include="Sources\MarchingCubes.h" />
     <ClInclude Include="Sources\MarchingCubesCompute.h" />
     <ClInclude Include="Sources\Billboards.h" />
+    <ClInclude Include="Sources\MathUtil.h" />
     <ClInclude Include="Sources\RenderingPanel.h" />
     <ClInclude Include="Sources\SimulatedSceneBase.h" />
     <ClInclude Include="Sources\SimulationCompute.h" />
