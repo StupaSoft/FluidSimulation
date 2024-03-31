@@ -77,6 +77,9 @@ void main()
     if (particleIndex >= property.particleCount) return;
 
     vec3 particlePosition = positions[particleIndex];
+    if (particlePosition.x < setup.xRange.x || particlePosition.x > setup.xRange.y) return;
+    if (particlePosition.y < setup.yRange.x || particlePosition.y > setup.yRange.y) return;
+    if (particlePosition.z < setup.zRange.x || particlePosition.z > setup.zRange.y) return;
 
     // Get voxel ranges
     vec3 relativePosition = particlePosition - vec3(setup.xRange.x, setup.yRange.x, setup.zRange.x);
