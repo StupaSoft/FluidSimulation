@@ -11,7 +11,7 @@ C:/VulkanSDK/1.3.268.0/Bin/glslc.exe Shaders/ParticleFragment.frag -o Shaders/Pa
 
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe Shaders/MarchingCubesAccumulation.comp -o Shaders/MarchingCubesAccumulation.spv
 C:/VulkanSDK/1.3.268.0/Bin/glslc.exe Shaders/MarchingCubesConstruction.comp -o Shaders/MarchingCubesConstruction.spv
-C:/VulkanSDK/1.3.268.0/Bin/glslc.exe Shaders/MarchingCubesPresentation.comp -o Shaders/MarchingCubesPresentation.spv
+C:/VulkanSDK/1.3.268.0/Bin/glslc.exe Shaders/MarchingCubesResetVoxel.comp -o Shaders/MarchingCubesResetVoxel.spv
 
 :: Simulation shaders
 set SHADER_DIR=Shaders/Simulation

@@ -1,0 +1,45 @@
+#version 450
+
+const uint NORMAL_GROUP_COUNT= 4;
+
+struct MarchingCubesSetup
+{
+    vec2 xRange;
+    vec2 yRange;
+    vec2 zRange;
+    float voxelInterval;
+    float isovalue;
+
+    uvec4 voxelDimension;
+    uint voxelCount;
+
+    uvec4 cellDimension;
+    uint cellCount;
+
+    uint vertexCount;
+    uint indexCount;
+};
+
+// ========== Inputs ==========
+layout (std430, binding = 0) buffer SetupSSBO
+{
+    MarchingCubesSetup setup;
+};
+
+// ========== Outputs ==========
+layout (std430, binding = 1) buffer VoxelOutSSBO
+{
+    uint voxelDensities[];
+};
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+void main()
+{
+    // This invocation deals with a single voxel.
+    uint voxelIndex = gl_GlobalInvocationID.x;
+    if (voxelIndex < setup.voxelCount)
+    {
+        voxelDensities[voxelIndex] = 0;
+    }
+}

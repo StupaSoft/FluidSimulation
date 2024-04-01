@@ -65,11 +65,8 @@ private:
 	std::vector<Buffer> _particlePositionInputBuffers;
 	Buffer _indexTableBuffer;
 	Buffer _voxelBuffer;
-	Buffer _vertexPositionBuffer; // Buffers that contains the vertex position result from the construction shader
-	Buffer _vertexValidityBuffer;
-	Buffer _normalBuffer;
 	Buffer _indexBuffer;
-	Buffer _vertexOutputBuffer; // Buffers that will be fed as the vertex buffer
+	Buffer _vertexBuffer; // Buffers that will be fed as the vertex buffer
 
 	// Descriptor sets
 	std::shared_ptr<DescriptorHelper> _descriptorHelper = nullptr;
@@ -86,10 +83,10 @@ private:
 	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _presentationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _presentationDescriptorSets;
-	VkPipeline _presentationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _presentationPipelineLayout = VK_NULL_HANDLE;
+	VkDescriptorSetLayout _resetVoxelDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _resetVoxelDescriptorSets;
+	VkPipeline _resetVoxelPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _resetVoxelPipelineLayout = VK_NULL_HANDLE;
 
 	// Constants
 	static const uint32_t CODES_COUNT = 256;
@@ -106,7 +103,7 @@ public:
 	void SetIsovalue(float isovalue);
 
 	const std::vector<Buffer> &GetParticleInputBuffers() { return _particlePositionInputBuffers; }
-	Buffer GetVertexBuffer() { return _vertexOutputBuffer; }
+	Buffer GetVertexBuffer() { return _vertexBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
 
 protected:
@@ -122,6 +119,6 @@ private:
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateAccumulationDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateConstructionDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePresentationDescriptors(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateResetVoxelDescriptors(DescriptorHelper *descriptorHelper);
 };
 
