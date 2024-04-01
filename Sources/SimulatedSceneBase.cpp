@@ -12,7 +12,7 @@ void SimulatedSceneBase::AddProp(const std::string &OBJPath, const std::string &
 
 	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
-	propModel->LoadPipeline("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", renderMode);
+	propModel->LoadPipeline("Shaders/Rendering/StandardVertex.spv", "Shaders/Rendering/StandardFragment.spv", renderMode);
 	propModel->LoadTexture(texturePath);
 
 	auto propObject = propModel->AddMeshObject();

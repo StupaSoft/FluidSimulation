@@ -441,7 +441,7 @@ void BVH::DrawBoundingBoxes(const std::shared_ptr<VulkanCore> &vulkanCore, uint3
 
 		_meshModel->LoadMesh(boxVertices, boxIndices);
 		_meshModel->SetLineWidth(2.0f);
-		_meshModel->LoadPipeline("Shaders/StandardVertex.spv", "Shaders/StandardFragment.spv", RenderMode::Line);
+		_meshModel->LoadPipeline("Shaders/Rendering/StandardVertex.spv", "Shaders/Rendering/StandardFragment.spv", RenderMode::Line);
 	}
 
 	if (includeDescendants)

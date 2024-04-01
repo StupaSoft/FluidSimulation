@@ -45,9 +45,6 @@ MeshModel::~MeshModel()
 	if (_vertexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer->_memory);
 	if (_indexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer->_memory);
 
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
-
 	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
 
@@ -185,6 +182,9 @@ void MeshModel::LoadPipeline(const std::string &vertexShaderPath, const std::str
 
 	// Create a graphics pipeline
 	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
+
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
+	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
 }
 
 void MeshModel::SetMaterial(const Material &material)

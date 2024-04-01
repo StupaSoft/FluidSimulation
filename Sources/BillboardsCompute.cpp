@@ -17,7 +17,7 @@ BillboardsCompute::BillboardsCompute(const std::shared_ptr<VulkanCore> &vulkanCo
 
 	std::tie(_populatingDescriptorPool, _populatingDescriptorSetLayout, _populatingDescriptorSets) = CreateDescriptors(particleCount, _particleCountBuffer, _particlePositionInputBuffers, vertexOutputBuffer);
 
-	VkShaderModule computeShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/BillboardsPopulating.spv"));
+	VkShaderModule computeShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Presentation/BillboardsPopulating.spv"));
 	std::tie(_populatingPipeline, _populatingPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), computeShaderModule, _populatingDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), computeShaderModule, nullptr);
 }
