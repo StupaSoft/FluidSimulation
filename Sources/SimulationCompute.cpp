@@ -29,6 +29,55 @@ void SimulationCompute::Register()
 
 SimulationCompute::~SimulationCompute()
 {
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _hashingPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _hashingPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _hashingDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _prefixSumUpPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _prefixSumUpPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _prefixSumUpDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _prefixSumTurnPhasePipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _prefixSumTurnPhasePipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _prefixSumTurnPhaseDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _prefixSumDownPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _prefixSumDownPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _prefixSumDownDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _countingSortPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _countingSortPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _countingSortDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _densityPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _densityPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _densityDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _externalForcesPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _externalForcesPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _externalForcesDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _computePressurePipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _computePressurePipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _computePressureDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _pressureAndViscosityPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pressureAndViscosityPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _pressureAndViscosityDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _timeIntegrationPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _timeIntegrationPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _timeIntegrationDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _resolveCollisionPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _resolveCollisionPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _resolveCollisionDescriptorSetLayout, nullptr);
+
+	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _endTimeStepPipeline, nullptr);
+	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _endTimeStepPipelineLayout, nullptr);
+	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _endTimeStepDescriptorSetLayout, nullptr);
+
+	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
 }
 
 void SimulationCompute::UpdateSimulationParameters(const SimulationParameters &simulationParameters)
