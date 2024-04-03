@@ -34,6 +34,7 @@ private:
 	std::unique_ptr<SimulationSetup> _simulationSetup = std::make_unique<SimulationSetup>();
 	std::unique_ptr<GridSetup> _gridSetup = std::make_unique<GridSetup>();
 	std::unique_ptr<PrefixSumState> _prefixSumState = std::make_unique<PrefixSumState>();
+	uint32_t _BVHMaxLevel = 0;
 
 	// Setup buffer
 	Buffer _simulationSetupBuffer = nullptr;
@@ -54,10 +55,12 @@ private:
 	Buffer _pressureBuffer = nullptr;
 	Buffer _nextPositionBuffer = nullptr;
 	Buffer _nextVelocityBuffer = nullptr;
+	Buffer _BVHStackBuffer = nullptr;
 	Buffer _BVHNodeBuffer = nullptr;
 	
 	// Push constants
 	VkPushConstantRange _prefixSumStatePushConstant{};
+	VkPushConstantRange _BVHStatePushConstant{};
 
 	// Descriptor sets
 	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
@@ -141,8 +144,8 @@ protected:
 private:
 	void CreateSetupBuffers();
 	void CreateGridBuffers(glm::uvec3 gridDimension);
-	void CreateSimulationBuffers(uint32_t particleCount);
 	void CreateLevelBuffers(const std::vector<BVH::Node> &BVHNodes);
+	void CreateSimulationBuffers(uint32_t particleCount, uint32_t BVHMaxLevel);
 
 	void CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension);
 

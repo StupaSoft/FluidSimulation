@@ -1,6 +1,5 @@
 #version 450
 
-const uint MAX_STACK_SIZE = 50;
 const float INF = 1.0f / 0.0f;
 const uint NONE = -1;
 const float EPSILON = 1e-10;
@@ -91,13 +90,24 @@ layout (std430, binding = 4) buffer VelocityInSSBO
     vec3 velocities[];
 };
 
+layout (std430, binding = 5) buffer StackInSSBO
+{
+    uint nodeStack[];
+};
+
+layout (push_constant) uniform BVHStatePushConstant
+{
+    uint maxLevel; // == Stack size
+} 
+BVHState;
+
 // ========== Outputs ==========
-layout (std430, binding = 5) buffer NextVelocityOutSSBO
+layout (std430, binding = 6) buffer NextVelocityOutSSBO
 {
     vec3 nextVelocities[];
 };
 
-layout (std430, binding = 6) buffer NextPositionOutSSBO
+layout (std430, binding = 7) buffer NextPositionOutSSBO
 {
     vec3 nextPositions[];
 };
@@ -186,14 +196,14 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 	}
 }
 
-Intersection GetIntersection(vec3 start, vec3 end)
+Intersection GetIntersection(uint particleIndex, vec3 start, vec3 end)
 {
 	Intersection intersection;
 	float minDistance = INF;
 
 	// Traverse the BVH to find a collision point
-	uint nodeStack[MAX_STACK_SIZE];
-	uint count = 0; // # of elements in the stack
+	uint stackBegin = particleIndex * BVHState.maxLevel;
+	uint count = stackBegin; // # of elements in the stack
 
 	if (RayBoxIntersection(0, start, end))
 	{
@@ -201,7 +211,7 @@ Intersection GetIntersection(vec3 start, vec3 end)
 		++count;
 	}
 	
-	while (count != 0)
+	while (count != stackBegin)
 	{
 		--count; // Pop
 		uint nodeIndex = nodeStack[count];
@@ -250,7 +260,7 @@ void main()
 	if (particleIndex >= simulationSetup.particleCount) return;
 
 	// Resolve collision
-	Intersection intersection = GetIntersection(positions[particleIndex], nextPositions[particleIndex]);
+	Intersection intersection = GetIntersection(particleIndex, positions[particleIndex], nextPositions[particleIndex]);
 	if (intersection.isHit)
 	{
 		// Target point is the closest non-penetrating position from the current position.

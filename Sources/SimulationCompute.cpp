@@ -16,11 +16,6 @@ SimulationCompute::SimulationCompute(const std::shared_ptr<VulkanCore> &vulkanCo
 	// Create descriptor pool and sets
 	_descriptorHelper = std::make_unique<DescriptorHelper>(_vulkanCore);
 	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
-
-	// Configure a push constant for prefix sum
-	_prefixSumStatePushConstant.offset = 0;
-	_prefixSumStatePushConstant.size = sizeof(PrefixSumState);
-	_prefixSumStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 }
 
 void SimulationCompute::Register()
@@ -43,6 +38,9 @@ void SimulationCompute::UpdateSimulationParameters(const SimulationParameters &s
 
 void SimulationCompute::InitializeLevel(const std::vector<BVH::Node> &BVHNodes)
 {
+	auto maxLevelIter = std::max_element(BVHNodes.cbegin(), BVHNodes.cend(), [](const BVH::Node &node1, const BVH::Node &node2) { return node1._level < node2._level; });
+	_BVHMaxLevel = maxLevelIter->_level;
+
 	CreateLevelBuffers(BVHNodes);
 }
 
@@ -52,7 +50,7 @@ void SimulationCompute::InitializeParticles(const std::vector<glm::vec3> &positi
 	_simulationSetup->_particleCount = static_cast<uint32_t>(positions.size());
 
 	// Create resources
-	CreateSimulationBuffers(_simulationSetup->_particleCount);
+	CreateSimulationBuffers(_simulationSetup->_particleCount, _BVHMaxLevel);
 	CreatePipelines(_simulationSetup->_particleCount, _gridSetup->_dimension);
 
 	// Transfer simulation setup
@@ -163,6 +161,8 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 9. Resolve collision
+	vkCmdPushConstants(computeCommandBuffer, _resolveCollisionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &_BVHMaxLevel);
+
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipeline);
 	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipelineLayout, 0, 1, &_resolveCollisionDescriptorSets[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
@@ -228,7 +228,21 @@ void SimulationCompute::CreateGridBuffers(glm::uvec3 gridDimension)
 	);
 }
 
-void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount)
+void SimulationCompute::CreateLevelBuffers(const std::vector<BVH::Node> &BVHNodes)
+{
+	_BVHNodeBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(BVH::Node) * BVHNodes.size(),
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), BVHNodes.data(), _BVHNodeBuffer, 0);
+}
+
+void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t BVHMaxLevel)
 {
 	_hashResultBuffer = CreateBuffer
 	(
@@ -293,6 +307,15 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount)
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
+	_BVHStackBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(uint32_t) * particleCount * BVHMaxLevel,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
 	_nextPositionBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
@@ -312,26 +335,17 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount)
 	);
 }
 
-void SimulationCompute::CreateLevelBuffers(const std::vector<BVH::Node> &BVHNodes)
-{
-	_BVHNodeBuffer = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(BVH::Node) * BVHNodes.size(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), BVHNodes.data(), _BVHNodeBuffer, 0);
-}
-
 void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension)
 {
 	VkShaderModule hashingShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Simulation/Hashing.spv"));
 	std::tie(_hashingDescriptorSetLayout, _hashingDescriptorSets) = CreateHashingDescriptors(_descriptorHelper.get());
 	std::tie(_hashingPipeline, _hashingPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), hashingShaderModule, _hashingDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), hashingShaderModule, nullptr);
+
+	// Configure a push constant for prefix sum
+	_prefixSumStatePushConstant.offset = 0;
+	_prefixSumStatePushConstant.size = sizeof(PrefixSumState);
+	_prefixSumStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 	VkShaderModule prefixSumUpShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Simulation/PrefixSumUp.spv"));
 	std::tie(_prefixSumUpDescriptorSetLayout, _prefixSumUpDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
@@ -378,9 +392,14 @@ void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucke
 	std::tie(_timeIntegrationPipeline, _timeIntegrationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), timeIntegrationShaderModule, _timeIntegrationDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), timeIntegrationShaderModule, nullptr);
 
+	// Configure a push constant for prefix sum
+	_BVHStatePushConstant.offset = 0;
+	_BVHStatePushConstant.size = sizeof(uint32_t);
+	_BVHStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
 	VkShaderModule resolveCollisionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Simulation/ResolveCollision.spv"));
 	std::tie(_resolveCollisionDescriptorSetLayout, _resolveCollisionDescriptorSets) = CreateResolveCollisionDescriptors(_descriptorHelper.get());
-	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), resolveCollisionShaderModule, _resolveCollisionDescriptorSetLayout);
+	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), resolveCollisionShaderModule, _resolveCollisionDescriptorSetLayout, { _BVHStatePushConstant });
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), resolveCollisionShaderModule, nullptr);
 
 	VkShaderModule endTimeStepShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Simulation/EndTimeStep.spv"));
@@ -635,8 +654,9 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->AddBufferLayout(2, _BVHNodeBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _positionBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _velocityBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(5, _nextVelocityBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(6, _nextPositionBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(5, _BVHStackBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(6, _nextVelocityBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(7, _nextPositionBuffer->_size, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
@@ -645,8 +665,9 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->BindBuffer(2, _BVHNodeBuffer);
 	descriptorHelper->BindBuffer(3, _positionBuffer);
 	descriptorHelper->BindBuffer(4, _velocityBuffer);
-	descriptorHelper->BindBuffer(5, _nextVelocityBuffer);
-	descriptorHelper->BindBuffer(6, _nextPositionBuffer);
+	descriptorHelper->BindBuffer(5, _BVHStackBuffer);
+	descriptorHelper->BindBuffer(6, _nextVelocityBuffer);
+	descriptorHelper->BindBuffer(7, _nextPositionBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
 	return std::make_tuple(descriptorSetLayout, descriptorSets);

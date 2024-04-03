@@ -97,7 +97,6 @@ bool BVH::Construct()
 	// Contruct a hierarchy
 	std::stack<Range> ranges;
 	ranges.push(std::move(rootRange));
-	uint32_t maxLevel = 1;
 	while (!ranges.empty())
 	{
 		Range range = ranges.top();
@@ -107,7 +106,6 @@ bool BVH::Construct()
 		if (range._end - range._start == 1)
 		{
 			uint32_t newLevel = range._parentIndex == NONE ? 1 : _nodes[range._parentIndex]._level + 1;
-			if (newLevel > maxLevel) maxLevel = newLevel;
 			Node leafNode
 			{
 				._boundingBox = boundingBoxes[range._start],
@@ -202,7 +200,6 @@ bool BVH::Construct()
 
 		// Create a new node and register
 		uint32_t newLevel = range._parentIndex == NONE ? 1 : _nodes[range._parentIndex]._level + 1;
-		if (newLevel > maxLevel) maxLevel = newLevel;
 		Node newNode
 		{
 			._boundingBox = range._boundingBox,
@@ -249,8 +246,6 @@ bool BVH::Construct()
 		ranges.push(childRange1);
 		ranges.push(childRange2);
 	}
-
-	std::cout << "Maximum level: " << maxLevel << std::endl;
 
 	return true;
 }
