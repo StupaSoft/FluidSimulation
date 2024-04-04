@@ -15,8 +15,9 @@ void WindowApplication::Run()
 	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>(_vulkanCore);
 	//_simulatedScene->AddProp("Models/Hemisphere.obj", "", true, true);
 	//_simulatedScene->AddProp("Models/Filter.obj", "", true, true);
-	_simulatedScene->AddProp("Models/Bath.obj", "", true, true, RenderMode::Wireframe); // Temp
-	_simulatedScene->AddProp("Models/Obstacle.obj", "", true, true, RenderMode::Wireframe); // Temp
+	//_simulatedScene->AddProp("Models/Bath.obj", "", true, true, RenderMode::Wireframe); // Temp
+	//_simulatedScene->AddProp("Models/Obstacle.obj", "", true, true, RenderMode::Wireframe); // Temp
+	_simulatedScene->AddProp("Models/Rocky.obj", "Textures/Brown.png", true, true);
 
 	auto interfaceModel = UIModel::Instantiate<UIModel>(_vulkanCore);
 	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);

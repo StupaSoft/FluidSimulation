@@ -37,9 +37,9 @@ void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuf
 
 	MarchingCubesGrid marchingCubesGrid // Temp
 	{
-		._xRange{ -3.0f, 3.0f },
-		._yRange{ -1.0f, 5.0f },
-		._zRange{ -2.0f, 2.0f },
+		._xRange{ -5.0f, 5.0f },
+		._yRange{ -1.0f, 6.5f },
+		._zRange{ -5.0f, 5.0f },
 		._voxelInterval = 0.05f
 	};
 
