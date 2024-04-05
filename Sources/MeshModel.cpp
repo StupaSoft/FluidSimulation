@@ -37,6 +37,8 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 MeshModel::~MeshModel()
 {
+	vkDeviceWaitIdle(_vulkanCore->GetLogicalDevice());
+
 	for (auto &meshObject : _meshObjects)
 	{
 		meshObject->CleanUp();

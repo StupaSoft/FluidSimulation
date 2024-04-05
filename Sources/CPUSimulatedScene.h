@@ -29,6 +29,8 @@ private:
 
 	std::vector<Buffer> _particlePositionInputBuffers;
 
+	bool _isPlaying = false;
+
 public:
 	CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore);
 	virtual void Register() override;

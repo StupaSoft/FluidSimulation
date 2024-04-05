@@ -29,9 +29,6 @@ class SimulatedSceneBase : public DelegateRegistrable<SimulatedSceneBase>
 protected:
 	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
 
-	bool _isPlaying = false;
-	Delegate<void(bool)> _onSetPlay;
-
 	glm::uvec3 _gridDimension = glm::uvec3(64, 64, 64);
 	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
 
@@ -52,9 +49,6 @@ protected:
 public:
 	SimulatedSceneBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
 
-	void SetPlay(bool play);
-	bool IsPlaying() { return _isPlaying; }
-
 	Billboards *GetBillboards() { return _billboards.get(); }
 	MarchingCubes *GetMarchingCubes() { return _marchingCubes.get(); }
 
@@ -66,5 +60,5 @@ public:
 
 	// Reflect the particle status to the render system
 	virtual void InitializeRenderers(const std::vector<Buffer> &inputBuffers, size_t particleCount);
-	virtual void ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play);
+	virtual void ApplyRenderMode(ParticleRenderingMode particleRenderingMode);
 };

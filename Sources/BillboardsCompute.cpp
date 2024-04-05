@@ -24,6 +24,8 @@ BillboardsCompute::BillboardsCompute(const std::shared_ptr<VulkanCore> &vulkanCo
 
 BillboardsCompute::~BillboardsCompute()
 {
+	vkDeviceWaitIdle(_vulkanCore->GetLogicalDevice());
+
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _populatingDescriptorSetLayout, nullptr);
 	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _populatingDescriptorPool, nullptr);
 

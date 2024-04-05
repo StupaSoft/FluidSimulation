@@ -1,11 +1,5 @@
 #include "CPUSimulatedScene.h"
 
-void SimulatedSceneBase::SetPlay(bool play)
-{
-	_isPlaying = play;
-	_onSetPlay.Invoke(play);
-}
-
 void SimulatedSceneBase::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
 {
 	auto obj = LoadOBJ(OBJPath);
@@ -60,23 +54,12 @@ void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuf
 		__LINE__
 	);
 
-	_onSetPlay.AddListener
-	(
-		weak_from_this(),
-		[this](bool play)
-		{
-			ApplyRenderMode(_particleRenderingMode, play);
-		},
-		__FUNCTION__,
-		__LINE__
-	);
-
 	_onSetParticleRenderingMode.AddListener
 	(
 		weak_from_this(),
 		[this](ParticleRenderingMode particleRenderingMode)
 		{
-			ApplyRenderMode(particleRenderingMode, _isPlaying);
+			ApplyRenderMode(particleRenderingMode);
 		},
 		__FUNCTION__,
 		__LINE__
@@ -89,10 +72,10 @@ void SimulatedSceneBase::UpdateSimulationParameters(const SimulationParameters &
 	_onUpdateSimulationParameters.Invoke(*_simulationParameters);
 }
 
-void SimulatedSceneBase::ApplyRenderMode(ParticleRenderingMode particleRenderingMode, bool play)
+void SimulatedSceneBase::ApplyRenderMode(ParticleRenderingMode particleRenderingMode)
 {
 	bool isMarchingCubes = (particleRenderingMode == ParticleRenderingMode::MarchingCubes);
 
-	_marchingCubes->SetEnable(isMarchingCubes && play);
-	_billboards->SetEnable(!isMarchingCubes && play);
+	_marchingCubes->SetEnable(isMarchingCubes);
+	_billboards->SetEnable(!isMarchingCubes);
 }

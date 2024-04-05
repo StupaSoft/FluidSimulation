@@ -3,40 +3,28 @@
 GPUSimulatedScene::GPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	SimulatedSceneBase(vulkanCore)
 {
-	_simulationCompute = SimulationCompute::Instantiate<SimulationCompute>(_vulkanCore, _gridDimension);
 }
 
-void GPUSimulatedScene::Register()
+void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
+	// Create a compute simulation module
+	_simulationCompute = SimulationCompute::Instantiate<SimulationCompute>(_vulkanCore, _gridDimension);
 	_onUpdateSimulationParameters.AddListener
 	(
 		weak_from_this(),
 		[this](const SimulationParameters &simulationParameters)
 		{
 			_simulationCompute->UpdateSimulationParameters(simulationParameters);
-		}
+		},
+		__FUNCTION__,
+		__LINE__
 	);
 
-	_onSetPlay.AddListener
-	(
-		weak_from_this(),
-		[this](bool play)
-		{
-			_simulationCompute->SetEnable(play);
-		}
-	);
-}
-
-void GPUSimulatedScene::InitializeLevel()
-{
+	// Initialize the level
 	SimulatedSceneBase::InitializeLevel();
-
 	_simulationCompute->InitializeLevel(_bvh->GetNodes());
-}
 
-void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
-{
-	// Setup
+	// Finally initialize the particles in the compute pipeline
 	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
 	size_t yCount = std::ceil((yRange.g - yRange.r) / particleDistance);
 	size_t zCount = std::ceil((zRange.g - zRange.r) / particleDistance);
@@ -57,8 +45,6 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 			}
 		}
 	}
-
-	// Finally initialize the particles in the compute pipeline
 	_simulationCompute->InitializeParticles(positions);
 
 	// Initialize renderers (marching cubes and billboards)
@@ -67,6 +53,11 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	Buffer positionBuffer = _simulationCompute->GetPositionInputBuffer();
 	std::vector<Buffer> _particlePositionInputBuffers(_vulkanCore->GetMaxFramesInFlight(), positionBuffer);
 	InitializeRenderers(_particlePositionInputBuffers, particleCount);
+
+	// Launch
+	_simulationCompute->SetEnable(true);
+	ApplyRenderMode(_particleRenderingMode);
+	_onUpdateSimulationParameters.Invoke(*_simulationParameters);
 }
 
 void GPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)

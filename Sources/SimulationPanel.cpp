@@ -33,8 +33,7 @@ void SimulationPanel::Draw()
 	{
 		_simulatedScene->InitializeLevel();
 		_simulatedScene->InitializeParticles(0.07f, { -1.0f, 1.0f }, { 2.0f, 6.0f }, { -1.0f, 1.0f }); // Temp
-		//_simulatedScene->InitializeParticles(0.03f, 0.07f, { -0.8f, 0.8f }, { 1.0f, 4.0f }, { -0.8f, 0.8f }); // Temp
-		_simulatedScene->SetPlay(true);
+		//_simulatedScene->InitializeParticles(0.07f, { -0.8f, 0.8f }, { 1.0f, 4.0f }, { -0.8f, 0.8f }); // Temp
 	}
 
 	ImGui::End();

@@ -34,6 +34,8 @@ MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vu
 
 MarchingCubesCompute::~MarchingCubesCompute()
 {
+	vkDeviceWaitIdle(_vulkanCore->GetLogicalDevice());
+
 	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _accumulationPipeline, nullptr);
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _accumulationPipelineLayout, nullptr);
 

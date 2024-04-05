@@ -29,6 +29,8 @@ void SimulationCompute::Register()
 
 SimulationCompute::~SimulationCompute()
 {
+	vkDeviceWaitIdle(_vulkanCore->GetLogicalDevice());
+
 	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _hashingPipeline, nullptr);
 	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _hashingPipelineLayout, nullptr);
 	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _hashingDescriptorSetLayout, nullptr);

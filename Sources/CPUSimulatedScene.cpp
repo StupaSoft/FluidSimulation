@@ -86,6 +86,10 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 	InitializeRenderers(_particlePositionInputBuffers, _particleCount);
+	
+	// Launch
+	_isPlaying = true;
+	ApplyRenderMode(_particleRenderingMode);
 }
 
 void CPUSimulatedScene::BeginTimeStep()
