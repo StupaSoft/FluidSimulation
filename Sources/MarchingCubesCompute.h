@@ -58,15 +58,15 @@ private:
 	std::shared_ptr<MarchingCubesSetup> _setup = std::make_shared<MarchingCubesSetup>();
 
 	// Basic buffers
-	Buffer _particlePropertyBuffer;
-	Buffer _setupBuffer;
+	Buffer _particlePropertyBuffer = nullptr;
+	Buffer _setupBuffer = nullptr;
 
 	// Mesh construction buffers
 	std::vector<Buffer> _particlePositionInputBuffers;
-	Buffer _indexTableBuffer;
-	Buffer _voxelBuffer;
-	Buffer _indexBuffer;
-	Buffer _vertexBuffer; // Buffers that will be fed as the vertex buffer
+	Buffer _indexTableBuffer = nullptr;
+	Buffer _voxelBuffer = nullptr;
+	Buffer _indexBuffer = nullptr;
+	Buffer _vertexBuffer = nullptr; // Buffers that will be fed as the vertex buffer
 
 	// Descriptor sets
 	std::shared_ptr<DescriptorHelper> _descriptorHelper = nullptr;
