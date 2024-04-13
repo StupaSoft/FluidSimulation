@@ -5,7 +5,7 @@ struct SimulationParameters
 	alignas(4) float _particleRadius = 0.03f;
 	alignas(4) float _particleMass = 0.05f;
 
-	alignas(4) float _timeStep = 0.002f;
+	alignas(4) float _timeStep = 0.005f;
 
 	alignas(16) glm::vec4 _gravitiy = glm::vec4(0.0f, -9.8f, 0.0f, 0.0f);
 
