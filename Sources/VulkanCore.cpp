@@ -375,12 +375,27 @@ VkPhysicalDevice VulkanCore::SelectPhysicalDevice(VkInstance instance, VkSurface
 	vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
 	VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+	// 1. Look for a dedicated GPU first.
 	for (const auto &device : devices)
 	{
-		if (IsSuitableDevice(device, surface, deviceExtensions))
+		if (IsSuitableDevice(device, surface, deviceExtensions, true))
 		{
 			physicalDevice = device;
 			break;
+		}
+	}
+
+	// 2. If we can't find one, look for an integrated device.
+	if (physicalDevice == VK_NULL_HANDLE)
+	{
+		for (const auto &device : devices)
+		{
+			if (IsSuitableDevice(device, surface, deviceExtensions, false))
+			{
+				physicalDevice = device;
+				break;
+			}
 		}
 	}
 
@@ -393,8 +408,12 @@ VkPhysicalDevice VulkanCore::SelectPhysicalDevice(VkInstance instance, VkSurface
 }
 
 // Check whether this physical device has a suitable family queue
-bool VulkanCore::IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions)
+bool VulkanCore::IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, const std::vector<const char *> &deviceExtensions, bool discreteGPUOnly)
 {
+	VkPhysicalDeviceProperties physicalDeviceProperties{};
+	vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+	if (discreteGPUOnly && physicalDeviceProperties.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) return false;
+
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 	bool extensionsSupported = CheckDeviceExtensionSupport(physicalDevice, deviceExtensions);
 
@@ -409,7 +428,13 @@ bool VulkanCore::IsSuitableDevice(VkPhysicalDevice physicalDevice, VkSurfaceKHR 
 	VkPhysicalDeviceFeatures supportedFeatures;
 	vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
 
-	return indices.IsComplete() && extensionsSupported && isSwapChainAdequate && supportedFeatures.samplerAnisotropy;
+	bool isSuitable = indices.IsComplete() && extensionsSupported && isSwapChainAdequate && supportedFeatures.samplerAnisotropy;
+	if (isSuitable)
+	{
+		std::cout << std::format("Suitable device found: {0}", physicalDeviceProperties.deviceName) << std::endl;
+	}
+
+	return isSuitable;
 }
 
 // Create a logical device as an interface to the physical device
