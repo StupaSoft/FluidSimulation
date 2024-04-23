@@ -16,17 +16,17 @@ MarchingCubesCompute::MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vu
 	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
 
 	// Create compute pipeline
-	VkShaderModule accumulationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesAccumulation.spv"));
+	VkShaderModule accumulationShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(L"Shaders/Presentation/MarchingCubesAccumulation.spv"));
 	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
 	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), accumulationShaderModule, nullptr);
 
-	VkShaderModule constructionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesConstruction.spv"));
+	VkShaderModule constructionShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(L"Shaders/Presentation/MarchingCubesConstruction.spv"));
 	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
 	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), constructionShaderModule, nullptr);
 
-	VkShaderModule resetVoxelShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesResetVoxel.spv"));
+	VkShaderModule resetVoxelShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(L"Shaders/Presentation/MarchingCubesResetVoxel.spv"));
 	std::tie(_resetVoxelDescriptorSetLayout, _resetVoxelDescriptorSets) = CreateResetVoxelDescriptors(_descriptorHelper.get());
 	std::tie(_resetVoxelPipeline, _resetVoxelPipelineLayout) = CreateComputePipeline(_vulkanCore->GetLogicalDevice(), resetVoxelShaderModule, _resetVoxelDescriptorSetLayout);
 	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), resetVoxelShaderModule, nullptr);
