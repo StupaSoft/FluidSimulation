@@ -551,7 +551,7 @@ std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore:
 
 	// Choose availabilities with the given swap chain support
 	// Check if we can use an SRGB color space and a suitable format
-	VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats, VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR); // Supported image formats
+	VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(swapChainSupport.formats, VK_FORMAT_B8G8R8A8_UINT, VK_COLOR_SPACE_DISPLAY_P3_NONLINEAR_EXT); // Supported image formats
 	VkPresentModeKHR presentMode = ChooseSwapPresentMode(swapChainSupport.presentModes, VK_PRESENT_MODE_MAILBOX_KHR); // Represent the actual conditions for showing images to the screen
 	VkExtent2D extent = ChooseSwapExtent(window, swapChainSupport.capabilities); // Resolution of the swap chain images
 
