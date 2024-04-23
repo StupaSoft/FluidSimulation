@@ -57,7 +57,7 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 
 	// Presentation mesh
 	_meshModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
-	_meshModel->LoadPipeline("Shaders/Rendering/ParticleVertex.spv", "Shaders/Rendering/ParticleFragment.spv");
+	_meshModel->LoadPipeline(L"Shaders/Rendering/ParticleVertex.spv", L"Shaders/Rendering/ParticleFragment.spv");
 	_meshModel->SetMeshBuffers(_vertexBuffer, _indexBuffer);
 
 	MeshModel::Material particleMat

@@ -56,7 +56,7 @@ public:
 	virtual void InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange) = 0;
 	void SetParticleRenderingMode(ParticleRenderingMode particleRenderingMode);
 	void UpdateSimulationParameters(const SimulationParameters &simulationParameters);
-	virtual void AddProp(const std::string &OBJPath, const std::string &texturePath = "", bool isVisible = true, bool isCollidable = true, RenderMode renderMode = RenderMode::Triangle);
+	virtual void AddProp(const std::wstring &OBJPath, const std::wstring &texturePath = L"", bool isVisible = true, bool isCollidable = true, RenderMode renderMode = RenderMode::Triangle);
 
 	// Reflect the particle status to the render system
 	virtual void InitializeRenderers(const std::vector<Buffer> &inputBuffers, size_t particleCount);

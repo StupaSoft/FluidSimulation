@@ -95,8 +95,8 @@ public:
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
 	void SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer);
-	void LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode = RenderMode::Triangle);
-	void LoadTexture(const std::string &texturePath);
+	void LoadPipeline(const std::wstring &vertexShaderPath, const std::wstring &fragmentShaderPath, RenderMode renderMode = RenderMode::Triangle);
+	void LoadTexture(const std::wstring &texturePath);
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);
 	void UpdateIndices(const std::vector<uint32_t> &indices);

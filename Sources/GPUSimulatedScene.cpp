@@ -60,7 +60,7 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	_onUpdateSimulationParameters.Invoke(*_simulationParameters);
 }
 
-void GPUSimulatedScene::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
+void GPUSimulatedScene::AddProp(const std::wstring &OBJPath, const std::wstring &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
 {
 	SimulatedSceneBase::AddProp(OBJPath, texturePath, isVisible, isCollidable, renderMode);
 }

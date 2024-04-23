@@ -1,6 +1,7 @@
 #include "VulkanUtility.h"
 
 #define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
 #include <stb_image.h>
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -302,11 +303,15 @@ VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) /
 	return VK_SAMPLE_COUNT_1_BIT;
 }
 
-std::vector<char> ReadFile(const std::string &fileName)
+std::vector<char> ReadFile(const std::wstring &fileName)
 {
 	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
 
-	if (!file.is_open()) throw std::runtime_error(std::format("Failed to open the file {0}", fileName));
+	if (!file.is_open())
+	{
+		std::wcout << std::format(L"Failed to open the file {0}", fileName) << std::endl;
+		throw std::runtime_error("");
+	}
 
 	size_t fileSize = (size_t)file.tellg();
 	std::vector<char> buffer(fileSize);
@@ -319,8 +324,9 @@ std::vector<char> ReadFile(const std::string &fileName)
 	return buffer;
 }
 
-std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJPath)
+std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::wstring &OBJPath)
 {
+	// Mimick contents of tinyobj::LoadObj to support Unicode for file names
 	tinyobj::attrib_t attribute; // Holds all of the positions, normals, and texture coordinates
 	std::vector<tinyobj::shape_t> shapes; // Contains all of the separate objects and their faces
 	std::vector<tinyobj::material_t> materials;
@@ -328,11 +334,25 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string
 	std::string warn;
 	std::string err;
 
-	if (!tinyobj::LoadObj(&attribute, &shapes, &materials, &warn, &err, OBJPath.c_str()))
+	attribute.vertices.clear();
+	attribute.normals.clear();
+	attribute.texcoords.clear();
+	attribute.colors.clear();
+	shapes.clear();
+
+	std::ifstream ifs(OBJPath);
+	if (!ifs.is_open()) 
+	{
+		std::wcout << std::format(L"Failed to open the OBJ file: {0}", OBJPath) << std::endl;
+		throw std::runtime_error("");
+	}
+
+	if (!tinyobj::LoadObj(&attribute, &shapes, &materials, &warn, &err, &ifs))
 	{
 		throw std::runtime_error(warn + err);
 	}
 
+	// Process the read OBJ file
 	std::vector<Vertex> vertices;
 	std::vector<uint32_t> indices;
 
@@ -369,14 +389,21 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string
 	return std::make_tuple(std::move(vertices), std::move(indices));
 }
 
-std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::string &texturePath)
+std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const std::wstring &texturePath)
 {
 	// Load a texture image
 	int texWidth = 0;
 	int texHeight = 0;
 	int texChannels = 0;
-	stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
-	if (!pixels) throw std::runtime_error(std::format("Failed to load {0}", texturePath));
+
+	std::string pathInUTF8;
+	stbi_convert_wchar_to_utf8(pathInUTF8.data(), texturePath.length() + 1, texturePath.c_str());
+	stbi_uc *pixels = stbi_load(pathInUTF8.data(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	if (!pixels)
+	{
+		std::wcout << std::format(L"Failed to open the texture file: {0}", texturePath) << std::endl;
+		throw std::runtime_error("");
+	}
 
 	VkDeviceSize imageSize = texWidth * texHeight * 4; // Four bytes per pixel
 

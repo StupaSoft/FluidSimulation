@@ -1,12 +1,12 @@
 #include "CPUSimulatedScene.h"
 
-void SimulatedSceneBase::AddProp(const std::string &OBJPath, const std::string &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
+void SimulatedSceneBase::AddProp(const std::wstring &OBJPath, const std::wstring &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
 {
 	auto obj = LoadOBJ(OBJPath);
 
 	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
-	propModel->LoadPipeline("Shaders/Rendering/StandardVertex.spv", "Shaders/Rendering/StandardFragment.spv", renderMode);
+	propModel->LoadPipeline(L"Shaders/Rendering/StandardVertex.spv", L"Shaders/Rendering/StandardFragment.spv", renderMode);
 	propModel->LoadTexture(texturePath);
 
 	auto propObject = propModel->AddMeshObject();

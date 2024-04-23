@@ -7,7 +7,7 @@ MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, cons
 
 	_meshModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
 	_meshModel->SetMeshBuffers(_compute->GetVertexBuffer(), _compute->GetIndexBuffer());
-	_meshModel->LoadPipeline("Shaders/Rendering/StandardVertex.spv", "Shaders/Rendering/StandardFragment.spv");
+	_meshModel->LoadPipeline(L"Shaders/Rendering/StandardVertex.spv", L"Shaders/Rendering/StandardFragment.spv");
 
 	MeshModel::Material marchingCubesMat
 	{

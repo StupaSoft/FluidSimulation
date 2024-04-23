@@ -32,7 +32,7 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 	ApplyMaterialAdjustment();
 
 	// Load the fallback texture
-	LoadTexture("");
+	LoadTexture(L"");
 }
 
 MeshModel::~MeshModel()
@@ -117,7 +117,7 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 	}
 }
 
-void MeshModel::LoadTexture(const std::string &texturePath)
+void MeshModel::LoadTexture(const std::wstring &texturePath)
 {
 	// We have to free prior images
 	if (_textureSampler != VK_NULL_HANDLE)
@@ -126,8 +126,8 @@ void MeshModel::LoadTexture(const std::string &texturePath)
 	}
 
 	// Load a texture
-	std::string targetTexturePath = texturePath;
-	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
+	std::wstring targetTexturePath = texturePath;
+	if (targetTexturePath.empty()) targetTexturePath = L"Textures/Fallback.png"; // Fallback texture
 	std::tie(_texture, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
 	_textureSampler = CreateTextureSampler(_textureMipLevels);
 }
@@ -159,7 +159,7 @@ void MeshModel::SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer)
 	_indexBuffer = indexBuffer;
 }
 
-void MeshModel::LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode)
+void MeshModel::LoadPipeline(const std::wstring &vertexShaderPath, const std::wstring &fragmentShaderPath, RenderMode renderMode)
 {
 	_renderMode = renderMode;
 	if (renderMode == RenderMode::Triangle)
@@ -318,10 +318,8 @@ void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 {
 	_vertices = vertices;
 
-	VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-
-	memcpy(_vertexOnHost, vertices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, bufferSize);
+	memcpy(_vertexOnHost, vertices.data(), _vertexBuffer->_size); // Copy index data to the mapped memory
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, _vertexBuffer->_size);
 
 	UpdateTriangles(_vertices, _indices);
 }
@@ -330,10 +328,8 @@ void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 {
 	_indices = indices;
 
-	VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
-
-	memcpy(_indexOnHost, indices.data(), (size_t)bufferSize); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, bufferSize);
+	memcpy(_indexOnHost, indices.data(), _indexBuffer->_size); // Copy index data to the mapped memory
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, _indexBuffer->_size);
 
 	UpdateTriangles(_vertices, _indices);
 }
