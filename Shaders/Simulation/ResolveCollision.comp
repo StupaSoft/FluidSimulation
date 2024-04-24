@@ -144,6 +144,7 @@ bool RayBoxIntersection(uint nodeIndex, vec3 start, vec3 end)
 Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 {
 	Intersection intersection;
+	intersection.isHit = false;
 
 	// Moller-Trumbore alogrithm
 	vec3 ray = end - start;
@@ -199,6 +200,8 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 Intersection GetIntersection(uint particleIndex, vec3 start, vec3 end)
 {
 	Intersection intersection;
+	intersection.isHit = false;
+
 	float minDistance = INF;
 
 	// Traverse the BVH to find a collision point

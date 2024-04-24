@@ -2,6 +2,7 @@
 
 const uint OVERLAPPING_BUCKETS = 8;
 const float PI = 3.141592;
+const float EPSILON = 1e-10;
 
 struct SimulationSetup
 {
@@ -143,7 +144,7 @@ void main()
 			uint neighborIndex = buckets[j];
 			if (particleIndex != neighborIndex)
 			{
-				float distanceToNeighbor = distance(particlePosition, positions[neighborIndex]);
+				float distanceToNeighbor = distance(particlePosition, positions[neighborIndex]) + EPSILON;
 				if (distanceToNeighbor < kernelRange1)
 				{
 					vec3 direction = (positions[neighborIndex] - particlePosition) / distanceToNeighbor;
