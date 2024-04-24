@@ -260,15 +260,6 @@ void SimulationCompute::CreateSetupBuffers()
 
 void SimulationCompute::CreateGridBuffers(glm::uvec3 gridDimension)
 {
-	_adjacentBucketBuffer = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(uint32_t) * gridDimension.x * gridDimension.y * gridDimension.z * OVERLAPPING_BUCKETS,
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
 	_accumulationBuffer = CreateBuffer
 	(
 		_vulkanCore->GetPhysicalDevice(),
@@ -300,6 +291,15 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t
 		_vulkanCore->GetPhysicalDevice(),
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(uint32_t) * particleCount,
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+	);
+
+	_adjacentBucketBuffer = CreateBuffer
+	(
+		_vulkanCore->GetPhysicalDevice(),
+		_vulkanCore->GetLogicalDevice(),
+		sizeof(uint32_t) * particleCount * OVERLAPPING_BUCKETS,
 		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
