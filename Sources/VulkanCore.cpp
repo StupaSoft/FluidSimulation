@@ -24,9 +24,11 @@ void VulkanCore::InitVulkan()
 	_depthImage = CreateDepthResources(_swapChainExtent);
 	_frameBuffers = CreateFramebuffers(_logicalDevice, _renderPass, _swapChainExtent, _swapChainImages, { _depthImage, _colorImage });
 
-	_commandPool = CreateCommandPool(_physicalDevice, _logicalDevice, _surface);
-	_commandBuffers = CreateCommandBuffers(_logicalDevice, _commandPool, MAX_FRAMES_IN_FLIGHT);
-	_computeCommandBuffers = CreateCommandBuffers(_logicalDevice, _commandPool, MAX_FRAMES_IN_FLIGHT);
+	QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(_physicalDevice, _surface);
+	_computeCommandPool = CreateCommandPool(_logicalDevice, queueFamilyIndices.computeFamily.value());
+	_computeCommandBuffers = CreateCommandBuffers(_logicalDevice, _computeCommandPool, MAX_FRAMES_IN_FLIGHT);
+	_graphicsCommandPool = CreateCommandPool(_logicalDevice, queueFamilyIndices.graphicsFamily.value());
+	_commandBuffers = CreateCommandBuffers(_logicalDevice, _graphicsCommandPool, MAX_FRAMES_IN_FLIGHT);
 	std::tie(_imageAvailableSemaphores, _renderFinishedSemaphores, _computeFinishedSemaphores, _inFlightFences, _computeInFlightFences) = CreateSyncObjects(MAX_FRAMES_IN_FLIGHT);
 }
 
@@ -245,7 +247,7 @@ void VulkanCore::CleanUp()
 		vkDestroyFence(_logicalDevice, _computeInFlightFences[i], nullptr);
 	}
 
-	vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
+	vkDestroyCommandPool(_logicalDevice, _graphicsCommandPool, nullptr);
 	vkDestroyDevice(_logicalDevice, nullptr);
 
 	if (ENABLE_VALIDATION_LAYERS) DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
@@ -443,12 +445,12 @@ std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-	std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsComputeFamily.value(), indices.presentFamily.value() };
+	std::set<uint32_t> uniqueQueueFamilies = { indices.computeFamily.value(), indices.graphicsFamily.value(), indices.presentFamily.value() };
 
 	float queuePriority = 1.0f;
 	for (uint32_t queueFamily : uniqueQueueFamilies)
 	{
-		VkDeviceQueueCreateInfo queueCreateInfo =
+		VkDeviceQueueCreateInfo queueCreateInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			.queueFamilyIndex = queueFamily,
@@ -495,11 +497,11 @@ std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(
 	}
 
 	// Retrieve queue handles
-	VkQueue graphicsQueue = VK_NULL_HANDLE;
-	vkGetDeviceQueue(logicalDevice, indices.graphicsComputeFamily.value(), 0, &graphicsQueue);
-
 	VkQueue computeQueue = VK_NULL_HANDLE;
-	vkGetDeviceQueue(logicalDevice, indices.graphicsComputeFamily.value(), 0, &computeQueue);
+	vkGetDeviceQueue(logicalDevice, indices.computeFamily.value(), 0, &computeQueue);
+
+	VkQueue graphicsQueue = VK_NULL_HANDLE;
+	vkGetDeviceQueue(logicalDevice, indices.graphicsFamily.value(), 0, &graphicsQueue);
 
 	VkQueue presentQueue = VK_NULL_HANDLE;
 	vkGetDeviceQueue(logicalDevice, indices.presentFamily.value(), 0, &presentQueue);
@@ -519,8 +521,12 @@ QueueFamilyIndices VulkanCore::FindQueueFamilies(VkPhysicalDevice physicalDevice
 
 	for (uint32_t i = 0; i < queueFamilyCount; ++i)
 	{
+		// Check if graphics queue is supported
 		const auto &queueFamily = queueFamilies[i];
-		if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT)) indices.graphicsComputeFamily = i; // Check if graphics queue is supported
+
+		if (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT) indices.computeFamily = i;
+
+		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) indices.graphicsFamily = i; 
 
 		VkBool32 presentSupport = false;
 		vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i, surface, &presentSupport); // Check if presentation queue is supported
@@ -576,10 +582,10 @@ std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore:
 
 	// Specify how to handle swap chain images that will be used across multiple queue families
 	QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
-	uint32_t queueFamilyIndices[] = { indices.graphicsComputeFamily.value(), indices.presentFamily.value() };
+	uint32_t queueFamilyIndices[] = { indices.computeFamily.value(), indices.graphicsFamily.value(), indices.presentFamily.value() };
 
 	// Drawing commands on images are submitted to the graphics queue and the images are submitted to the presentation queue
-	if (indices.graphicsComputeFamily != indices.presentFamily)
+	if (indices.graphicsFamily != indices.presentFamily)
 	{
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT; // An image is owned by one queue family at a time and ownership must be explicitly transferred before using it in another queue family.
 		// Which queue families ownership will be shared using the queueFamilyIndexCount and pQueueFamilyIndices.
@@ -941,15 +947,13 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice
 	return swapChainFramebuffers;
 }
 
-VkCommandPool VulkanCore::CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface)
+VkCommandPool VulkanCore::CreateCommandPool(VkDevice logicalDevice, uint32_t queueFamilyIndex)
 {
-	QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalDevice, surface);
-
-	VkCommandPoolCreateInfo poolInfo =
+	VkCommandPoolCreateInfo poolInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 		.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
-		.queueFamilyIndex = queueFamilyIndices.graphicsComputeFamily.value() // Since we want to record commands for drawing
+		.queueFamilyIndex = queueFamilyIndex // Since we want to record commands for drawing
 	};
 
 	VkCommandPool commandPool = VK_NULL_HANDLE;

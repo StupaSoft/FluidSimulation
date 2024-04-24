@@ -44,11 +44,12 @@ struct QueueFamilyIndices
 {
 	// Note that queue families that support drawing commands and presentation can differ.
 	// So they are separated.
-	std::optional<uint32_t> graphicsComputeFamily;
+	std::optional<uint32_t> computeFamily;
+	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> presentFamily;
 	inline bool IsComplete()
 	{
-		return graphicsComputeFamily.has_value() && presentFamily.has_value();
+		return computeFamily.has_value() && graphicsFamily.has_value() && presentFamily.has_value();
 	}
 };
 
@@ -107,7 +108,8 @@ private:
 	std::vector<VkFramebuffer> _frameBuffers;
 
 	// ==================== Command buffers ====================
-	VkCommandPool _commandPool;
+	VkCommandPool _graphicsCommandPool;
+	VkCommandPool _computeCommandPool;
 	std::vector<VkCommandBuffer> _commandBuffers;
 	std::vector<VkCommandBuffer> _computeCommandBuffers;
 
@@ -164,14 +166,15 @@ public:
 	auto GetPhysicalDevice() const { return _physicalDevice; }
 	auto GetLogicalDevice() const { return _logicalDevice; }
 	auto GetSurface() const { return _surface; }
+	auto GetComputeFamily() const { return FindQueueFamilies(_physicalDevice, _surface).computeFamily.value(); }
+	auto GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsFamily.value(); }
 	auto GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
-	auto GetGraphicsFamily() const { return FindQueueFamilies(_physicalDevice, _surface).graphicsComputeFamily.value(); }
 	auto GetGraphicsQueue() const { return _graphicsQueue; }
 	auto GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
 	auto GetSwapChainImageCount() const { return _swapChainImages.size(); }
 	auto GetRenderPass() const { return _renderPass; }
 	auto GetExtent() const { return _swapChainExtent; }
-	auto GetCommandPool() const { return _commandPool; }
+	auto GetCommandPool() const { return _graphicsCommandPool; }
 	auto GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
 	auto GetCurrentFrame() const { return _currentFrame; }
 
@@ -229,7 +232,7 @@ private:
 	std::vector<VkFramebuffer> CreateFramebuffers(VkDevice logicalDevice, VkRenderPass renderPass, VkExtent2D swapChainExtent, const std::vector<Image> &swapChainImages, const std::vector<Image> &additionalImages);
 
 	// ==================== Command buffers ====================
-	VkCommandPool CreateCommandPool(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkSurfaceKHR surface);
+	VkCommandPool CreateCommandPool(VkDevice logicalDevice, uint32_t queueFamilyIndex);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
 
 	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, size_t currentFrame);
