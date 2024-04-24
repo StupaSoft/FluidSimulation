@@ -233,36 +233,6 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptor
 	_descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SET_COUNT });
 	auto descriptorPool = _descriptorHelper->GetDescriptorPool();
 
-	// Create descriptor set layout
-	BufferLayout mvpLayout
-	{
-		.binding = 0,
-		.dataSize = sizeof(MeshObject::MVP),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
-	};
-
-	BufferLayout lightLayout
-	{
-		.binding = 1,
-		.dataSize = sizeof(Light),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
-	};
-
-	BufferLayout materialLayout
-	{
-		.binding = 2,
-		.dataSize = sizeof(Material),
-		.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-		.shaderStages = VK_SHADER_STAGE_VERTEX_BIT
-	};
-
-	SamplerLayout samplerLayout
-	{
-		.binding = 3
-	};
-
 	_descriptorHelper->AddBufferLayout(0, sizeof(MeshObject::MVP), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 	_descriptorHelper->AddBufferLayout(1, sizeof(Light), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
 	_descriptorHelper->AddBufferLayout(2, sizeof(Material), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);

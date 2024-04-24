@@ -40,7 +40,7 @@ void BillboardsCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleCount, 1024), 1, 1);
 }
 
-std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>> BillboardsCompute::CreateDescriptors(size_t particleCount, const Buffer particleCountBuffer, const std::vector<Buffer> &particlePositionBuffers, const Buffer &vertexOutputBuffer)
+std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>> BillboardsCompute::CreateDescriptors(size_t particleCount, const Buffer &particleCountBuffer, const std::vector<Buffer> &particlePositionBuffers, const Buffer &vertexOutputBuffer)
 {
 	auto descriptorHelper = std::make_shared<DescriptorHelper>(_vulkanCore);
 
