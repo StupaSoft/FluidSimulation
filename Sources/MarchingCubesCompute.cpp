@@ -111,7 +111,7 @@ void MarchingCubesCompute::CreateSetupBuffers()
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), INDICES_TABLE.data(), _indexTableBuffer, 0); // Will never change
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), INDICES_TABLE.data(), _indexTableBuffer, 0); // Will never change
 }
 
 void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
@@ -225,7 +225,7 @@ void MarchingCubesCompute::UpdateParticleProperty(const SimulationParameters &si
 	_particleProperty->_r3 = kernelRadius * kernelRadius * kernelRadius;
 	
 	// Synchronize with the storage buffer
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _particleProperty.get(), _particlePropertyBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _particleProperty.get(), _particlePropertyBuffer, 0);
 }
 
 void MarchingCubesCompute::InitializeGrid(const MarchingCubesGrid &grid)
@@ -252,11 +252,11 @@ void MarchingCubesCompute::InitializeGrid(const MarchingCubesGrid &grid)
 
 	// Create and synchronize the storage buffer
 	CreateComputeBuffers(*_setup);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setup.get(), _setupBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _setup.get(), _setupBuffer, 0);
 }
 
 void MarchingCubesCompute::SetIsovalue(float isovalue)
 {
 	_setup->_isovalue = isovalue;
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _setup.get(), _setupBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _setup.get(), _setupBuffer, 0);
 }

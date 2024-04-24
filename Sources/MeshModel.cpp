@@ -13,8 +13,8 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(Light),
 		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	_materialBuffers = CreateBuffers
@@ -23,8 +23,8 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(Material),
 		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
@@ -289,7 +289,7 @@ void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 	_vertices = vertices;
 
 	memcpy(_vertexOnHost, vertices.data(), _vertexBuffer->_size); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, _vertexBuffer->_size);
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, 0, _vertexBuffer->_size);
 
 	UpdateTriangles(_vertices, _indices);
 }
@@ -299,7 +299,7 @@ void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 	_indices = indices;
 
 	memcpy(_indexOnHost, indices.data(), _indexBuffer->_size); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, _indexBuffer->_size);
+	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, 0, _indexBuffer->_size);
 
 	UpdateTriangles(_vertices, _indices);
 }
@@ -511,12 +511,12 @@ void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(Light);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &light, _lightBuffers, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &light, _lightBuffers, copyOffset, copySize);
 }
 
 void MeshModel::ApplyMaterialAdjustment()
 {
 	auto copyOffset = 0;
 	auto copySize = sizeof(Material);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &_material, _materialBuffers, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &_material, _materialBuffers, copyOffset, copySize);
 }

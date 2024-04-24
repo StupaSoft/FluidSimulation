@@ -49,7 +49,7 @@ Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkD
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.allocationSize = memRequirements.size,
 		// VK_MEMORY_PROPERTY_HOST_COHERENT_BIT - Create a memory heap that is host-coherent.
-		.memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+		.memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits, bufferProperties)
 	};
 
 	VkDeviceMemory bufferMemory = VK_NULL_HANDLE;
@@ -61,7 +61,8 @@ Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkD
 	// Associate this memory with the buffer
 	vkBindBufferMemory(logicalDevice, bufferHandle, bufferMemory, 0);
 
-	Buffer buffer(new BufferMemory{ logicalDevice, bufferHandle, bufferMemory, bufferSize }, BufferDeleter());
+	bool isDeviceLocal = (bufferProperties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0;
+	Buffer buffer(new BufferMemory{ logicalDevice, bufferHandle, bufferMemory, bufferSize, isDeviceLocal }, BufferDeleter());
 
 	return buffer;
 }
@@ -77,7 +78,7 @@ std::vector<Buffer> CreateBuffers(VkPhysicalDevice physicalDevice, VkDevice logi
 	return buffers;
 }
 
-void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize size)
+void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer srcBuffer, Buffer dstBuffer, VkDeviceSize copyOffset, VkDeviceSize copySize)
 {
 	// Memory transfer operations are executed using command buffers.
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
@@ -85,39 +86,47 @@ void CopyBufferToBuffer(VkDevice logicalDevice, VkCommandPool commandPool, VkQue
 	// Now add a copy command
 	VkBufferCopy copyRegion
 	{
-		.size = size
+		.srcOffset = copyOffset,
+		.dstOffset = copyOffset,
+		.size = copySize,
 	};
 	vkCmdCopyBuffer(commandBuffer, srcBuffer->_buffer, dstBuffer->_buffer, 1, &copyRegion);
 
 	EndSingleTimeCommands(logicalDevice, commandPool, commandBuffer, graphicsQueue);
 }
 
-void CopyMemoryToBuffer(VkDevice logicalDevice, const void *source, Buffer buffer, VkDeviceSize copyOffset, VkDeviceSize copySize)
+void CopyMemoryToBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const void *source, Buffer buffer, VkDeviceSize copyOffset, VkDeviceSize copySize)
 {
 	if (copySize == -1) copySize = buffer->_size;
 
-	const std::byte *offsetPtr = reinterpret_cast<const std::byte *>(source) + copyOffset;
-	source = offsetPtr;
-
 	void *data;
-	vkMapMemory(logicalDevice, buffer->_memory, copyOffset, copySize, 0, &data);
-	memcpy(data, source, copySize);
-	vkUnmapMemory(logicalDevice, buffer->_memory);
+	if (buffer->_isDeviceLocal)
+	{
+		Buffer stagingBuffer = CreateBuffer(physicalDevice, logicalDevice, buffer->_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+		void* data = nullptr;
+		vkMapMemory(logicalDevice, stagingBuffer->_memory, 0, stagingBuffer->_size, 0, &data); // Map data <-> stagingBufferMemory
+		memcpy(data, source, stagingBuffer->_size); // Copy pixels -> data
+		vkUnmapMemory(logicalDevice, stagingBuffer->_memory);
+
+		CopyBufferToBuffer(logicalDevice, commandPool, graphicsQueue, stagingBuffer, buffer, copyOffset, copySize);
+	}
+	else
+	{
+		const std::byte* offsetPtr = reinterpret_cast<const std::byte*>(source) + copyOffset;
+		source = offsetPtr;
+
+		vkMapMemory(logicalDevice, buffer->_memory, copyOffset, copySize, 0, &data);
+		memcpy(data, source, copySize);
+		vkUnmapMemory(logicalDevice, buffer->_memory);
+	}
 }
 
-void CopyMemoryToBuffers(VkDevice logicalDevice, const void *source, const std::vector<Buffer> &buffers, VkDeviceSize copyOffset, VkDeviceSize copySize)
+void CopyMemoryToBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const void *source, const std::vector<Buffer> &buffers, VkDeviceSize copyOffset, VkDeviceSize copySize)
 {
-	if (copySize == -1) copySize = buffers[0]->_size;
-
-	const std::byte *offsetPtr = reinterpret_cast<const std::byte *>(source) + copyOffset;
-	source = offsetPtr;
-
 	for (size_t i = 0; i < buffers.size(); ++i)
 	{
-		void *data;
-		vkMapMemory(logicalDevice, buffers[i]->_memory, copyOffset, copySize, 0, &data);
-		memcpy(data, source, copySize);
-		vkUnmapMemory(logicalDevice, buffers[i]->_memory);
+		CopyMemoryToBuffer(physicalDevice, logicalDevice, commandPool, graphicsQueue, source, buffers[i], copyOffset, copySize);
 	}
 }
 

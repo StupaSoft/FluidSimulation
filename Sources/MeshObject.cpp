@@ -10,8 +10,8 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 		_vulkanCore->GetLogicalDevice(), 
 		sizeof(MVP),
 		_vulkanCore->GetMaxFramesInFlight(), 
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
 	SetPosition(glm::vec3());
@@ -100,7 +100,7 @@ void MeshObject::ApplyModelTransformation()
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &mvp, _mvpBuffers, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &mvp, _mvpBuffers, copyOffset, copySize);
 
 	UpdateWorldTriangles(mvp._model);
 }
@@ -115,7 +115,7 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
-	CopyMemoryToBuffers(_vulkanCore->GetLogicalDevice(), &mvp, _mvpBuffers, copyOffset, copySize);
+	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &mvp, _mvpBuffers, copyOffset, copySize);
 }
 
 void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)

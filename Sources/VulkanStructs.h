@@ -17,6 +17,8 @@ struct BufferMemory
 	VkDeviceMemory _memory = VK_NULL_HANDLE;
 
 	VkDeviceSize _size = 0;
+
+	bool _isDeviceLocal = false;
 };
 
 struct BufferDeleter 

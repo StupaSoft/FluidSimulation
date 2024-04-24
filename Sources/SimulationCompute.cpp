@@ -8,7 +8,7 @@ SimulationCompute::SimulationCompute(const std::shared_ptr<VulkanCore> &vulkanCo
 	CreateGridBuffers(gridDimension);
 
 	_gridSetup->_dimension = glm::uvec4(gridDimension, 0);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _gridSetup.get(), _gridSetupBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _gridSetup.get(), _gridSetupBuffer, 0);
 
 	uint32_t bucketCount = _gridSetup->_dimension.x * _gridSetup->_dimension.y * _gridSetup->_dimension.z;
 	_prefixSumIterCount = Log(bucketCount); // log(2, n) - 1
@@ -84,7 +84,7 @@ SimulationCompute::~SimulationCompute()
 
 void SimulationCompute::UpdateSimulationParameters(const SimulationParameters &simulationParameters)
 {
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), &simulationParameters, _simulationParametersBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &simulationParameters, _simulationParametersBuffer, 0);
 }
 
 void SimulationCompute::InitializeLevel(const std::vector<BVH::Node> &BVHNodes)
@@ -105,10 +105,10 @@ void SimulationCompute::InitializeParticles(const std::vector<glm::vec3> &positi
 	CreatePipelines(_simulationSetup->_particleCount, _gridSetup->_dimension);
 
 	// Transfer simulation setup
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _simulationSetup.get(), _simulationSetupBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _simulationSetup.get(), _simulationSetupBuffer, 0);
 
 	// Finally copy the particle positions
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), positions.data(), _positionBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), positions.data(), _positionBuffer, 0);
 }
 
 void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
@@ -281,7 +281,7 @@ void SimulationCompute::CreateLevelBuffers(const std::vector<BVH::Node> &BVHNode
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
 
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), BVHNodes.data(), _BVHNodeBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), BVHNodes.data(), _BVHNodeBuffer, 0);
 }
 
 void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t BVHMaxLevel)

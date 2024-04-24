@@ -82,7 +82,7 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		_vulkanCore->GetLogicalDevice(),
 		sizeof(glm::vec3) * _particleCount,
 		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
 	);
 	InitializeRenderers(_particlePositionInputBuffers, _particleCount);
@@ -295,5 +295,5 @@ void CPUSimulatedScene::UpdateDensities()
 // Reflect the particle positions to the render system
 void CPUSimulatedScene::Applypositions()
 {
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _positions.data(), _particlePositionInputBuffers[_vulkanCore->GetCurrentFrame()], 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _positions.data(), _particlePositionInputBuffers[_vulkanCore->GetCurrentFrame()], 0);
 }

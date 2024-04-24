@@ -13,7 +13,7 @@ BillboardsCompute::BillboardsCompute(const std::shared_ptr<VulkanCore> &vulkanCo
 		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
 	);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), &_particleCount, _particleCountBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &_particleCount, _particleCountBuffer, 0);
 
 	std::tie(_populatingDescriptorPool, _populatingDescriptorSetLayout, _populatingDescriptorSets) = CreateDescriptors(particleCount, _particleCountBuffer, _particlePositionInputBuffers, vertexOutputBuffer);
 

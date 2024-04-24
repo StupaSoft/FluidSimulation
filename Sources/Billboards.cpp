@@ -49,8 +49,8 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 		}
 	}
 
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardVertices.data(), _vertexBuffer, 0);
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardIndices.data(), _indexBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardVertices.data(), _vertexBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardIndices.data(), _indexBuffer, 0);
 
 	// Cmpute
 	_compute = BillboardsCompute::Instantiate<BillboardsCompute>(vulkanCore, inputBuffers, _particleCount, _vertexBuffer);
@@ -86,5 +86,5 @@ void Billboards::UpdateRadius(float particleRadius)
 		}
 	}
 
-	CopyMemoryToBuffer(_vulkanCore->GetLogicalDevice(), _billboardVertices.data(), _vertexBuffer, 0);
+	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardVertices.data(), _vertexBuffer, 0);
 }
