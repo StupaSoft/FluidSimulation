@@ -12,7 +12,7 @@ bool BVH::GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Int
 	bool isHit = false;
 	float minDistance = std::numeric_limits<float>::infinity();
 
-	std::stack<size_t> nodeStack;
+	std::stack<uint32_t> nodeStack;
 	if (RayBoxIntersection(_nodes[0]._boundingBox, currentPosition, nextPosition)) nodeStack.push(0); // Push the root
 	while (!nodeStack.empty())
 	{
@@ -115,7 +115,7 @@ bool BVH::Construct()
 
 			_nodes.push_back(std::move(leafNode));
 
-			uint32_t newNodeIndex = _nodes.size() - 1;
+			uint32_t newNodeIndex = static_cast<uint32_t>(_nodes.size() - 1);
 			if (_nodes[range._parentIndex]._child1 == NONE)
 			{
 				_nodes[range._parentIndex]._child1 = newNodeIndex;
@@ -209,7 +209,7 @@ bool BVH::Construct()
 		};
 
 		_nodes.push_back(std::move(newNode));
-		uint32_t newNodeIndex = _nodes.size() - 1;
+		uint32_t newNodeIndex = static_cast<uint32_t>(_nodes.size() - 1);
 		if (range._parentIndex != NONE)
 		{
 			if (_nodes[range._parentIndex]._child1 == NONE)
@@ -224,7 +224,7 @@ bool BVH::Construct()
 		
 		// Set and push the child nodes
 		uint32_t childStart = range._start;
-		uint32_t separator = separatorIter - boundingBoxes.begin();
+		uint32_t separator = static_cast<uint32_t>(separatorIter - boundingBoxes.begin());
 		uint32_t childEnd = range._end;
 
 		Range childRange1
@@ -261,7 +261,7 @@ bool BVH::RayBoxIntersection(const AABB &boundingBox, glm::vec3 start, glm::vec3
 	float tMax = std::numeric_limits<float>::infinity();
 
 	glm::vec3 ray = end - start;
-	for (size_t i = 0; i < 3; ++i)
+	for (uint32_t i = 0; i < 3; ++i)
 	{
 		float t1 = (boundingBox._lowerBound[i] - start[i]) / ray[i];
 		float t2 = (boundingBox._upperBound[i] - start[i]) / ray[i];
@@ -441,7 +441,7 @@ void BVH::DrawBoundingBoxes(const std::shared_ptr<VulkanCore> &vulkanCore, uint3
 
 	if (includeDescendants)
 	{
-		std::stack<size_t> nodeStack;
+		std::stack<uint32_t> nodeStack;
 		nodeStack.push(nodeIndex);
 		while (!nodeStack.empty())
 		{

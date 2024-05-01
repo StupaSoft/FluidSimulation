@@ -47,7 +47,7 @@ struct QueueFamilyIndices
 	std::optional<uint32_t> computeFamily;
 	std::optional<uint32_t> graphicsFamily;
 	std::optional<uint32_t> presentFamily;
-	inline bool IsComplete()
+	bool IsComplete()
 	{
 		return computeFamily.has_value() && graphicsFamily.has_value() && presentFamily.has_value();
 	}
@@ -58,9 +58,9 @@ class VulkanCore
 {
 private:
 	// ==================== Basic setup ====================
-	GLFWwindow *_window;
+	GLFWwindow *_window = nullptr;
 
-	VkInstance _instance; // Connection between the application and the Vulkan library
+	VkInstance _instance = VK_NULL_HANDLE; // Connection between the application and the Vulkan library
 
 	// ==================== ValidationLayer ====================
 // Validation layer
@@ -72,25 +72,25 @@ private:
 	const bool ENABLE_VALIDATION_LAYERS = true;
 #endif
 
-	VkDebugUtilsMessengerEXT _debugMessenger; // Handle to the validation layer
+	VkDebugUtilsMessengerEXT _debugMessenger = VK_NULL_HANDLE; // Handle to the validation layer
 
 	// ==================== Physical devices and queue families ====================
-	VkPhysicalDevice _physicalDevice;
+	VkPhysicalDevice _physicalDevice = VK_NULL_HANDLE;
 
 	// ==================== Logical device and queues ====================
-	VkDevice _logicalDevice;
+	VkDevice _logicalDevice = VK_NULL_HANDLE;
 	
 	// Belongs to the graphics queue
 	// Automatically cleaned up when the device is destroyed
-	VkQueue _graphicsQueue;
-	VkQueue _presentQueue;
-	VkQueue _computeQueue;
+	VkQueue _graphicsQueue = VK_NULL_HANDLE;
+	VkQueue _presentQueue = VK_NULL_HANDLE;
+	VkQueue _computeQueue = VK_NULL_HANDLE;
 
 	// ==================== Window ====================
 	VkSurfaceKHR _surface; // Abstract type of surface to present rendered images to
 	
 	// ==================== Swap chain ====================
-	VkSwapchainKHR _swapChain;
+	VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
 	const std::vector<const char *> DEVICE_EXTENSIONS =
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -98,18 +98,18 @@ private:
 	// Store the swap chain images
 	// Will be automatically cleaned up once the swap chain has been destroyed
 	std::vector<Image> _swapChainImages;
-	VkFormat _swapChainImageFormat;
-	VkExtent2D _swapChainExtent;
+	VkFormat _swapChainImageFormat = VK_FORMAT_UNDEFINED;
+	VkExtent2D _swapChainExtent { 0, 0 };
 
 	// ==================== Render pass ====================
-	VkRenderPass _renderPass;
+	VkRenderPass _renderPass = VK_NULL_HANDLE;
 
 	// ==================== Framebuffers ====================
 	std::vector<VkFramebuffer> _frameBuffers;
 
 	// ==================== Command buffers ====================
-	VkCommandPool _graphicsCommandPool;
-	VkCommandPool _computeCommandPool;
+	VkCommandPool _graphicsCommandPool = VK_NULL_HANDLE;
+	VkCommandPool _computeCommandPool = VK_NULL_HANDLE;
 	std::vector<VkCommandBuffer> _commandBuffers;
 	std::vector<VkCommandBuffer> _computeCommandBuffers;
 
@@ -128,10 +128,10 @@ private:
 	bool _framebufferResized = false;
 
 	// ==================== Images ====================
-	Image _colorImage;
+	Image _colorImage = nullptr;
 
 	// ==================== Depth buffering ====================
-	Image _depthImage;
+	Image _depthImage = nullptr;
 
 	// ==================== Camera ====================
 	std::shared_ptr<Camera> _mainCamera;

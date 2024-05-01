@@ -160,7 +160,7 @@ VkDescriptorSetLayout DescriptorHelper::CreateDescriptorSetLayout(const std::vec
 		bindings.emplace_back(samplerLayoutBinding);
 	}
 
-	VkDescriptorSetLayoutCreateInfo layoutInfo =
+	VkDescriptorSetLayoutCreateInfo layoutInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 		.bindingCount = static_cast<uint32_t>(bindings.size()),

@@ -113,7 +113,7 @@ void VulkanCore::UpdateFrame(float deltaSecond)
 		}
 
 		// Submit present commands
-		VkPresentInfoKHR presentInfo =
+		VkPresentInfoKHR presentInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 
@@ -160,7 +160,7 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 	}
 
 	// Set instance information
-	VkApplicationInfo appInfo =
+	VkApplicationInfo appInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
 		.pApplicationName = "Fluid Simulation",
@@ -171,7 +171,7 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 	};
 
 	// Fil in a create info
-	VkInstanceCreateInfo createInfo =
+	VkInstanceCreateInfo createInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &appInfo
@@ -467,7 +467,7 @@ std::tuple<VkDevice, VkQueue, VkQueue, VkQueue> VulkanCore::CreateLogicalDevice(
 		.samplerAnisotropy = VK_TRUE // Enable anisotropic filtering
 	};
 
-	VkDeviceCreateInfo createInfo =
+	VkDeviceCreateInfo createInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 		.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
@@ -568,7 +568,7 @@ std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore:
 		imageCount = swapChainSupport.capabilities.maxImageCount;
 	}
 
-	VkSwapchainCreateInfoKHR createInfo =
+	VkSwapchainCreateInfoKHR createInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
 		.surface = surface,
@@ -796,14 +796,14 @@ void VulkanCore::CleanUpSwapChain()
 VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 {
 	// Before creating the pipeline, we need to tell Vulkan about the framebuffer attachments that will be used while rendering
-	// Specify how many color and depth buffers there will be, how many samples to use for each them...
+	// Specify how many color and depth buffers there will be, how many samples to use for each of them...
 
-	// Create a depth buffer attachment
-	VkAttachmentDescription depthAttachment =
+	// 1. Create a depth buffer attachment
+	VkAttachmentDescription depthAttachment
 	{
 		.format = FindSupportedFormat(_physicalDevice, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT), // Should be the same as the depth image itself
 		.samples = GetMaxUsableSampleCount(_physicalDevice),
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Clear the values to a constant before rendering
 		.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE, // Don't care about storing the depth data, because it will not be used after drawing has finished.
 		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
 		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -811,22 +811,22 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 		.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 	};
 
-	VkAttachmentReference depthAttachmentRef =
+	VkAttachmentReference depthAttachmentRef
 	{
 		.attachment = 0,
 		.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
 	};
 
-	// Create a single color buffer attachment for MSAA
+	// 2. Create a single color buffer attachment for MSAA
 	// The image layout needs be transitioned to specific layouts that are suitable for the operation that they're going to be involved in the next.
-	VkAttachmentDescription colorAttachment =
+	VkAttachmentDescription colorAttachment
 	{
 		.format = swapChainImageFormat,
 		.samples = GetMaxUsableSampleCount(_physicalDevice),
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, // Clear the values to a constant before rendering
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
 		.storeOp = VK_ATTACHMENT_STORE_OP_STORE, // After the rendering, rendered contents will be stored in memory and be read later - since we are interested in presenting the image on the screen, specify as this one.
 		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, // Which layout the image will have before the rendering pass begins - doesn't matter here, so specify it as 'undefined'. 
-		// Which layout the image will automatically transition to when the render pass finishes?
+		// Which layout will the image automatically transition to when the render pass finishes?
 		// Multisampled image cannot be presented directly.
 		// Must be resolved to a regular image before presentation.
 		.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -835,18 +835,18 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 	// A single render pass can consist of multiple subpasses.
 	// Every subpass references one or more of the attachments.
 	// A VkAttachmentReference refers to one of those attachments.
-	VkAttachmentReference colorAttachmentRef =
+	VkAttachmentReference colorAttachmentRef
 	{
 		// Specifies which attachment to reference by its index in the 'attachment' array below.
-		// Index of the color attachment (referenced from the fragment shader with the 'layout(location = 0) out vec4 outColor' directive)
+		// Index of the color attachment (referenced from the fragment shader with the 'layout (location = 0) out vec4 outColor' directive)
 		.attachment = 1,
 		// Which layout we would like the attachment to have during a subpass that uses this reference?
 		// Optimal for the attachment to function as a color buffer
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL 
 	};
 
-	// MSAA resolve image
-	VkAttachmentDescription colorAttachmentResolve =
+	// 3. Create an MSAA resolved attachment
+	VkAttachmentDescription colorAttachmentResolve
 	{
 		.format = swapChainImageFormat,
 		.samples = VK_SAMPLE_COUNT_1_BIT,
@@ -861,13 +861,13 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 	};
 
-	VkAttachmentReference colorAttachmentResolveRef =
+	VkAttachmentReference colorAttachmentResolveRef
 	{
 		.attachment = 2,
 		.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
 	};
 
-	VkSubpassDescription subpass =
+	VkSubpassDescription subpass
 	{
 		.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS, // Graphics subpass, not a compute subpass
 		.colorAttachmentCount = 1,
@@ -879,7 +879,7 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 	};
 
 	// Wait for the geometry to be drawn on the framebuffer before the GUI
-	VkSubpassDependency dependency =
+	VkSubpassDependency dependency
 	{
 		.srcSubpass = VK_SUBPASS_EXTERNAL, // Implicit subpass before the render pass
 		.dstSubpass = 0, // Our first and the only subpass
@@ -893,7 +893,7 @@ VkRenderPass VulkanCore::CreateRenderPass(VkFormat swapChainImageFormat)
 
 	// Create the render pass itself with the attachments and the subpass
 	std::array<VkAttachmentDescription, 3> attachments = { depthAttachment, colorAttachment, colorAttachmentResolve };
-	VkRenderPassCreateInfo renderPassInfo =
+	VkRenderPassCreateInfo renderPassInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
 		.attachmentCount = static_cast<uint32_t>(attachments.size()),
@@ -927,12 +927,12 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice
 		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->_imageView; }); // 4. Extract the names of extensions
 		attachments.push_back(swapChainImages[i]->_imageView);
 
-		VkFramebufferCreateInfo framebufferInfo =
+		VkFramebufferCreateInfo framebufferInfo
 		{
 			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			.renderPass = renderPass,
 			.attachmentCount = static_cast<uint32_t>(attachments.size()),
-			.pAttachments = attachments.data(), // These VkImageView objects are bound to the respective attachment descriptions in the render pass pAttachment array.
+			.pAttachments = attachments.data(), // These VkImageView objects are bound to the attachment descriptions in the render pass pAttachment array.
 			.width = swapChainExtent.width,
 			.height = swapChainExtent.height,
 			.layers = 1
@@ -968,7 +968,7 @@ VkCommandPool VulkanCore::CreateCommandPool(VkDevice logicalDevice, uint32_t que
 std::vector<VkCommandBuffer> VulkanCore::CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight)
 {
 	std::vector<VkCommandBuffer> commandBuffers(maxFramesInFlight);
-	VkCommandBufferAllocateInfo allocInfo =
+	VkCommandBufferAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = commandPool,
@@ -1007,7 +1007,7 @@ void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer
 void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	// Begin to record a command buffer
-	VkCommandBufferBeginInfo beginInfo =
+	VkCommandBufferBeginInfo beginInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = 0,
@@ -1020,7 +1020,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 	}
 
 	// Begin the render pass
-	VkRenderPassBeginInfo renderPassBeginInfo =
+	VkRenderPassBeginInfo renderPassBeginInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = renderPass, // The render pass itself
@@ -1034,7 +1034,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 
 	// Specify clear values
 	// Must be identical to the order of the attachments
-	std::vector<VkClearValue> clearValues =
+	std::vector<VkClearValue> clearValues
 	{
 		{
 			.depthStencil = { 1.0f, 0 } // The initial value must be the farthest depth 1.0.
@@ -1050,7 +1050,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 	vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 	{
 		// Set the viewport and the scissor
-		VkViewport viewport =
+		VkViewport viewport
 		{
 			.x = 0.0f,
 			.y = 0.0f,
@@ -1062,7 +1062,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 		};
 		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-		VkRect2D scissor =
+		VkRect2D scissor
 		{
 			.offset = { 0, 0 },
 			.extent = swapChainExtent
@@ -1099,12 +1099,12 @@ std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSem
 	std::vector<VkFence> inFlightFences(maxFramesInFlight);
 	std::vector<VkFence> computeInFlightFences(maxFramesInFlight);
 
-	VkSemaphoreCreateInfo semaphoreInfo =
+	VkSemaphoreCreateInfo semaphoreInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 	};
 
-	VkFenceCreateInfo fenceInfo =
+	VkFenceCreateInfo fenceInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 		.flags = VK_FENCE_CREATE_SIGNALED_BIT // Create a fence in a signaled state so that we can avoid the initial blocking 

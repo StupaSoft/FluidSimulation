@@ -30,9 +30,9 @@ void CPUSimulatedScene::Register()
 void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
 	// Setup
-	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
-	size_t yCount = std::ceil((yRange.g - yRange.r) / particleDistance);
-	size_t zCount = std::ceil((zRange.g - zRange.r) / particleDistance);
+	size_t xCount = std::lround(std::ceil((xRange.g - xRange.r) / particleDistance));
+	size_t yCount = std::lround(std::ceil((yRange.g - yRange.r) / particleDistance));
+	size_t zCount = std::lround(std::ceil((zRange.g - zRange.r) / particleDistance));
 
 	_particleCount = xCount * yCount * zCount;
 	glm::vec3 startingPoint = glm::vec3(xRange.r, yRange.r, zRange.r);

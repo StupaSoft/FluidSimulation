@@ -248,7 +248,7 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 	vkGetPhysicalDeviceProperties(_vulkanCore->GetPhysicalDevice(), &properties);
 
 	// Specify filters and transformations to apply
-	VkSamplerCreateInfo samplerInfo =
+	VkSamplerCreateInfo samplerInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
 		.magFilter = VK_FILTER_LINEAR, // Deals with oversampling
@@ -348,7 +348,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	// 'Resize' the image
-	VkViewport viewport =
+	VkViewport viewport
 	{
 		.x = 0.0f,
 		.y = 0.0f,
@@ -359,7 +359,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	// 'Crop' the image
-	VkRect2D scissor =
+	VkRect2D scissor
 	{
 		.offset = {0, 0},
 		.extent = _vulkanCore->GetExtent()
@@ -446,7 +446,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 
 	// Pipeline layout
 	// Specify uniform values
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo =
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,

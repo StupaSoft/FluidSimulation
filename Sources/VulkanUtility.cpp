@@ -25,7 +25,7 @@ uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, co
 
 Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage, VkMemoryPropertyFlags bufferProperties)
 {
-	VkBufferCreateInfo bufferInfo =
+	VkBufferCreateInfo bufferInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 		.size = bufferSize, // The size of the buffer in bytes
@@ -44,11 +44,10 @@ Buffer CreateBuffer(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, VkD
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(logicalDevice, bufferHandle, &memRequirements); // Query memory requirements
 
-	VkMemoryAllocateInfo allocInfo =
+	VkMemoryAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.allocationSize = memRequirements.size,
-		// VK_MEMORY_PROPERTY_HOST_COHERENT_BIT - Create a memory heap that is host-coherent.
 		.memoryTypeIndex = FindMemoryType(physicalDevice, memRequirements.memoryTypeBits, bufferProperties)
 	};
 
@@ -132,7 +131,7 @@ void CopyMemoryToBuffers(VkPhysicalDevice physicalDevice, VkDevice logicalDevice
 
 VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool)
 {
-	VkCommandBufferAllocateInfo allocInfo =
+	VkCommandBufferAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.commandPool = commandPool,
@@ -140,10 +139,10 @@ VkCommandBuffer BeginSingleTimeCommands(VkDevice logicalDevice, VkCommandPool co
 		.commandBufferCount = 1
 	};
 
-	VkCommandBuffer commandBuffer;
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
 	vkAllocateCommandBuffers(logicalDevice, &allocInfo, &commandBuffer);
 
-	VkCommandBufferBeginInfo beginInfo =
+	VkCommandBufferBeginInfo beginInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT // This buffer is going to be used just once.
@@ -159,7 +158,7 @@ void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, Vk
 	vkEndCommandBuffer(commandBuffer);
 
 	// Execute the command buffer to complete the transfer
-	VkSubmitInfo submitInfo =
+	VkSubmitInfo submitInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.commandBufferCount = 1,
@@ -174,7 +173,7 @@ void EndSingleTimeCommands(VkDevice logicalDevice, VkCommandPool commandPool, Vk
 
 void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, Buffer buffer, Image image, uint32_t width, uint32_t height)
 {
-	VkBufferImageCopy region =
+	VkBufferImageCopy region
 	{
 		.bufferOffset = 0,
 		.bufferRowLength = 0, // Pixels are tightly packed
@@ -200,7 +199,7 @@ void CopyBufferToImage(VkDevice logicalDevice, VkCommandPool commandPool, VkQueu
 Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkMemoryPropertyFlags memoryProperties, VkImageAspectFlags aspectFlags)
 {
 	// Create an image object
-	VkImageCreateInfo imageInfo =
+	VkImageCreateInfo imageInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 		.flags = 0,
@@ -233,7 +232,7 @@ Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint3
 	VkMemoryRequirements memRequirements;
 	vkGetImageMemoryRequirements(logicalDevice, imageHandle, &memRequirements);
 
-	VkMemoryAllocateInfo allocInfo =
+	VkMemoryAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
 		.allocationSize = memRequirements.size,
@@ -281,7 +280,7 @@ Image CreateImage(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, uint3
 
 VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code)
 {
-	VkShaderModuleCreateInfo createInfo =
+	VkShaderModuleCreateInfo createInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 		.codeSize = code.size(),
@@ -369,7 +368,7 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::wstrin
 	{
 		for (const auto &index : shape.mesh.indices)
 		{
-			Vertex vertex =
+			Vertex vertex
 			{
 				.pos =
 				{
@@ -456,7 +455,7 @@ std::tuple<Image, uint32_t> CreateTextureImage(VkPhysicalDevice physicalDevice, 
 
 	// Image memory barriers are generally used to synchronize access to resources, but it can also be used to transition
 	// image layouts and transfer queue family ownership when VK_SHARING_MODE_EXCLUSIVE is used.
-	VkImageMemoryBarrier barrier =
+	VkImageMemoryBarrier barrier
 	{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 
@@ -512,7 +511,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 	// repeatedly blit a source image to a smaller one
 	VkCommandBuffer commandBuffer = BeginSingleTimeCommands(logicalDevice, commandPool);
 
-	VkImageMemoryBarrier barrier =
+	VkImageMemoryBarrier barrier
 	{
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
@@ -544,9 +543,9 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 		vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier); // Wait for level i - 1 to be filled with previous blit command or vkCmdCopyBufferToImage
 
 		// Blit area
-		VkImageBlit blit =
+		VkImageBlit blit
 		{
-			.srcSubresource =
+			.srcSubresource = 
 			{
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 				.mipLevel = i - 1,
@@ -554,7 +553,7 @@ void GenerateMipmaps(VkPhysicalDevice physicalDevice, VkDevice logicalDevice, Vk
 				.layerCount = 1
 			},
 			.srcOffsets = { { 0, 0, 0 }, { mipWidth, mipHeight, 1 } },
-			.dstSubresource =
+			.dstSubresource = 
 			{
 				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
 				.mipLevel = i,
@@ -638,7 +637,7 @@ std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalD
 	return std::make_tuple(computePipeline, computePipelineLayout);
 }
 
-size_t DivisionCeil(size_t x, size_t y) 
+uint32_t DivisionCeil(uint32_t x, uint32_t y)
 { 
 	return (x + y - 1) / y; 
 };
