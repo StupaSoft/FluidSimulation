@@ -65,16 +65,16 @@ public:
 		_invalidatedListenerCount = 0;
 	}
 
-	void RemoveListener(size_t id)
+	void RemoveListener(size_t registerID)
 	{
-		auto itListener = std::find_if(_listeners.begin(), _listeners.end(), [id](const auto &listener) { return listener->GetID() == id; });
+		auto itListener = std::find_if(_listeners.begin(), _listeners.end(), [registerID](const auto &listener) { return listener->GetRegisterID() == registerID; });
 		if (itListener != _listeners.end())
 		{
 			(*itListener)->Invalidate();
 			++_invalidatedListenerCount;
 		}
 
-		auto itReserved = std::find_if(_reservedAdditions.begin(), _reservedAdditions.end(), [id](const auto &listener) { return listener->GetID() == id; });
+		auto itReserved = std::find_if(_reservedAdditions.begin(), _reservedAdditions.end(), [registerID](const auto &listener) { return listener->GetRegisterID() == registerID; });
 		if (itReserved != _reservedAdditions.end())
 		{
 			_reservedAdditions.erase(itReserved);
@@ -142,7 +142,7 @@ template<typename TReturn, typename... TArgs>
 class ListenerBase<TReturn(TArgs...)>
 {
 public:
-	virtual size_t GetID() const = 0;
+	virtual size_t GetRegisterID() const = 0;
 	virtual bool IsAlive() const = 0;
 	virtual bool IsInvalidated() const = 0;
 	virtual void Invalidate() = 0;
@@ -153,17 +153,17 @@ template<typename TListener, typename TFunc, typename TReturn, typename... TArgs
 class Listener<TListener, TFunc, TReturn(TArgs...)> : public ListenerBase<TReturn(TArgs...)>
 {
 private:
-	size_t _id;
+	size_t _registerID;
 	std::weak_ptr<TListener> _listener = nullptr;
 	TFunc _callback;
 	bool _invalidated = false;
 
 public:
-	Listener(size_t id, const std::weak_ptr<TListener> &listener, TFunc callback) : _id(id), _listener(listener), _callback(callback) {}
+	Listener(size_t registerID, const std::weak_ptr<TListener> &listener, TFunc callback) : _registerID(registerID), _listener(listener), _callback(callback) {}
 
-	size_t GetID() const override
+	size_t GetRegisterID() const override
 	{
-		return _id;
+		return _registerID;
 	}
 
 	bool IsAlive() const override
@@ -191,24 +191,24 @@ template<typename T>
 class DelegateRegistrable : public std::enable_shared_from_this<DelegateRegistrable<T>>
 {
 private:
-	size_t _uid = -1;
-	static inline size_t _staticUID = -1;
+	size_t _UID = -1;
+	static inline size_t _accumulatedUID = -1;
 
 public:
 	template<typename TDerived, typename... TArgs>
 	static std::shared_ptr<TDerived> Instantiate(TArgs&&... args)
 	{
-		++_staticUID;
+		++_accumulatedUID;
 
 		auto ptr = std::make_shared<TDerived>(std::forward<TArgs>(args)...);
-		ptr->_uid = _staticUID;
+		ptr->_UID = _accumulatedUID;
 		ptr->Register();
 
 		return ptr;
 	}
 
 	virtual void Register() {};
-	size_t GetListenerUID() { return _uid; }
+	size_t GetListenerUID() { return _UID; }
 };
 
 
