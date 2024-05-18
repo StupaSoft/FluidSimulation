@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ComputeBase.h"
-#include "VulkanStructs.h"
+#include "VulkanResources.h"
 #include "DescriptorHelper.h"
 
 class BillboardsCompute : public ComputeBase
@@ -20,7 +20,7 @@ private:
 	VkPipelineLayout _populatingPipelineLayout = VK_NULL_HANDLE;
 
 public:
-	BillboardsCompute(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount, const Buffer &vertexOutputBuffer);
+	BillboardsCompute(const std::vector<Buffer> &inputBuffers, size_t particleCount, const Buffer &vertexOutputBuffer);
 	virtual ~BillboardsCompute();
 
 	const auto &GetParticlePositionBuffers() { return _particlePositionInputBuffers; }

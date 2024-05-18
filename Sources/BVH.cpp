@@ -387,11 +387,11 @@ std::tuple<uint32_t, glm::vec3, glm::vec3> BVH::GetTargetAxisAndMinMaxCentroid(c
 	return std::make_tuple(targetAxis, minCentroid, maxCentroid);
 }
 
-void BVH::DrawBoundingBoxes(const std::shared_ptr<VulkanCore> &vulkanCore, uint32_t nodeIndex, bool includeDescendants)
+void BVH::DrawBoundingBoxes(uint32_t nodeIndex, bool includeDescendants)
 {
 	if (_meshModel == nullptr)
 	{
-		_meshModel = MeshModel::Instantiate<MeshModel>(vulkanCore);
+		_meshModel = MeshModel::Instantiate<MeshModel>();
 
 		// 2 3
 		// 0 1

@@ -33,7 +33,7 @@
 class WindowApplication
 {
 private:
-	std::shared_ptr<VulkanCore> _vulkanCore;
+	VulkanCore *_vulkanCore;
 	std::shared_ptr<SimulatedSceneBase> _simulatedScene;
 
 public:

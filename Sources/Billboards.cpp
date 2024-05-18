@@ -1,7 +1,6 @@
 #include "Billboards.h"
 
-Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount) :
-	_vulkanCore(vulkanCore)
+Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleCount)
 {
 	_particleCount = particleCount;
 
@@ -9,24 +8,12 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 	uint32_t indexCount = static_cast<uint32_t>(_particleCount * INDICES_IN_PARTICLE.size());
 
 	// Buffers
-	_vertexBuffer = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		static_cast<uint32_t>(sizeof(Vertex) * vertexCount),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_vertexBuffer = CreateBuffer(static_cast<uint32_t>(sizeof(Vertex) * vertexCount), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	_indexBuffer = CreateBuffer(static_cast<uint32_t>(sizeof(uint32_t) * indexCount), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	memory->Bind({ _vertexBuffer, _indexBuffer });
 
-	_indexBuffer = CreateBuffer
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		static_cast<uint32_t>(sizeof(uint32_t) * indexCount),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
+	// Vertices and indices
 	_billboardVertices.clear();
 	_billboardVertices.resize(vertexCount);
 	_billboardIndices.clear();
@@ -49,14 +36,14 @@ Billboards::Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 		}
 	}
 
-	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardVertices.data(), _vertexBuffer, 0);
-	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardIndices.data(), _indexBuffer, 0);
+	_vertexBuffer->CopyFrom(_billboardVertices.data());
+	_indexBuffer->CopyFrom(_billboardIndices.data());
 
 	// Cmpute
-	_compute = BillboardsCompute::Instantiate<BillboardsCompute>(vulkanCore, inputBuffers, _particleCount, _vertexBuffer);
+	_compute = BillboardsCompute::Instantiate<BillboardsCompute>(inputBuffers, _particleCount, _vertexBuffer);
 
 	// Presentation mesh
-	_meshModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
+	_meshModel = MeshModel::Instantiate<MeshModel>();
 	_meshModel->LoadPipeline(L"Shaders/Rendering/ParticleVertex.spv", L"Shaders/Rendering/ParticleFragment.spv");
 	_meshModel->SetMeshBuffers(_vertexBuffer, _indexBuffer);
 
@@ -86,5 +73,5 @@ void Billboards::UpdateRadius(float particleRadius)
 		}
 	}
 
-	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _billboardVertices.data(), _vertexBuffer, 0);
+	_vertexBuffer->CopyFrom(_billboardVertices.data());
 }

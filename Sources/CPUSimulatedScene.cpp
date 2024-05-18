@@ -1,14 +1,8 @@
 #include "CPUSimulatedScene.h"
 
-CPUSimulatedScene::CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) :
-	SimulatedSceneBase(vulkanCore)
-{
-
-}
-
 void CPUSimulatedScene::Register()
 {
-	_vulkanCore->OnExecuteHost().AddListener
+	VulkanCore::Get()->OnExecuteHost().AddListener
 	(
 		weak_from_this(),
 		[this](float deltaSecond, uint32_t currentFrame)
@@ -76,15 +70,7 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	);
 
 	// Initialize renderers (marching cubes and billboards)
-	_particlePositionInputBuffers = CreateBuffers
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(glm::vec3) * _particleCount,
-		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-	);
+	_particlePositionInputBuffers = CreateBuffers(sizeof(glm::vec3) * _particleCount, VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 	InitializeRenderers(_particlePositionInputBuffers, _particleCount);
 	
 	// Launch
@@ -295,5 +281,5 @@ void CPUSimulatedScene::UpdateDensities()
 // Reflect the particle positions to the render system
 void CPUSimulatedScene::Applypositions()
 {
-	CopyMemoryToBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _positions.data(), _particlePositionInputBuffers[_vulkanCore->GetCurrentFrame()], 0);
+	_particlePositionInputBuffers[VulkanCore::Get()->GetCurrentFrame()]->CopyFrom(_positions.data());
 }

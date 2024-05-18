@@ -94,7 +94,7 @@ private:
 	static const std::vector<uint32_t> INDICES_TABLE;
 
 public:
-	MarchingCubesCompute(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid);
+	MarchingCubesCompute(const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid);
 	virtual ~MarchingCubesCompute();
 
 	void UpdateParticleProperty(const SimulationParameters &simulationParameters);

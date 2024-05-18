@@ -1,18 +1,9 @@
 #include "MeshObject.h"
 
-MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std::shared_ptr<std::vector<Triangle>> &triangles) :
-	_vulkanCore(vulkanCore),
+MeshObject::MeshObject(const std::shared_ptr<std::vector<Triangle>> &triangles) :
 	_triangles(triangles)
 {
-	_mvpBuffers = CreateBuffers
-	(
-		_vulkanCore->GetPhysicalDevice(), 
-		_vulkanCore->GetLogicalDevice(), 
-		sizeof(MVP),
-		_vulkanCore->GetMaxFramesInFlight(), 
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
+	_mvpBuffers = CreateBuffers(sizeof(MVP), VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	SetPosition(glm::vec3());
 	SetRotation(glm::vec3());
@@ -20,7 +11,7 @@ MeshObject::MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std:
 
 void MeshObject::Register()
 {
-	_vulkanCore->OnRecreateSwapChain().AddListener
+	VulkanCore::Get()->OnRecreateSwapChain().AddListener
 	(
 		weak_from_this(),
 		[this]()
@@ -29,7 +20,7 @@ void MeshObject::Register()
 		}
 	);
 
-	auto &mainCamera = _vulkanCore->GetMainCamera();
+	auto &mainCamera = VulkanCore::Get()->GetMainCamera();
 	SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
 	mainCamera->OnChanged().AddListener
 	(
@@ -100,7 +91,10 @@ void MeshObject::ApplyModelTransformation()
 
 	auto copyOffset = 0;
 	auto copySize = sizeof(MVP::_model);
-	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &mvp, _mvpBuffers, copyOffset, copySize);
+	for (auto &mvpBuffer : _mvpBuffers)
+	{
+		mvpBuffer->CopyFrom(&mvp);
+	}
 
 	UpdateWorldTriangles(mvp._model);
 }
@@ -115,7 +109,10 @@ void MeshObject::SetCameraTransformation(const glm::mat4 &view, const glm::mat4 
 
 	auto copyOffset = offsetof(MVP, _view);
 	auto copySize = sizeof(MVP) - copyOffset;
-	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &mvp, _mvpBuffers, copyOffset, copySize);
+	for (auto &mvpBuffer : _mvpBuffers)
+	{
+		mvpBuffer->CopyFrom(&mvp, copyOffset, copySize);
+	}
 }
 
 void MeshObject::UpdateWorldTriangles(const glm::mat4 &model)

@@ -27,7 +27,7 @@ enum class ParticleRenderingMode
 class SimulatedSceneBase : public DelegateRegistrable<SimulatedSceneBase>
 {
 protected:
-	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
+	
 
 	glm::uvec3 _gridDimension = glm::uvec3(64, 64, 64);
 	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
@@ -47,8 +47,6 @@ protected:
 	std::vector<std::shared_ptr<MeshModel>> _propModels;
 
 public:
-	SimulatedSceneBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
-
 	Billboards *GetBillboards() { return _billboards.get(); }
 	MarchingCubes *GetMarchingCubes() { return _marchingCubes.get(); }
 

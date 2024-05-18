@@ -53,6 +53,7 @@
     <ClCompile Include="Sources\UIModel.cpp" />
     <ClCompile Include="Sources\Vertex.cpp" />
     <ClCompile Include="Sources\VulkanCore.cpp" />
+    <ClCompile Include="Sources\VulkanResources.cpp" />
     <ClCompile Include="Sources\VulkanUtility.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -90,7 +91,7 @@
     <ClInclude Include="Sources\UIModel.h" />
     <ClInclude Include="Sources\Vertex.h" />
     <ClInclude Include="Sources\VulkanCore.h" />
-    <ClInclude Include="Sources\VulkanStructs.h" />
+    <ClInclude Include="Sources\VulkanResources.h" />
     <ClInclude Include="Sources\VulkanUtility.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

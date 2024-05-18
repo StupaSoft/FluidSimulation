@@ -28,7 +28,7 @@ void HashGrid::UpdateGrid(const std::vector<glm::vec3> &positions)
 		size_t key = PositionToHashKey(positions[particleIndex]);
 
 		#pragma omp critical
-		_buckets[key].push_back(particleIndex); // Store the index of the particle
+		_buckets[key].push_back(static_cast<uint32_t>(particleIndex)); // Store the index of the particle
 	}
 
 	// 2. Update the neighbor list
@@ -48,7 +48,7 @@ void HashGrid::UpdateGrid(const std::vector<glm::vec3> &positions)
 				{
 					if (glm::distance(positions[particleIndex], positions[neighborIndex]) <= _gridSpacing)
 					{
-						_neighbors[particleIndex].push_back(neighborIndex);
+						_neighbors[particleIndex].push_back(static_cast<uint32_t>(neighborIndex));
 					}
 				}
 			}

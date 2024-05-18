@@ -1,4 +1,5 @@
 #include "VulkanCore.h"
+#include "VulkanResources.h"
 
 // ======================================== Interface ========================================
 VulkanCore::~VulkanCore()
@@ -6,8 +7,11 @@ VulkanCore::~VulkanCore()
 	CleanUp();
 }
 
-void VulkanCore::InitVulkan()
+void VulkanCore::InitVulkan(GLFWwindow *window)
 {
+	// Initialize the window
+	_window = window;
+
 	// Global resources
 	_instance = CreateInstance(ENABLE_VALIDATION_LAYERS, VALIDATION_LAYERS);
 
@@ -247,6 +251,7 @@ void VulkanCore::CleanUp()
 		vkDestroyFence(_logicalDevice, _computeInFlightFences[i], nullptr);
 	}
 
+	vkDestroyCommandPool(_logicalDevice, _computeCommandPool, nullptr);
 	vkDestroyCommandPool(_logicalDevice, _graphicsCommandPool, nullptr);
 	vkDestroyDevice(_logicalDevice, nullptr);
 
@@ -649,8 +654,7 @@ std::tuple<VkSwapchainKHR, std::vector<Image>, VkFormat, VkExtent2D> VulkanCore:
 			throw std::runtime_error("Failed to create a texture image view.");
 		}
 
-		Image swapChainImage(new ImageMemoryView{ logicalDevice, swapChainImageHandles[i], VK_NULL_HANDLE, swapChainImageView}, ImageDeleter());
-
+		Image swapChainImage = CreateSwapchainImage(swapChainImageHandles[i], swapChainImageView);
 		swapChainImages.emplace_back(swapChainImage);
 	}
 
@@ -775,6 +779,7 @@ void VulkanCore::RecreateSwapChain()
 
 void VulkanCore::CleanUpSwapChain()
 {
+	// Explicitly clean up images, otherwise they will be released only after the device is destroyed in the destructor.
 	_depthImage.reset();
 	_colorImage.reset();
 
@@ -785,10 +790,8 @@ void VulkanCore::CleanUpSwapChain()
 
 	for (auto &swapChainImage : _swapChainImages)
 	{
-		swapChainImage->_image = VK_NULL_HANDLE; // Do not explicitly destroy image views
-		swapChainImage.reset(); // Explicitly destroy image views, unlike images
+		swapChainImage.reset();
 	}
-
 
 	vkDestroySwapchainKHR(_logicalDevice, _swapChain, nullptr);
 }
@@ -924,8 +927,8 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice
 		// Provide corresponding attachements
 		// { _depthImageView, _colorImageView, _swapChainImageViews[i] }
 		std::vector<VkImageView> attachments(additionalImages.size());
-		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->_imageView; }); // 4. Extract the names of extensions
-		attachments.push_back(swapChainImages[i]->_imageView);
+		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->GetImageView(); }); // 4. Extract the names of extensions
+		attachments.push_back(swapChainImages[i]->GetImageView());
 
 		VkFramebufferCreateInfo framebufferInfo
 		{
@@ -1130,19 +1133,9 @@ std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSem
 Image VulkanCore::CreateDepthResources(VkExtent2D swapChainExtent)
 {
 	VkFormat depthFormat = FindSupportedFormat(_physicalDevice, { VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT }, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT); // Find suitable format for a depth image
-	return CreateImage
-	(	
-		_physicalDevice,
-		_logicalDevice,
-		swapChainExtent.width,
-		swapChainExtent.height,
-		1,
-		GetMaxUsableSampleCount(_physicalDevice),
-		depthFormat,
-		VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-		VK_IMAGE_ASPECT_DEPTH_BIT
-	);
+	Image depthImage = CreateImage(swapChainExtent.width, swapChainExtent.height, 1, GetMaxUsableSampleCount(_physicalDevice), depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_IMAGE_ASPECT_DEPTH_BIT);
+	
+	return depthImage;
 }
 
 VkFormat VulkanCore::FindSupportedFormat(VkPhysicalDevice physicalDevice, const std::vector<VkFormat> &candidates, VkImageTiling tiling, VkFormatFeatureFlags desiredFeatures)
@@ -1168,10 +1161,8 @@ VkFormat VulkanCore::FindSupportedFormat(VkPhysicalDevice physicalDevice, const 
 // Since there is only one ongoing rendering operation, create only one such buffer.
 Image VulkanCore::CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D swapChainExtent)
 {
-	return CreateImage
-	(	
-		_physicalDevice,
-		_logicalDevice,
+	Image colorImage = CreateImage
+	(
 		swapChainExtent.width,
 		swapChainExtent.height,
 		1,
@@ -1181,7 +1172,50 @@ Image VulkanCore::CreateColorResources(VkFormat swapChainImageFormat, VkExtent2D
 		// Texels are laid out in an implementation-defined order for optimal access.
 		VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, // Will be used as a color attachment
 		// VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT - Will stay on the GPU and not accessible by the CPU
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT
 	);
+
+	return colorImage;
+}
+
+VkCommandBuffer VulkanCore::BeginSingleTimeCommands(VkCommandPool commandPool)
+{
+	VkCommandBufferAllocateInfo allocInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+		.commandPool = commandPool,
+		.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+		.commandBufferCount = 1
+	};
+
+	VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+	vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+		.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT // This buffer is going to be used just once.
+	};
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void VulkanCore::EndSingleTimeCommands(VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	// Execute the command buffer to complete the transfer
+	VkSubmitInfo submitInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &commandBuffer
+	};
+
+	vkQueueSubmit(submitQueue, 1, &submitInfo, VK_NULL_HANDLE); // Submit to the queue
+	vkQueueWaitIdle(submitQueue); // Wait for operations in the command queue to be finished.
+
+	vkFreeCommandBuffers(_logicalDevice, commandPool, 1, &commandBuffer);
 }

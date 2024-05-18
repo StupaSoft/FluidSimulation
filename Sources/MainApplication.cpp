@@ -7,19 +7,19 @@ void WindowApplication::Run()
 {
 	_window = InitMainWindow(INIT_WIDTH, INIT_HEIGHT, "Fluid Simulation");
 
-	_vulkanCore = std::make_shared<VulkanCore>(_window);
-	_vulkanCore->InitVulkan();
+	_vulkanCore = VulkanCore::Get();
+	_vulkanCore->InitVulkan(_window);
 	_vulkanCore->SetUpScene();
 
 	//_simulatedScene = CPUSimulatedScene::Instantiate<CPUSimulatedScene>(_vulkanCore);
-	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>(_vulkanCore);
+	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>();
 	//_simulatedScene->AddProp(L"Models/Hemisphere.obj", "", true, true);
 	//_simulatedScene->AddProp(L"Models/Filter.obj", "", true, true);
 	//_simulatedScene->AddProp(L"Models/Bath.obj", "", true, true, RenderMode::Wireframe); // Temp
 	//_simulatedScene->AddProp(L"Models/Obstacle.obj", "", true, true, RenderMode::Wireframe); // Temp
 	_simulatedScene->AddProp(L"Models/Rocky.obj", L"Textures/Brown.png", true, true);
 
-	auto interfaceModel = UIModel::Instantiate<UIModel>(_vulkanCore);
+	auto interfaceModel = UIModel::Instantiate<UIModel>();
 	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);
 	interfaceModel->AddPanel<RenderingPanel>(_simulatedScene);
 
@@ -58,7 +58,7 @@ void WindowApplication::MainLoop()
 
 void WindowApplication::Resize()
 {
-	_vulkanCore->Resize();
+	VulkanCore::Get()->Resize();
 }
 
 // Window resize callback

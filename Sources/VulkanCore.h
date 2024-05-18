@@ -31,7 +31,9 @@
 #include "Delegate.h"
 #include "Camera.h"
 #include "DirectionalLight.h"
-#include "VulkanStructs.h"
+
+class ImageResource;
+using Image = std::shared_ptr<ImageResource>;
 
 struct SwapChainSupportDetails
 {
@@ -53,13 +55,11 @@ struct QueueFamilyIndices
 	}
 };
 
-// ==================== Helper functions ====================
 class VulkanCore
 {
 private:
 	// ==================== Basic setup ====================
 	GLFWwindow *_window = nullptr;
-
 	VkInstance _instance = VK_NULL_HANDLE; // Connection between the application and the Vulkan library
 
 	// ==================== ValidationLayer ====================
@@ -147,14 +147,19 @@ private:
 	Delegate<void()> _onRecreateSwapChain;
 
 public:
-	explicit VulkanCore(GLFWwindow *window) : _window(window) {}
+	static VulkanCore *Get() 
+	{
+		static VulkanCore vulkanCore;
+		return &vulkanCore;
+	}
+
 	VulkanCore(const VulkanCore &other) = delete;
 	VulkanCore(VulkanCore &&other) = default;
 	VulkanCore &operator=(const VulkanCore &other) = delete;
 	VulkanCore &operator=(VulkanCore &&other) = default;
 	virtual ~VulkanCore();
 
-	void InitVulkan();
+	void InitVulkan(GLFWwindow *window);
 	void UpdateFrame(float deltaSecond);
 	void Resize() { _framebufferResized = true; }
 
@@ -174,7 +179,8 @@ public:
 	auto GetSwapChainImageCount() const { return _swapChainImages.size(); }
 	auto GetRenderPass() const { return _renderPass; }
 	auto GetExtent() const { return _swapChainExtent; }
-	auto GetCommandPool() const { return _graphicsCommandPool; }
+	auto GetGraphicsCommandPool() const { return _graphicsCommandPool; }
+	auto GetComputeCommandPool() const { return _computeCommandPool; }
 	auto GetMaxFramesInFlight() const { return MAX_FRAMES_IN_FLIGHT; }
 	auto GetCurrentFrame() const { return _currentFrame; }
 
@@ -186,7 +192,14 @@ public:
 	auto &OnDrawCommand() { return _onRecordDrawCommand; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
 
+	// ==================== Utility ====================
+	VkCommandBuffer BeginSingleTimeCommands(VkCommandPool commandPool);
+	void EndSingleTimeCommands(VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
+
 private:
+	// ==================== Singleton ====================
+	VulkanCore() = default;
+
 	// ==================== Setup / Cleanup ====================
 	VkInstance CreateInstance(bool enableValidationLayers, const std::vector<const char *> &validationLayers);
 	void CleanUp();

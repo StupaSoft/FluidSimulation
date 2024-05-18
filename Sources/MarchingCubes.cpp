@@ -1,11 +1,10 @@
 #include "MarchingCubes.h"
 
-MarchingCubes::MarchingCubes(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid) :
-	_vulkanCore(vulkanCore)
+MarchingCubes::MarchingCubes(const std::vector<Buffer> &inputBuffers, size_t particleCount, const MarchingCubesGrid &marchingCubesGrid)
 {
-	_compute = MarchingCubesCompute::Instantiate<MarchingCubesCompute>(_vulkanCore, inputBuffers, particleCount, marchingCubesGrid);
+	_compute = MarchingCubesCompute::Instantiate<MarchingCubesCompute>(inputBuffers, particleCount, marchingCubesGrid);
 
-	_meshModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
+	_meshModel = MeshModel::Instantiate<MeshModel>();
 	_meshModel->SetMeshBuffers(_compute->GetVertexBuffer(), _compute->GetIndexBuffer());
 	_meshModel->LoadPipeline(L"Shaders/Rendering/StandardVertex.spv", L"Shaders/Rendering/StandardFragment.spv");
 

@@ -127,7 +127,7 @@ private:
 	VkPipelineLayout _endTimeStepPipelineLayout = VK_NULL_HANDLE;
 
 public:
-	SimulationCompute(const std::shared_ptr<VulkanCore> &vulkanCore, glm::uvec3 gridDimension);
+	SimulationCompute(glm::uvec3 gridDimension);
 	virtual void Register() override;
 	virtual ~SimulationCompute();
 

@@ -50,15 +50,9 @@ private:
 	std::vector<Vertex> _vertices;
 	Buffer _vertexBuffer;
 
-	void *_vertexOnHost;
-	Buffer _vertexStagingBuffer;
-
 	// ==================== Index input ====================
 	std::vector<uint32_t> _indices;
 	Buffer _indexBuffer;
-
-	void *_indexOnHost;
-	Buffer _indexStagingBuffer;
 
 	// ==================== Triangles ====================
 	std::shared_ptr<std::vector<Triangle>> _triangles = std::make_shared<std::vector<Triangle>>(); // Triangles in the model space
@@ -85,7 +79,7 @@ private:
 	std::vector<Buffer> _materialBuffers;
 
 public:
-	explicit MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore);
+	MeshModel();
 	virtual ~MeshModel();
 
 	virtual void Register() override;
@@ -118,4 +112,6 @@ private:
 
 	void ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 	void ApplyMaterialAdjustment();
+
+	std::tuple<Image, uint32_t> CreateTextureImage(const std::wstring &texturePath);
 };

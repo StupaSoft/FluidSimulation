@@ -9,8 +9,6 @@ class Billboards
 private:
 	size_t _particleCount = 0;
 
-	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
-
 	std::shared_ptr<BillboardsCompute> _compute = nullptr;
 
 	std::shared_ptr<MeshModel> _meshModel = nullptr;
@@ -28,7 +26,7 @@ private:
 	const std::vector<uint32_t> INDICES_IN_PARTICLE{ 0, 1, 2, 0, 2, 3 };
 
 public:
-	Billboards(const std::shared_ptr<VulkanCore> &vulkanCore, const std::vector<Buffer> &inputBuffers, size_t particleCount);
+	Billboards(const std::vector<Buffer> &inputBuffers, size_t particleCount);
 
 	void SetEnable(bool enable);
 

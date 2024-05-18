@@ -32,7 +32,6 @@ private:
 	bool _isPlaying = false;
 
 public:
-	CPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore);
 	virtual void Register() override;
 
 	virtual void InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange) override;

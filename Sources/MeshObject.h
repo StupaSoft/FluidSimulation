@@ -10,8 +10,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include "VulkanUtility.h"
 #include "VulkanCore.h"
+#include "VulkanUtility.h"
+#include "VulkanResources.h"
 #include "Camera.h"
 #include "Triangle.h"
 
@@ -29,8 +30,6 @@ public:
 	};
 
 private:
-	std::shared_ptr<VulkanCore> _vulkanCore;
-
 	bool _isVisible = true;
 	bool _isCollidable = true;
 
@@ -47,7 +46,7 @@ private:
 	std::vector<Triangle> _worldTriangles; // Triangles in the world space
 
 public:
-	explicit MeshObject(const std::shared_ptr<VulkanCore> &vulkanCore, const std::shared_ptr<std::vector<Triangle>> &triangles);
+	explicit MeshObject(const std::shared_ptr<std::vector<Triangle>> &triangles);
 	MeshObject(const MeshObject &other) = delete;
 	MeshObject(MeshObject &&other) = default;
 	MeshObject &operator=(const MeshObject &other) = delete;

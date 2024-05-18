@@ -4,7 +4,7 @@ void SimulatedSceneBase::AddProp(const std::wstring &OBJPath, const std::wstring
 {
 	auto obj = LoadOBJ(OBJPath);
 
-	auto propModel = MeshModel::Instantiate<MeshModel>(_vulkanCore);
+	auto propModel = MeshModel::Instantiate<MeshModel>();
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
 	propModel->LoadPipeline(L"Shaders/Rendering/StandardVertex.spv", L"Shaders/Rendering/StandardFragment.spv", renderMode);
 	propModel->LoadTexture(texturePath);
@@ -26,7 +26,7 @@ void SimulatedSceneBase::SetParticleRenderingMode(ParticleRenderingMode particle
 void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuffers, size_t particleCount)
 {
 	// Initialize renderers
-	_billboards = std::make_unique<Billboards>(_vulkanCore, inputBuffers, particleCount);
+	_billboards = std::make_unique<Billboards>(inputBuffers, particleCount);
 	_billboards->UpdateRadius(_simulationParameters->_particleRadius);
 
 	MarchingCubesGrid marchingCubesGrid // Temp
@@ -37,7 +37,7 @@ void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuf
 		._voxelInterval = 0.05f
 	};
 
-	_marchingCubes = std::make_unique<MarchingCubes>(_vulkanCore, inputBuffers, particleCount, marchingCubesGrid);
+	_marchingCubes = std::make_unique<MarchingCubes>(inputBuffers, particleCount, marchingCubesGrid);
 	_marchingCubes->GetCompute()->UpdateParticleProperty(*_simulationParameters);
 	_marchingCubes->SetEnable(false);
 	

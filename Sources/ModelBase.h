@@ -12,11 +12,10 @@
 class ModelBase : public DelegateRegistrable<ModelBase>
 {
 protected:
-	std::shared_ptr<VulkanCore> _vulkanCore;
 	size_t _eventID = 0;
 
 public:
-	ModelBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
+	ModelBase() = default;
 	ModelBase(const ModelBase &other) = delete;
 	ModelBase(ModelBase &&other) = default;
 	ModelBase &operator=(const ModelBase &other) = delete;

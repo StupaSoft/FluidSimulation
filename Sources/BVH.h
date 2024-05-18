@@ -73,7 +73,7 @@ public:
 	bool Construct();
 	bool GetIntersection(glm::vec3 currentPosition, glm::vec3 nextPosition, Intersection *intersection);
 
-	void DrawBoundingBoxes(const std::shared_ptr<VulkanCore> &vulkanCore, uint32_t nodeIndex, bool includeDescendants);
+	void DrawBoundingBoxes(uint32_t nodeIndex, bool includeDescendants);
 
 	auto &GetNodes() { return _nodes; }
 

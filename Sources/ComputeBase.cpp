@@ -1,9 +1,5 @@
 #include "ComputeBase.h"
 
-ComputeBase::ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) 
-{
-}
-
 void ComputeBase::Register()
 {
 	SetEnable(true);
@@ -13,7 +9,7 @@ void ComputeBase::SetEnable(bool enable)
 {
 	if (enable)
 	{
-		_commandRegisterID = _vulkanCore->OnComputeCommand().AddListener
+		_commandRegisterID = VulkanCore::Get()->OnComputeCommand().AddListener
 		(
 			weak_from_this(),
 			[this](VkCommandBuffer computeCommandBuffer, size_t currentFrame)
@@ -26,6 +22,6 @@ void ComputeBase::SetEnable(bool enable)
 	}
 	else
 	{
-		_vulkanCore->OnComputeCommand().RemoveListener(_commandRegisterID);
+		VulkanCore::Get()->OnComputeCommand().RemoveListener(_commandRegisterID);
 	}
 }

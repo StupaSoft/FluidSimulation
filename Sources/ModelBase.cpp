@@ -2,7 +2,7 @@
 
 void ModelBase::Register()
 {
-	_eventID = _vulkanCore->OnDrawCommand().AddListener
+	_eventID = VulkanCore::Get()->OnDrawCommand().AddListener
 	(
 		weak_from_this(),
 		[this](VkCommandBuffer commandBuffer, size_t currentFrame)

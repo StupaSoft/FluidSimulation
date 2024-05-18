@@ -1,10 +1,9 @@
 #include "UIModel.h"
 
-UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
-	ModelBase(vulkanCore)
+UIModel::UIModel()
 {
 	// Get ready
-	DescriptorHelper descriptorHelper(_vulkanCore);
+	DescriptorHelper descriptorHelper{};
 	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 });
 	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 });
 	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 });
@@ -26,24 +25,24 @@ UIModel::UIModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 	ImGui::StyleColorsDark(); // Setup Dear ImGui style
 
-	ImGui_ImplGlfw_InitForVulkan(_vulkanCore->GetWindow(), true);
+	ImGui_ImplGlfw_InitForVulkan(VulkanCore::Get()->GetWindow(), true);
 	ImGui_ImplVulkan_InitInfo initInfo =
 	{
-		.Instance = _vulkanCore->GetInstance(),
-		.PhysicalDevice = _vulkanCore->GetPhysicalDevice(),
-		.Device = _vulkanCore->GetLogicalDevice(),
-		.QueueFamily = _vulkanCore->GetGraphicsFamily(),
-		.Queue = _vulkanCore->GetGraphicsQueue(),
+		.Instance = VulkanCore::Get()->GetInstance(),
+		.PhysicalDevice = VulkanCore::Get()->GetPhysicalDevice(),
+		.Device = VulkanCore::Get()->GetLogicalDevice(),
+		.QueueFamily = VulkanCore::Get()->GetGraphicsFamily(),
+		.Queue = VulkanCore::Get()->GetGraphicsQueue(),
 		.PipelineCache = VK_NULL_HANDLE,
 		.DescriptorPool = _ImGuiDescriptorPool,
-		.MinImageCount = _vulkanCore->GetMinImageCount(),
-		.ImageCount = static_cast<uint32_t>(_vulkanCore->GetMinImageCount()),
+		.MinImageCount = VulkanCore::Get()->GetMinImageCount(),
+		.ImageCount = static_cast<uint32_t>(VulkanCore::Get()->GetMinImageCount()),
 		.MSAASamples = VK_SAMPLE_COUNT_8_BIT,
 		.Allocator = nullptr,
 		.CheckVkResultFn = nullptr
 	};
 
-	ImGui_ImplVulkan_Init(&initInfo, _vulkanCore->GetRenderPass());
+	ImGui_ImplVulkan_Init(&initInfo, VulkanCore::Get()->GetRenderPass());
 }
 
 void UIModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)
@@ -69,5 +68,5 @@ UIModel::~UIModel()
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
 
-	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _ImGuiDescriptorPool, nullptr);
+	vkDestroyDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), _ImGuiDescriptorPool, nullptr);
 }

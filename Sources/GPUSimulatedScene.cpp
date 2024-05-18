@@ -1,14 +1,9 @@
 #include "GPUSimulatedScene.h"
 
-GPUSimulatedScene::GPUSimulatedScene(const std::shared_ptr<VulkanCore> &vulkanCore) :
-	SimulatedSceneBase(vulkanCore)
-{
-}
-
 void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
 {
 	// Create a compute simulation module
-	_simulationCompute = SimulationCompute::Instantiate<SimulationCompute>(_vulkanCore, _gridDimension);
+	_simulationCompute = SimulationCompute::Instantiate<SimulationCompute>(_gridDimension);
 	_onUpdateSimulationParameters.AddListener
 	(
 		weak_from_this(),
@@ -51,16 +46,11 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	// We don't have to create multiple particle position buffers for frames in flight since those buffers will be only written and read by the GPU.
 	// We just reuse one buffer multiple times.
 	Buffer positionBuffer = _simulationCompute->GetPositionInputBuffer();
-	std::vector<Buffer> _particlePositionInputBuffers(_vulkanCore->GetMaxFramesInFlight(), positionBuffer);
+	std::vector<Buffer> _particlePositionInputBuffers(VulkanCore::Get()->GetMaxFramesInFlight(), positionBuffer);
 	InitializeRenderers(_particlePositionInputBuffers, particleCount);
 
 	// Launch
 	_simulationCompute->SetEnable(true);
 	ApplyRenderMode(_particleRenderingMode);
 	_onUpdateSimulationParameters.Invoke(*_simulationParameters);
-}
-
-void GPUSimulatedScene::AddProp(const std::wstring &OBJPath, const std::wstring &texturePath, bool isVisible, bool isCollidable, RenderMode renderMode)
-{
-	SimulatedSceneBase::AddProp(OBJPath, texturePath, isVisible, isCollidable, renderMode);
 }

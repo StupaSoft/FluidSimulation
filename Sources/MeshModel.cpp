@@ -1,31 +1,17 @@
+#define STB_IMAGE_IMPLEMENTATION
+#define STBI_WINDOWS_UTF8
+#include <stb_image.h>
+
 #include "MeshModel.h"
 #include "VulkanCore.h"
 
-MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) : 
-	ModelBase(vulkanCore)
+MeshModel::MeshModel()
 {
-	_descriptorHelper = std::make_unique<DescriptorHelper>(vulkanCore);
+	_descriptorHelper = std::make_unique<DescriptorHelper>();
 
 	// Create resources
-	_lightBuffers = CreateBuffers
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(Light),
-		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
-
-	_materialBuffers = CreateBuffers
-	(
-		_vulkanCore->GetPhysicalDevice(),
-		_vulkanCore->GetLogicalDevice(),
-		sizeof(Material),
-		_vulkanCore->GetMaxFramesInFlight(),
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
-	);
+	_lightBuffers = CreateBuffers(sizeof(Light), VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	_materialBuffers = CreateBuffers(sizeof(Material), VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
 	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
 
@@ -37,30 +23,27 @@ MeshModel::MeshModel(const std::shared_ptr<VulkanCore> &vulkanCore) :
 
 MeshModel::~MeshModel()
 {
-	vkDeviceWaitIdle(_vulkanCore->GetLogicalDevice());
+	vkDeviceWaitIdle(VulkanCore::Get()->GetLogicalDevice());
 
 	for (auto &meshObject : _meshObjects)
 	{
 		meshObject->CleanUp();
 	}
 
-	if (_vertexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer->_memory);
-	if (_indexStagingBuffer != nullptr) vkUnmapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer->_memory);
+	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _pipelineLayout, nullptr);
 
-	vkDestroyPipeline(_vulkanCore->GetLogicalDevice(), _graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(_vulkanCore->GetLogicalDevice(), _pipelineLayout, nullptr);
+	vkDestroySampler(VulkanCore::Get()->GetLogicalDevice(), _textureSampler, nullptr);
 
-	vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
-
-	vkDestroyDescriptorPool(_vulkanCore->GetLogicalDevice(), _descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), _descriptorSetLayout, nullptr);
+	vkDestroyDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), _descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), _descriptorSetLayout, nullptr);
 }
 
 void MeshModel::Register()
 {
 	ModelBase::Register();
 
-	auto &mainLight = _vulkanCore->GetMainLight();
+	auto &mainLight = VulkanCore::Get()->GetMainLight();
 	ApplyLightAdjustment(mainLight->GetDirection(), mainLight->GetColor(), mainLight->GetIntensity());
 	mainLight->OnChanged().AddListener
 	(
@@ -75,10 +58,10 @@ void MeshModel::Register()
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
-	VkBuffer vertexBuffers[] = { _vertexBuffer->_buffer };
+	VkBuffer vertexBuffers[] = { _vertexBuffer->GetBuffer()};
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
-	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->_buffer, 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
+	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 
 	if (_renderMode == RenderMode::Line) vkCmdSetLineWidth(commandBuffer, _lineWidth);
 
@@ -89,7 +72,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 		{
 			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffer, _indexBuffer->_size / sizeof(uint32_t), 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, _indexBuffer->Size() / sizeof(uint32_t), 1, 0, 0, 0);
 		}
 	}
 }
@@ -122,34 +105,32 @@ void MeshModel::LoadTexture(const std::wstring &texturePath)
 	// We have to free prior images
 	if (_textureSampler != VK_NULL_HANDLE)
 	{
-		vkDestroySampler(_vulkanCore->GetLogicalDevice(), _textureSampler, nullptr);
+		vkDestroySampler(VulkanCore::Get()->GetLogicalDevice(), _textureSampler, nullptr);
 	}
 
 	// Load a texture
 	std::wstring targetTexturePath = texturePath;
 	if (targetTexturePath.empty()) targetTexturePath = L"Textures/Fallback.png"; // Fallback texture
-	std::tie(_texture, _textureMipLevels) = CreateTextureImage(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), targetTexturePath);
+	std::tie(_texture, _textureMipLevels) = CreateTextureImage(targetTexturePath);
 	_textureSampler = CreateTextureSampler(_textureMipLevels);
 }
 
 void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices)
 {
-	// Create a vertex (creation, update)
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+	// Create a vertex
 	VkDeviceSize vertexBufferSize = sizeof(vertices[0]) * vertices.size();
-	_vertexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	_vertexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	// Allocate separate buffer, one on the CPU and the other on the GPU.
-	// Temporary, host-visible buffer that resides on the CPU
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _vertexStagingBuffer->_memory, 0, vertexBufferSize, 0, &_vertexOnHost);
-	UpdateVertices(vertices);
-
+	_vertexBuffer = CreateBuffer(vertexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+	
 	// Create an index buffer
 	VkDeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
-	_indexBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	_indexStagingBuffer = CreateBuffer(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), indexBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_indexBuffer = CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-	vkMapMemory(_vulkanCore->GetLogicalDevice(), _indexStagingBuffer->_memory, 0, indexBufferSize, 0, &_indexOnHost);
+	memory->Bind({ _vertexBuffer, _indexBuffer });
+
+	// Update once
+	UpdateVertices(vertices);
 	UpdateIndices(indices);
 }
 
@@ -179,14 +160,14 @@ void MeshModel::LoadPipeline(const std::wstring &vertexShaderPath, const std::ws
 	}
 
 	// Create shader modules
-	_vertShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(vertexShaderPath));
-	_fragShaderModule = CreateShaderModule(_vulkanCore->GetLogicalDevice(), ReadFile(fragmentShaderPath));
+	_vertShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile(vertexShaderPath));
+	_fragShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile(fragmentShaderPath));
 
 	// Create a graphics pipeline
 	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
 
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _fragShaderModule, nullptr);
-	vkDestroyShaderModule(_vulkanCore->GetLogicalDevice(), _vertShaderModule, nullptr);
+	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _fragShaderModule, nullptr);
+	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _vertShaderModule, nullptr);
 }
 
 void MeshModel::SetMaterial(const Material &material)
@@ -203,7 +184,7 @@ void MeshModel::SetMaterial(Material &&material)
 
 std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 {
-	std::shared_ptr<MeshObject> meshObject = MeshObject::Instantiate<MeshObject>(_vulkanCore, _triangles);
+	std::shared_ptr<MeshObject> meshObject = MeshObject::Instantiate<MeshObject>(_triangles);
 	_meshObjects.push_back(meshObject);
 
 	const auto &mvpBuffers = meshObject->GetMVPBuffers();
@@ -245,7 +226,7 @@ std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptor
 VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 {
 	VkPhysicalDeviceProperties properties{};
-	vkGetPhysicalDeviceProperties(_vulkanCore->GetPhysicalDevice(), &properties);
+	vkGetPhysicalDeviceProperties(VulkanCore::Get()->GetPhysicalDevice(), &properties);
 
 	// Specify filters and transformations to apply
 	VkSamplerCreateInfo samplerInfo
@@ -276,7 +257,7 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 	};
 
 	VkSampler textureSampler = VK_NULL_HANDLE;
-	if (vkCreateSampler(_vulkanCore->GetLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
+	if (vkCreateSampler(VulkanCore::Get()->GetLogicalDevice(), &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a texture sampler.");
 	}
@@ -287,21 +268,15 @@ VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
 void MeshModel::UpdateVertices(const std::vector<Vertex> &vertices)
 {
 	_vertices = vertices;
-
-	memcpy(_vertexOnHost, vertices.data(), _vertexBuffer->_size); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _vertexStagingBuffer, _vertexBuffer, 0, _vertexBuffer->_size);
-
-	UpdateTriangles(_vertices, _indices);
+	_vertexBuffer->CopyFrom(vertices.data());
+	UpdateTriangles(vertices, _indices);
 }
 
 void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 {
 	_indices = indices;
-
-	memcpy(_indexOnHost, indices.data(), _indexBuffer->_size); // Copy index data to the mapped memory
-	CopyBufferToBuffer(_vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), _indexStagingBuffer, _indexBuffer, 0, _indexBuffer->_size);
-
-	UpdateTriangles(_vertices, _indices);
+	_indexBuffer->CopyFrom(indices.data());
+	UpdateTriangles(_vertices, indices);
 }
 
 std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)
@@ -352,8 +327,8 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	{
 		.x = 0.0f,
 		.y = 0.0f,
-		.width = (float)_vulkanCore->GetExtent().width, // Can differ from the extent of the window
-		.height = (float)_vulkanCore->GetExtent().height,
+		.width = (float)VulkanCore::Get()->GetExtent().width, // Can differ from the extent of the window
+		.height = (float)VulkanCore::Get()->GetExtent().height,
 		.minDepth = 0.0f,
 		.maxDepth = 1.0f
 	};
@@ -362,7 +337,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	VkRect2D scissor
 	{
 		.offset = {0, 0},
-		.extent = _vulkanCore->GetExtent()
+		.extent = VulkanCore::Get()->GetExtent()
 	};
 
 	VkPipelineViewportStateCreateInfo viewportState
@@ -391,7 +366,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	VkPipelineMultisampleStateCreateInfo multisampling
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
-		.rasterizationSamples = GetMaxUsableSampleCount(_vulkanCore->GetPhysicalDevice()),
+		.rasterizationSamples = GetMaxUsableSampleCount(VulkanCore::Get()->GetPhysicalDevice()),
 		.sampleShadingEnable = VK_TRUE, // Enable sample shading in the pipeline
 		.minSampleShading = 1.0f, // Minimum fraction for sample shading; closer to one is smoother
 		.pSampleMask = nullptr,
@@ -456,7 +431,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	VkPipelineLayout pipelineLayout = VK_NULL_HANDLE;
-	if (vkCreatePipelineLayout(_vulkanCore->GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
+	if (vkCreatePipelineLayout(VulkanCore::Get()->GetLogicalDevice(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a pipeline layout.");
 	}
@@ -484,7 +459,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 		.layout = pipelineLayout,
 
 		// Any graphics pipeline is bound to a specific subpass of a render pass
-		.renderPass = _vulkanCore->GetRenderPass(),
+		.renderPass = VulkanCore::Get()->GetRenderPass(),
 		.subpass = 0,
 
 		.basePipelineHandle = VK_NULL_HANDLE,
@@ -492,7 +467,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	};
 
 	VkPipeline graphicsPipeline = VK_NULL_HANDLE;
-	if (vkCreateGraphicsPipelines(_vulkanCore->GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+	if (vkCreateGraphicsPipelines(VulkanCore::Get()->GetLogicalDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a graphics pipeline.");
 	}
@@ -509,14 +484,188 @@ void MeshModel::ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float
 		._intensity = intensity
 	};
 
-	auto copyOffset = 0;
-	auto copySize = sizeof(Light);
-	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &light, _lightBuffers, copyOffset, copySize);
+	for (auto &lightBuffer : _lightBuffers)
+	{
+		lightBuffer->CopyFrom(&light);
+	}
 }
 
 void MeshModel::ApplyMaterialAdjustment()
 {
-	auto copyOffset = 0;
-	auto copySize = sizeof(Material);
-	CopyMemoryToBuffers(_vulkanCore->GetPhysicalDevice(), _vulkanCore->GetLogicalDevice(), _vulkanCore->GetCommandPool(), _vulkanCore->GetGraphicsQueue(), &_material, _materialBuffers, copyOffset, copySize);
+	for (auto &materialBuffer : _materialBuffers)
+	{
+		materialBuffer->CopyFrom(&_material);
+	}
 }
+
+std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::wstring &texturePath)
+{
+	// Load a texture image
+	int width = 0;
+	int height = 0;
+	int texChannels = 0;
+
+	std::string pathInUTF8;
+	stbi_convert_wchar_to_utf8(pathInUTF8.data(), texturePath.length() + 1, texturePath.c_str());
+	stbi_uc *pixels = stbi_load(pathInUTF8.data(), &width, &height, &texChannels, STBI_rgb_alpha);
+	if (!pixels)
+	{
+		std::wcout << std::format(L"Failed to open the texture file: {0}", texturePath) << std::endl;
+		throw std::runtime_error("");
+	}
+
+	VkDeviceSize imageSize = width * height * 4; // Four bytes per pixel
+	uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1; // How many times the image can be divided by 2?
+
+	// Create an image object
+	// Specify VK_IMAGE_USAGE_TRANSFER_SRC_BIT so that it can be used as a blit source
+	Image texture = CreateImage
+	(
+		width,
+		height,
+		mipLevels,
+		VK_SAMPLE_COUNT_1_BIT,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_IMAGE_TILING_OPTIMAL,
+		// VK_IMAGE_USAGE_TRANSFER_DST_BIT - The image is going to be used as a destination for the buffer copy from the staging buffer
+		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT - We will create mipmaps by transfering the image
+		// VK_IMAGE_USAGE_SAMPLED_BIT - The texture will be sampled later
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT
+	);
+
+	// Before we use vkCmdCopyBufferToImage, the image must be in a proper layout.
+	// Hence, transfer the image layout from undefined to transfer optimal
+
+	// Image memory barriers are generally used to synchronize access to resources, but it can also be used to transition
+	// image layouts and transfer queue family ownership when VK_SHARING_MODE_EXCLUSIVE is used.
+	VkImageMemoryBarrier textureBarrier
+	{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+
+		// We want to transfer the image layout from oldLayout to newLayout.
+		.srcAccessMask = 0, // Writes don't have to wait on anything
+		.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT,
+		.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+
+		// We don't want to transfer queue family ownership
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+
+		.image = texture->GetImage(),
+		.subresourceRange =
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.baseMipLevel = 0,
+			.levelCount = mipLevels,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		},
+	};
+
+	VkPipelineStageFlags srcStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Earliest possible pipeline stage
+	VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT; // Pseudo-stage where transfers happen
+
+	VkCommandBuffer texCommandBuffer = VulkanCore::Get()->BeginSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool());
+	vkCmdPipelineBarrier(texCommandBuffer, srcStage, dstStage, 0, 0, nullptr, 0, nullptr, 1, &textureBarrier); // Transfer the image layout
+	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), texCommandBuffer, VulkanCore::Get()->GetGraphicsQueue());
+
+	// Now copy the buffer to the image
+	texture->CopyFrom(pixels, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+	stbi_image_free(pixels); // Clean up the original pixel array
+
+	// Generate mipmaps
+	// Will be transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+	// Check if the image format supports linear blitting
+	VkFormatProperties formatProperties;
+	vkGetPhysicalDeviceFormatProperties(VulkanCore::Get()->GetPhysicalDevice(), VK_FORMAT_R8G8B8A8_SRGB, &formatProperties);
+
+	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+	{
+		throw std::runtime_error("The texture image format does not support linear blitting.");
+	}
+
+	// repeatedly blit a source image to a smaller one
+	VkCommandBuffer mipCommandBuffer = VulkanCore::Get()->BeginSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool());
+	VkImageMemoryBarrier mipBarrier
+	{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = texture->GetImage(),
+		.subresourceRange =
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		}
+	};
+
+	int32_t mipWidth = static_cast<int32_t>(width);
+	int32_t mipHeight = static_cast<int32_t>(height);
+	// (i - 1)'th layout
+	// 1. VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL -> VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+	// 2. Blit
+	// 3. VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL -> VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+	for (uint32_t i = 1; i < mipLevels; ++i)
+	{
+		mipBarrier.subresourceRange.baseMipLevel = i - 1; // Process (i - 1)'th mip level
+		mipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		mipBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL; // Transition level (i - 1) to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+		mipBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		mipBarrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		vkCmdPipelineBarrier(mipCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &mipBarrier); // Wait for level i - 1 to be filled with previous blit command or vkCmdCopyBufferToImage
+
+		// Blit area
+		VkImageBlit blit
+		{
+			.srcSubresource =
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = i - 1,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			},
+			.srcOffsets = { { 0, 0, 0 }, { mipWidth, mipHeight, 1 } },
+			.dstSubresource =
+			{
+				.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+				.mipLevel = i,
+				.baseArrayLayer = 0,
+				.layerCount = 1
+			},
+			.dstOffsets = { { 0, 0, 0 }, { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 } }
+		};
+
+		vkCmdBlitImage(mipCommandBuffer, texture->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
+
+		mipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		mipBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		mipBarrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		mipBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		// This transition to the VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL flag waits on the current blit command to finish.
+		vkCmdPipelineBarrier(mipCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &mipBarrier);
+
+		// Divide the dimensions with a guarantee that they won't be 0
+		if (mipWidth > 1) mipWidth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+	}
+
+	// Transition the last mipmap
+	mipBarrier.subresourceRange.baseMipLevel = mipLevels - 1; // Process the last mipmap
+	mipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	mipBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	mipBarrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	mipBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(mipCommandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, nullptr, 0, nullptr, 1, &mipBarrier);
+
+	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), mipCommandBuffer, VulkanCore::Get()->GetGraphicsQueue());
+
+	return std::make_tuple(texture, mipLevels);
+}
+

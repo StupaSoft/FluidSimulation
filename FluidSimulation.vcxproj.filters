@@ -145,6 +145,9 @@
     <ClCompile Include="Sources\MathUtil.cpp">
       <Filter>sources\Utility</Filter>
     </ClCompile>
+    <ClCompile Include="Sources\VulkanResources.cpp">
+      <Filter>sources\Utility</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Libraries\imgui\imconfig.h">
@@ -237,7 +240,7 @@
     <ClInclude Include="Sources\BillboardsCompute.h">
       <Filter>sources\Presentation\Billboards</Filter>
     </ClInclude>
-    <ClInclude Include="Sources\VulkanStructs.h">
+    <ClInclude Include="Sources\VulkanResources.h">
       <Filter>sources\Utility</Filter>
     </ClInclude>
     <ClInclude Include="Sources\CPUSimulatedScene.h">

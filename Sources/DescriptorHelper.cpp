@@ -39,7 +39,7 @@ void DescriptorHelper::AddSamplerLayout(uint32_t binding, VkShaderStageFlags sha
 void DescriptorHelper::BindBuffer(uint32_t binding, Buffer buffer)
 {
 	std::vector<Buffer> buffers;
-	for (size_t i = 0; i < _vulkanCore->GetMaxFramesInFlight(); ++i)
+	for (size_t i = 0; i < VulkanCore::Get()->GetMaxFramesInFlight(); ++i)
 	{
 		buffers.push_back(buffer);
 	}
@@ -49,7 +49,7 @@ void DescriptorHelper::BindBuffer(uint32_t binding, Buffer buffer)
 
 void DescriptorHelper::BindBuffers(uint32_t binding, const std::vector<Buffer> &buffers)
 {
-	if (buffers.size() != _vulkanCore->GetMaxFramesInFlight())
+	if (buffers.size() != VulkanCore::Get()->GetMaxFramesInFlight())
 	{
 		throw std::runtime_error("Buffer size differs from the max frames in flight.");
 	}
@@ -114,7 +114,7 @@ VkDescriptorPool DescriptorHelper::CreateDescriptorPool(uint32_t maxSetCount, co
 	};
 
 	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
-	if (vkCreateDescriptorPool(_vulkanCore->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	if (vkCreateDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor pool.");
 	}
@@ -168,7 +168,7 @@ VkDescriptorSetLayout DescriptorHelper::CreateDescriptorSetLayout(const std::vec
 	};
 
 	VkDescriptorSetLayout descriptorSetLayout;
-	if (vkCreateDescriptorSetLayout(_vulkanCore->GetLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
+	if (vkCreateDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to create a descriptor set layout.");
 	}
@@ -193,17 +193,17 @@ void DescriptorHelper::ClearLayouts()
 std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptorPool descriptorPool, VkDescriptorSetLayout descriptorSetLayout, const std::vector<BufferLayout> &bufferLayouts, const std::vector<SamplerLayout> &samplerLayouts, const std::unordered_map<uint32_t, std::vector<Buffer>> &bindingBuffers, const std::unordered_map<uint32_t, std::tuple<VkSampler, Image>> &bindingSamplers)
 {
 	// 1. Create descriptor sets
-	std::vector<VkDescriptorSetLayout> layouts(_vulkanCore->GetMaxFramesInFlight(), descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
+	std::vector<VkDescriptorSetLayout> layouts(VulkanCore::Get()->GetMaxFramesInFlight(), descriptorSetLayout); // Same descriptor set layouts for all descriptor sets
 	VkDescriptorSetAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 		.descriptorPool = descriptorPool, // Descriptor pool to allocate from
-		.descriptorSetCount = _vulkanCore->GetMaxFramesInFlight(), // The number of descriptor sets to allocate
+		.descriptorSetCount = VulkanCore::Get()->GetMaxFramesInFlight(), // The number of descriptor sets to allocate
 		.pSetLayouts = layouts.data()
 	};
 
-	std::vector<VkDescriptorSet> descriptorSets(_vulkanCore->GetMaxFramesInFlight());
-	if (vkAllocateDescriptorSets(_vulkanCore->GetLogicalDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS)
+	std::vector<VkDescriptorSet> descriptorSets(VulkanCore::Get()->GetMaxFramesInFlight());
+	if (vkAllocateDescriptorSets(VulkanCore::Get()->GetLogicalDevice(), &allocInfo, descriptorSets.data()) != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to allocate descriptor sets.");
 	}
@@ -221,14 +221,14 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 		VkDescriptorImageInfo imageInfo
 		{
 			.sampler = std::get<0>(bindingSamplers.at(samplerLayout.binding)),
-			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding))->_imageView, // Now a shader can access the image view
+			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding))->GetImageView(), // Now a shader can access the image view
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		};
 
 		imageInfoList.emplace_back(imageInfo);
 	}
 
-	for (size_t frame = 0; frame < _vulkanCore->GetMaxFramesInFlight(); ++frame)
+	for (size_t frame = 0; frame < VulkanCore::Get()->GetMaxFramesInFlight(); ++frame)
 	{
 		// Referred buffer differs frame by frame
 		std::vector<VkDescriptorBufferInfo> bufferInfoList;
@@ -238,7 +238,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 
 			VkDescriptorBufferInfo bufferInfo
 			{
-				.buffer = bindingBuffers.at(bufferLayout.binding)[frame]->_buffer,
+				.buffer = bindingBuffers.at(bufferLayout.binding)[frame]->GetBuffer(),
 				.offset = 0,
 				.range = bufferLayout.dataSize
 			};
@@ -290,7 +290,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 			descriptorWrites.emplace_back(descriptorWrite);
 		}
 		
-		vkUpdateDescriptorSets(_vulkanCore->GetLogicalDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+		vkUpdateDescriptorSets(VulkanCore::Get()->GetLogicalDevice(), static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
 	}
 
 	return descriptorSets;

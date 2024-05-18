@@ -3,7 +3,7 @@
 #include <vector>
 #include <memory>
 #include "VulkanCore.h"
-#include "VulkanStructs.h"
+#include "VulkanResources.h"
 
 struct BufferLayout
 {
@@ -22,8 +22,6 @@ struct SamplerLayout
 class DescriptorHelper
 {
 private:
-	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
-
 	uint32_t _maxSetCount = 100;
 
 	std::vector<VkDescriptorPoolSize> _poolSizes;
@@ -42,8 +40,6 @@ private:
 	bool _needSetRecreation = true;
 
 public:
-	DescriptorHelper(const std::shared_ptr<VulkanCore> &vulkanCore) : _vulkanCore(vulkanCore) {}
-
 	// Preparation
 	void AddDescriptorPoolSize(const VkDescriptorPoolSize &poolSize);
 	void AddBufferLayout(uint32_t binding, VkDeviceSize dataSize, VkDescriptorType descriptorType, VkShaderStageFlags shaderStages);

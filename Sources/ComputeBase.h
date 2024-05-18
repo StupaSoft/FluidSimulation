@@ -10,11 +10,11 @@
 class ComputeBase : public DelegateRegistrable<ComputeBase>
 {
 protected:
-	std::shared_ptr<VulkanCore> _vulkanCore = nullptr;
+	
 	size_t _commandRegisterID = 0;
 
 public:
-	ComputeBase(const std::shared_ptr<VulkanCore> &vulkanCore);
+	ComputeBase() = default;
 	ComputeBase(const ComputeBase &other) = delete;
 	ComputeBase(ComputeBase &&other) = default;
 	ComputeBase &operator=(const ComputeBase &other) = delete;
