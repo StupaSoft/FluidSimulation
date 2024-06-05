@@ -106,11 +106,9 @@ public:
 		for (auto it = _listeners.begin(); it != _listeners.end() - 1; ++it)
 		{
 			const auto &listener = *it;
-			if (listener->IsAlive())
-			{
-				listener->Call(args...);
-			}
-			else
+			bool isSuccess = false;
+			listener->Call(&isSuccess, args...);
+			if (!isSuccess)
 			{
 				listener->Invalidate();
 				++_invalidatedListenerCount;
@@ -119,16 +117,28 @@ public:
 
 		// Return the return value of the last listener
 		const auto &listener = *(_listeners.end() - 1);
-		if (listener->IsAlive())
+
+		// Handle cases where TReturn is void
+		bool isSuccess = false;
+		if constexpr (std::is_same_v<TReturn, void>)
 		{
-			return listener->Call(args...);
+			listener->Call(&isSuccess, args...);
+			if (!isSuccess)
+			{
+				listener->Invalidate();
+				++_invalidatedListenerCount;
+			}
 		}
 		else
 		{
-			listener->Invalidate();
-			++_invalidatedListenerCount;
+			TReturn returnValue = listener->Call(&isSuccess, args...);
+			if (!isSuccess)
+			{
+				listener->Invalidate();
+				++_invalidatedListenerCount;
+			}
 
-			return TReturn{};
+			return returnValue;
 		}
 	}
 
@@ -143,10 +153,9 @@ class ListenerBase<TReturn(TArgs...)>
 {
 public:
 	virtual size_t GetRegisterID() const = 0;
-	virtual bool IsAlive() const = 0;
 	virtual bool IsInvalidated() const = 0;
 	virtual void Invalidate() = 0;
-	virtual TReturn Call(TArgs... args) = 0;
+	virtual TReturn Call(bool *isSuccess, TArgs... args) = 0;
 };
 
 template<typename TListener, typename TFunc, typename TReturn, typename... TArgs>
@@ -166,11 +175,6 @@ public:
 		return _registerID;
 	}
 
-	bool IsAlive() const override
-	{
-		return _listener.lock() != nullptr;
-	}
-
 	bool IsInvalidated() const override
 	{
 		return _invalidated;
@@ -181,9 +185,20 @@ public:
 		_invalidated = true;
 	}
 
-	TReturn Call(TArgs... args) override
+	TReturn Call(bool *isSuccessful, TArgs... args) override
 	{
-		_callback(args...);
+		// Invoke the callback only after the listener is proven to be alive.
+		// Lock the pointer to ensure thread safety.
+		if (auto listenerSP = _listener.lock())
+		{
+			*isSuccessful = true;
+			return _callback(args...);
+		}
+		else
+		{
+			*isSuccessful = false;
+			return TReturn();
+		}
 	}
 };
 
