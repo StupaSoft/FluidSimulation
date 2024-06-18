@@ -11,7 +11,7 @@ void WindowApplication::Run()
 	_vulkanCore->InitVulkan(_window);
 	_vulkanCore->SetUpScene();
 
-	//_simulatedScene = CPUSimulatedScene::Instantiate<CPUSimulatedScene>(_vulkanCore);
+	//_simulatedScene = CPUSimulatedScene::Instantiate<CPUSimulatedScene>();
 	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>();
 	//_simulatedScene->AddProp(L"Models/Hemisphere.obj", "", true, true);
 	//_simulatedScene->AddProp(L"Models/Filter.obj", "", true, true);
