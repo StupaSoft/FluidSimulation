@@ -58,10 +58,10 @@ void MeshModel::Register()
 void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)
 {
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
-	VkBuffer vertexBuffers[] = { _vertexBuffer->GetBuffer()};
+	VkBuffer vertexBuffers[] = { _vertexBuffer->GetBufferHandle()};
 	VkDeviceSize offsets[] = { 0 };
 	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets); // Bind vertex buffers to bindings
-	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
+	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer->GetBufferHandle(), 0, VK_INDEX_TYPE_UINT32); // Bind index buffers to bindings
 
 	if (_renderMode == RenderMode::Line) vkCmdSetLineWidth(commandBuffer, _lineWidth);
 
@@ -553,7 +553,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::wstring &te
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 
-		.image = texture->GetImage(),
+		.image = texture->GetImageHandle(),
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -593,7 +593,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::wstring &te
 		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
 		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-		.image = texture->GetImage(),
+		.image = texture->GetImageHandle(),
 		.subresourceRange =
 		{
 			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
@@ -640,7 +640,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::wstring &te
 			.dstOffsets = { { 0, 0, 0 }, { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 } }
 		};
 
-		vkCmdBlitImage(mipCommandBuffer, texture->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
+		vkCmdBlitImage(mipCommandBuffer, texture->GetImageHandle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, texture->GetImageHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_LINEAR); // Record the blit command - both the source and the destination images are same, because they are blitting between different mip levels.
 
 		mipBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		mipBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

@@ -221,7 +221,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 		VkDescriptorImageInfo imageInfo
 		{
 			.sampler = std::get<0>(bindingSamplers.at(samplerLayout.binding)),
-			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding))->GetImageView(), // Now a shader can access the image view
+			.imageView = std::get<1>(bindingSamplers.at(samplerLayout.binding))->GetImageViewHandle(), // Now a shader can access the image view
 			.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		};
 
@@ -238,7 +238,7 @@ std::vector<VkDescriptorSet> DescriptorHelper::CreateDescriptorSets(VkDescriptor
 
 			VkDescriptorBufferInfo bufferInfo
 			{
-				.buffer = bindingBuffers.at(bufferLayout.binding)[frame]->GetBuffer(),
+				.buffer = bindingBuffers.at(bufferLayout.binding)[frame]->GetBufferHandle(),
 				.offset = 0,
 				.range = bufferLayout.dataSize
 			};

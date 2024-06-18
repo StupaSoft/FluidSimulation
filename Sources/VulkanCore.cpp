@@ -927,8 +927,8 @@ std::vector<VkFramebuffer> VulkanCore::CreateFramebuffers(VkDevice logicalDevice
 		// Provide corresponding attachements
 		// { _depthImageView, _colorImageView, _swapChainImageViews[i] }
 		std::vector<VkImageView> attachments(additionalImages.size());
-		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->GetImageView(); }); // 4. Extract the names of extensions
-		attachments.push_back(swapChainImages[i]->GetImageView());
+		std::transform(additionalImages.cbegin(), additionalImages.cend(), attachments.begin(), [](const Image &img) { return img->GetImageViewHandle(); }); // 4. Extract the names of extensions
+		attachments.push_back(swapChainImages[i]->GetImageViewHandle());
 
 		VkFramebufferCreateInfo framebufferInfo
 		{

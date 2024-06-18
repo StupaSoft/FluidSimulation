@@ -45,7 +45,7 @@ public:
 	~DeviceMemory();
 
 	auto Size() const { return _size; }
-	auto GetMemory() const { return _memory; }
+	auto GetMemoryHandle() const { return _memory; }
 	auto GetProperties() const { return _properties; }
 	bool IsDeviceLocal() const { return (_properties & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) != 0; }
 
@@ -75,7 +75,7 @@ public:
 	void CopyFrom(const Buffer &source, VkDeviceSize copyOffset = 0, VkDeviceSize copySize = VK_WHOLE_SIZE);
 
 	auto Size() const { return _size; }
-	auto GetBuffer() const { return _buffer; }
+	auto GetBufferHandle() const { return _buffer; }
 	auto GetMemory() const { return _memory; }
 	void SetMemory(const Memory &memory, VkDeviceSize offset);
 };
@@ -105,8 +105,8 @@ public:
 	void CopyFrom(const Buffer &buffer, uint32_t width, uint32_t height);
 
 	auto Size() const { return _width * _height * 4; } // Four bytes per pixel
-	auto GetImage() const { return _image; }
-	auto GetImageView() const { return _imageView; }
+	auto GetImageHandle() const { return _image; }
+	auto GetImageViewHandle() const { return _imageView; }
 	auto GetMemory() const { return _memory; }
 	void SetMemory(const Memory &memory);
 };

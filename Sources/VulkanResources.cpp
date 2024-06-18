@@ -30,7 +30,7 @@ void DeviceMemory::Bind(const std::vector<Buffer> &buffers)
 	for (const auto &buffer : buffers)
 	{
 		VkMemoryRequirements memRequirements;
-		vkGetBufferMemoryRequirements(VulkanCore::Get()->GetLogicalDevice(), buffer->GetBuffer(), &memRequirements); // Query memory requirements
+		vkGetBufferMemoryRequirements(VulkanCore::Get()->GetLogicalDevice(), buffer->GetBufferHandle(), &memRequirements); // Query memory requirements
 
 		bufferSizes.push_back(memRequirements.size);
 		memoryTypeBits |= memRequirements.memoryTypeBits;
@@ -55,7 +55,7 @@ void DeviceMemory::Bind(const std::vector<Buffer> &buffers)
 	{
 		Buffer buffer = buffers[i];
 
-		vkBindBufferMemory(VulkanCore::Get()->GetLogicalDevice(), buffer->GetBuffer(), _memory, offset);
+		vkBindBufferMemory(VulkanCore::Get()->GetLogicalDevice(), buffer->GetBufferHandle(), _memory, offset);
 		buffer->SetMemory(shared_from_this(), offset);
 
 		offset += bufferSizes[i];
@@ -65,7 +65,7 @@ void DeviceMemory::Bind(const std::vector<Buffer> &buffers)
 void DeviceMemory::Bind(ImageResource *image)
 {
 	VkMemoryRequirements memRequirements;
-	vkGetImageMemoryRequirements(VulkanCore::Get()->GetLogicalDevice(), image->GetImage(), &memRequirements);
+	vkGetImageMemoryRequirements(VulkanCore::Get()->GetLogicalDevice(), image->GetImageHandle(), &memRequirements);
 
 	VkMemoryAllocateInfo allocInfo
 	{
@@ -79,7 +79,7 @@ void DeviceMemory::Bind(ImageResource *image)
 		throw std::runtime_error("Failed to allocate image memory.");
 	}
 
-	vkBindImageMemory(VulkanCore::Get()->GetLogicalDevice(), image->GetImage(), _memory, 0); // Bind the image and the memory
+	vkBindImageMemory(VulkanCore::Get()->GetLogicalDevice(), image->GetImageHandle(), _memory, 0); // Bind the image and the memory
 	image->SetMemory(shared_from_this());
 }
 
@@ -107,11 +107,11 @@ BufferResource::~BufferResource()
 	{
 		if (_memory->IsDeviceLocal())
 		{
-			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemory());
+			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemoryHandle());
 		}
 		else
 		{
-			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemory());
+			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemoryHandle());
 		}
 	}
 
@@ -136,7 +136,7 @@ void BufferResource::CopyFrom(const void *source, VkDeviceSize copyOffset, VkDev
 			Memory stagingMemory = CreateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 			stagingMemory->Bind({ _stagingBuffer });
 
-			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemory(), 0, _size, 0, &_mappedMemory); // Map data <-> stagingBufferMemory
+			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemoryHandle(), 0, _size, 0, &_mappedMemory); // Map data <-> stagingBufferMemory
 		}
 
 		memcpy(_mappedMemory, source, _stagingBuffer->Size());
@@ -176,7 +176,7 @@ void BufferResource::CopyFrom(const Buffer &source, VkDeviceSize copyOffset, VkD
 		.size = copySize,
 	};
 
-	vkCmdCopyBuffer(commandBuffer, source->GetBuffer(), _buffer, 1, &copyRegion);
+	vkCmdCopyBuffer(commandBuffer, source->GetBufferHandle(), _buffer, 1, &copyRegion);
 
 	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
 }
@@ -257,11 +257,11 @@ ImageResource::~ImageResource()
 	{
 		if (_memory->IsDeviceLocal())
 		{
-			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemory());
+			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemoryHandle());
 		}
 		else
 		{
-			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemory());
+			vkUnmapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemoryHandle());
 		}
 	}
 
@@ -278,7 +278,7 @@ void ImageResource::CopyFrom(const void *source, uint32_t width, uint32_t height
 		Memory stagingMemory = CreateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 		stagingMemory->Bind({ _stagingBuffer });
 
-		vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemory(), 0, Size(), 0, &_mappedMemory); // Map data <-> stagingBufferMemory
+		vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemoryHandle(), 0, Size(), 0, &_mappedMemory); // Map data <-> stagingBufferMemory
 	}
 
 	memcpy(_mappedMemory, source, _stagingBuffer->Size());
@@ -306,7 +306,7 @@ void ImageResource::CopyFrom(const Buffer &buffer, uint32_t width, uint32_t heig
 	};
 
 	VkCommandBuffer commandBuffer = VulkanCore::Get()->BeginSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool());
-	vkCmdCopyBufferToImage(commandBuffer, buffer->GetBuffer(), _image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+	vkCmdCopyBufferToImage(commandBuffer, buffer->GetBufferHandle(), _image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
 }
 
