@@ -146,7 +146,7 @@ void BufferResource::CopyFrom(const void *source, VkDeviceSize copyOffset, VkDev
 	{
 		if (_mappedMemory == nullptr)
 		{
-			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemory(), 0, _size, 0, &_mappedMemory);
+			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemoryHandle(), _offsetWithinMemory, _size, 0, &_mappedMemory);
 		}
 		
 		void *offsetData = reinterpret_cast<std::byte *>(_mappedMemory) + copyOffset;
