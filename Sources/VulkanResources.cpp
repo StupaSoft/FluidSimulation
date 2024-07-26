@@ -36,7 +36,7 @@ void DeviceMemory::Bind(const std::vector<Buffer> &buffers)
 		memoryTypeBits |= memRequirements.memoryTypeBits;
 	}
 
-	_size = std::accumulate(bufferSizes.begin(), bufferSizes.end(), 0u);
+	_size = std::accumulate(bufferSizes.begin(), bufferSizes.end(), static_cast<VkDeviceSize>(0));
 	VkMemoryAllocateInfo allocInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
