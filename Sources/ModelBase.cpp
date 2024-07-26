@@ -8,6 +8,7 @@ void ModelBase::Register()
 		[this](VkCommandBuffer commandBuffer, size_t currentFrame)
 		{
 			RecordCommand(commandBuffer, currentFrame);
-		}
+		},
+		_order
 	);
 }

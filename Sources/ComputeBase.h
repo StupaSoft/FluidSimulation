@@ -27,6 +27,5 @@ public:
 
 protected:
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) = 0;
-	virtual uint32_t GetOrder() = 0;
 };
 

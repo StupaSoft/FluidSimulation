@@ -27,7 +27,6 @@ public:
 
 protected:
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
-	virtual uint32_t GetOrder() override { return 0; }
 
 private:
 	std::tuple<VkDescriptorPool, VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateDescriptors(size_t particleCount, const Buffer &particleCountBuffer, const std::vector<Buffer> &particlePositionBuffers, const Buffer &vertexOutputBuffer);

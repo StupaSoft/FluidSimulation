@@ -16,6 +16,7 @@ void ComputeBase::SetEnable(bool enable)
 			{
 				RecordCommand(computeCommandBuffer, currentFrame);
 			},
+			PRIORITY_LOWEST,
 			__FUNCTION__,
 			__LINE__
 		);

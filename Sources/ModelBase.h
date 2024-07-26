@@ -13,6 +13,7 @@ class ModelBase : public DelegateRegistrable<ModelBase>
 {
 protected:
 	size_t _eventID = 0;
+	size_t _order = PRIORITY_LOWEST;
 
 public:
 	ModelBase() = default;
@@ -25,5 +26,6 @@ public:
 	virtual void Register() override;
 
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) = 0;
-	virtual uint32_t GetOrder() = 0;
+	size_t GetOrder() { return _order; }
+	void SetOrder(size_t order) { _order = order; }
 };

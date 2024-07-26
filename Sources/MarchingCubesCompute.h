@@ -110,7 +110,6 @@ protected:
 	void InitializeGrid(const MarchingCubesGrid &parameters);
 
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
-	virtual uint32_t GetOrder() override { return 0; };
 
 private:
 	void CreateSetupBuffers();

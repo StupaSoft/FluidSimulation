@@ -50,6 +50,7 @@ void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuf
 			_marchingCubes->GetCompute()->UpdateParticleProperty(simulationParameters);
 			_billboards->UpdateRadius(simulationParameters._particleRadius);
 		},
+		PRIORITY_LOWEST,
 		__FUNCTION__,
 		__LINE__
 	);
@@ -61,6 +62,7 @@ void SimulatedSceneBase::InitializeRenderers(const std::vector<Buffer> &inputBuf
 		{
 			ApplyRenderMode(particleRenderingMode);
 		},
+		PRIORITY_LOWEST,
 		__FUNCTION__,
 		__LINE__
 	);

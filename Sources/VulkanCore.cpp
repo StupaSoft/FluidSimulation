@@ -987,7 +987,7 @@ std::vector<VkCommandBuffer> VulkanCore::CreateCommandBuffers(VkDevice logicalDe
 	return commandBuffers;
 }
 
-void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
+void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame)
 {
 	VkCommandBufferBeginInfo beginInfo
 	{
@@ -1007,7 +1007,7 @@ void VulkanCore::RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer
 	}
 }
 
-void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, size_t currentFrame)
+void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame)
 {
 	// Begin to record a command buffer
 	VkCommandBufferBeginInfo beginInfo

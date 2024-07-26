@@ -7,6 +7,8 @@
 
 MeshModel::MeshModel()
 {
+	_order = 1000; // Should be rendered before UI models
+
 	_descriptorHelper = std::make_unique<DescriptorHelper>();
 
 	// Create resources
@@ -72,7 +74,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 		{
 			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffer, _indexBuffer->Size() / sizeof(uint32_t), 1, 0, 0, 0);
+			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indexBuffer->Size()) / sizeof(uint32_t), 1, 0, 0, 0);
 		}
 	}
 }

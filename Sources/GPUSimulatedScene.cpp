@@ -11,6 +11,7 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		{
 			_simulationCompute->UpdateSimulationParameters(simulationParameters);
 		},
+		PRIORITY_LOWEST,
 		__FUNCTION__,
 		__LINE__
 	);
@@ -20,9 +21,9 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 	_simulationCompute->InitializeLevel(_bvh->GetNodes());
 
 	// Finally initialize the particles in the compute pipeline
-	size_t xCount = std::ceil((xRange.g - xRange.r) / particleDistance);
-	size_t yCount = std::ceil((yRange.g - yRange.r) / particleDistance);
-	size_t zCount = std::ceil((zRange.g - zRange.r) / particleDistance);
+	size_t xCount = static_cast<size_t>(std::ceil((xRange.g - xRange.r) / particleDistance));
+	size_t yCount = static_cast<size_t>(std::ceil((yRange.g - yRange.r) / particleDistance));
+	size_t zCount = static_cast<size_t>(std::ceil((zRange.g - zRange.r) / particleDistance));
 	size_t particleCount = xCount * yCount * zCount;
 
 	glm::vec3 startingPoint = glm::vec3(xRange.r, yRange.r, zRange.r);

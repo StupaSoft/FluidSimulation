@@ -87,8 +87,8 @@ private:
 	VkQueue _computeQueue = VK_NULL_HANDLE;
 
 	// ==================== Window ====================
-	VkSurfaceKHR _surface; // Abstract type of surface to present rendered images to
-	
+	VkSurfaceKHR _surface = VK_NULL_HANDLE; // Abstract type of surface to present rendered images to
+	 
 	// ==================== Swap chain ====================
 	VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
 	const std::vector<const char *> DEVICE_EXTENSIONS =
@@ -248,8 +248,8 @@ private:
 	VkCommandPool CreateCommandPool(VkDevice logicalDevice, uint32_t queueFamilyIndex);
 	std::vector<VkCommandBuffer> CreateCommandBuffers(VkDevice logicalDevice, VkCommandPool commandPool, uint32_t maxFramesInFlight);
 
-	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, size_t currentFrame);
-	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, size_t currentFrame);
+	void RecordComputeCommandBuffer(VkCommandBuffer computeCommandBuffer, uint32_t currentFrame);
+	void RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass renderPass, VkFramebuffer framebuffer, VkCommandBuffer commandBuffer, uint32_t currentFrame);
 
 	// ==================== Syncronization objects ====================
 	std::tuple<std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkSemaphore>, std::vector<VkFence>, std::vector<VkFence>> CreateSyncObjects(uint32_t maxFramesInFlight);

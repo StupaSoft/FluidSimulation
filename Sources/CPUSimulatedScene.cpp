@@ -65,6 +65,7 @@ void CPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		{
 			_hashGrid->UpdateSpacing(2.0f * simulationParameters._particleRadius * simulationParameters._kernelRadiusFactor);
 		},
+		PRIORITY_LOWEST,
 		__FUNCTION__, 
 		__LINE__
 	);
