@@ -1,9 +1,12 @@
 #include "GPUSimulatedScene.h"
 
-void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
+GPUSimulatedScene::GPUSimulatedScene()
 {
-	// Create a compute simulation module
 	_simulationCompute = SimulationCompute::Instantiate<SimulationCompute>(_gridDimension);
+}
+
+void GPUSimulatedScene::Register()
+{
 	_onUpdateSimulationParameters.AddListener
 	(
 		weak_from_this(),
@@ -15,12 +18,18 @@ void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xR
 		__FUNCTION__,
 		__LINE__
 	);
+}
 
-	// Initialize the level
+void GPUSimulatedScene::InitializeLevel()
+{
 	SimulatedSceneBase::InitializeLevel();
-	_simulationCompute->InitializeLevel(_bvh->GetNodes());
 
-	// Finally initialize the particles in the compute pipeline
+	_simulationCompute->InitializeLevel(_bvh->GetNodes());
+}
+
+void GPUSimulatedScene::InitializeParticles(float particleDistance, glm::vec2 xRange, glm::vec2 yRange, glm::vec2 zRange)
+{
+	// Initialize the particles in the compute pipeline
 	size_t xCount = static_cast<size_t>(std::ceil((xRange.g - xRange.r) / particleDistance));
 	size_t yCount = static_cast<size_t>(std::ceil((yRange.g - yRange.r) / particleDistance));
 	size_t zCount = static_cast<size_t>(std::ceil((zRange.g - zRange.r) / particleDistance));

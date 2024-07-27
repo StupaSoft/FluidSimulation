@@ -27,8 +27,6 @@ enum class ParticleRenderingMode
 class SimulatedSceneBase : public DelegateRegistrable<SimulatedSceneBase>
 {
 protected:
-	
-
 	glm::uvec3 _gridDimension = glm::uvec3(64, 64, 64);
 	std::unique_ptr<BVH> _bvh = std::make_unique<BVH>();
 

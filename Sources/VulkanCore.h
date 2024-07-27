@@ -145,6 +145,7 @@ private:
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordComputeCommand;
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordDrawCommand;
 	Delegate<void()> _onRecreateSwapChain;
+	Delegate<void()> _onSubmitGraphicsQueueFinishedOneShot;
 
 public:
 	static VulkanCore *Get() 
@@ -191,10 +192,12 @@ public:
 	auto &OnComputeCommand() { return _onRecordComputeCommand; }
 	auto &OnDrawCommand() { return _onRecordDrawCommand; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
+	auto &OnSubmitGraphicsQueueFinishedOneShot() { return _onSubmitGraphicsQueueFinishedOneShot; }
 
 	// ==================== Utility ====================
 	VkCommandBuffer BeginSingleTimeCommands(VkCommandPool commandPool);
 	void EndSingleTimeCommands(VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
+	void WaitIdle() { vkDeviceWaitIdle(_logicalDevice); }
 
 private:
 	// ==================== Singleton ====================

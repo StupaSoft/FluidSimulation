@@ -7,7 +7,9 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 
-class PanelBase
+#include "Delegate.h"
+
+class PanelBase : public DelegateRegistrable<PanelBase>
 {
 public:
 	virtual void Draw() = 0;

@@ -26,7 +26,7 @@ public:
 	template<typename TPanel, typename... TArgs>
 	std::shared_ptr<TPanel> AddPanel(TArgs&&... args)
 	{
-		std::shared_ptr<TPanel> panel = std::make_shared<TPanel>(std::forward<TArgs>(args)...);
+		std::shared_ptr<TPanel> panel = PanelBase::Instantiate<TPanel>(std::forward<TArgs>(args)...);
 		_panels.push_back(panel);
 
 		return panel;

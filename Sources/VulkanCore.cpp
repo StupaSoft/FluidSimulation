@@ -116,6 +116,9 @@ void VulkanCore::UpdateFrame(float deltaSecond)
 			throw std::runtime_error("Failed to submit a draw command buffer.");
 		}
 
+		_onSubmitGraphicsQueueFinishedOneShot.Invoke();
+		_onSubmitGraphicsQueueFinishedOneShot.Clear();
+
 		// Submit present commands
 		VkPresentInfoKHR presentInfo
 		{
@@ -144,8 +147,7 @@ void VulkanCore::UpdateFrame(float deltaSecond)
 
 	// Proceed to the next frame
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-	vkDeviceWaitIdle(_logicalDevice);
+	WaitIdle();
 }
 
 void VulkanCore::SetUpScene()
@@ -761,7 +763,7 @@ void VulkanCore::RecreateSwapChain()
 		glfwWaitEvents();
 	}
 
-	vkDeviceWaitIdle(_logicalDevice);
+	WaitIdle();
 
 	CleanUpSwapChain();
 

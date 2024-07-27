@@ -32,9 +32,21 @@ void SimulationPanel::Draw()
 
 	if (ImGui::Button("Start Simulation"))
 	{
-		_simulatedScene->InitializeLevel();
-		_simulatedScene->InitializeParticles(0.07f, { -1.0f, 1.0f }, { 2.0f, 6.0f }, { -1.0f, 1.0f }); // Temp
-		//_simulatedScene->InitializeParticles(0.07f, { -0.8f, 0.8f }, { 1.0f, 4.0f }, { -0.8f, 0.8f }); // Temp
+		// These tasks should be executed only after the command has been submitted and finished,
+		// because it includes destruction of buffers and other resources bound to commands that
+		// have already been recorded.
+		VulkanCore::Get()->OnSubmitGraphicsQueueFinishedOneShot().AddListener
+		(
+			weak_from_this(),
+			[this]()
+			{
+				VulkanCore::Get()->WaitIdle();
+
+				_simulatedScene->InitializeLevel();
+				_simulatedScene->InitializeParticles(0.07f, { -1.0f, 1.0f }, { 2.0f, 6.0f }, { -1.0f, 1.0f }); // Temp
+				//_simulatedScene->InitializeParticles(0.07f, { -0.8f, 0.8f }, { 1.0f, 4.0f }, { -0.8f, 0.8f }); // Temp
+			}
+		);
 	}
 
 	ImGui::End();
