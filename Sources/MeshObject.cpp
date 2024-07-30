@@ -11,15 +11,6 @@ MeshObject::MeshObject(const std::shared_ptr<std::vector<Triangle>> &triangles) 
 
 void MeshObject::Register()
 {
-	VulkanCore::Get()->OnRecreateSwapChain().AddListener
-	(
-		weak_from_this(),
-		[this]()
-		{
-			ApplyModelTransformation();
-		}
-	);
-
 	auto &mainCamera = VulkanCore::Get()->GetMainCamera();
 	SetCameraTransformation(mainCamera->GetViewMatrix(), mainCamera->GetProjectionMatrix());
 	mainCamera->OnChanged().AddListener
@@ -93,7 +84,7 @@ void MeshObject::ApplyModelTransformation()
 	auto copySize = sizeof(MVP::_model);
 	for (auto &mvpBuffer : _mvpBuffers)
 	{
-		mvpBuffer->CopyFrom(&mvp);
+		mvpBuffer->CopyFrom(&mvp, copyOffset, copySize);
 	}
 
 	UpdateWorldTriangles(mvp._model);
