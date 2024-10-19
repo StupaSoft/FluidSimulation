@@ -11,7 +11,8 @@ Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleC
 	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_vertexBuffer = CreateBuffer(static_cast<uint32_t>(sizeof(Vertex) * vertexCount), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	_indexBuffer = CreateBuffer(static_cast<uint32_t>(sizeof(uint32_t) * indexCount), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	memory->Bind({ _vertexBuffer, _indexBuffer });
+	_drawArgumentBuffer = CreateBuffer(sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+	memory->Bind({ _vertexBuffer, _indexBuffer, _drawArgumentBuffer });
 
 	// Vertices and indices
 	_billboardVertices.clear();
@@ -38,6 +39,15 @@ Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleC
 
 	_vertexBuffer->CopyFrom(_billboardVertices.data());
 	_indexBuffer->CopyFrom(_billboardIndices.data());
+	VkDrawIndexedIndirectCommand drawCommands
+	{
+		.indexCount = static_cast<uint32_t>(_billboardIndices.size()),
+		.instanceCount = 1,
+		.firstIndex = 0,
+		.vertexOffset = 0,
+		.firstInstance = 0
+	};
+	_drawArgumentBuffer->CopyFrom(&drawCommands);
 
 	// Cmpute
 	_compute = BillboardsCompute::Instantiate<BillboardsCompute>(inputBuffers, _particleCount, _vertexBuffer);
@@ -45,7 +55,7 @@ Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleC
 	// Presentation mesh
 	_meshModel = MeshModel::Instantiate<MeshModel>();
 	_meshModel->LoadPipeline(L"Shaders/Rendering/ParticleVertex.spv", L"Shaders/Rendering/ParticleFragment.spv");
-	_meshModel->SetMeshBuffers(_vertexBuffer, _indexBuffer);
+	_meshModel->LoadMesh(_vertexBuffer, _indexBuffer, _drawArgumentBuffer);
 
 	MeshModel::Material particleMat
 	{

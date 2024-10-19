@@ -15,7 +15,6 @@ struct MarchingCubesSetup
     uint cellCount;
 
     uint vertexCount;
-    uint indexCount;
 };
 
 struct Vertex
@@ -23,6 +22,15 @@ struct Vertex
 	vec3 pos;
 	vec3 normal;
 	vec2 texCoord;
+};
+
+struct DrawArgument
+{
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
 };
 
 // ========== Inputs ==========
@@ -52,6 +60,11 @@ layout (std430, binding = 3) buffer VertexOutSSBO
 layout (std430, binding = 4) buffer IndexOutSSBO
 {
     uint indices[]; // [cell count][INDICES_IN_CELL]
+};
+
+layout (std430, binding = 5) buffer DrawArgumentOutSSBO
+{
+    DrawArgument drawArgument;
 };
 
 // ========== Execution ==========
@@ -168,37 +181,50 @@ void main()
 
     vec3 vertexPositionsInCell[INDICES_IN_CELL]; // This will be used to find normals later
     bool notLastEdge = (cellVolumeIndex.x != setup.cellDimension.x - 1) && (cellVolumeIndex.y != setup.cellDimension.y - 1) && (cellVolumeIndex.z != setup.cellDimension.z - 1);
+
     // Record vertex indices into IndexOutSSBO, vertex positions into VertexPositionOutSSBO, and normals into NormalOutSSBO
-    for (uint i = 0; i < INDICES_IN_CELL; ++i)
+    // INDICES_IN_CELL == 5 as there are maximum five triangles in each cell
+    // i: Triangle index
+    // j: Vertex index in each triangle
+    for (uint i = 0; i < INDICES_IN_CELL / 3; ++i)
     {
-        uint localVertexIndex = indexTable[code * INDICES_IN_CELL + i];
-        uint globalVertexIndex = (localVertexIndex == -1) ? -1 : globalVertexIndices[localVertexIndex];
-
-        // Store in the output index buffer!
-        // Since we will process vertex 0, 3, 8 in each cell, the vertices on the last edge for each axis will be invalid.
-        // Make triangles only for vertices not on the last edges. 
-        if (notLastEdge) indices[cellLinearIndex * INDICES_IN_CELL + i] = globalVertexIndex;
-        if (globalVertexIndex == -1) continue;
-
-        if (localVertexIndex == 0 || localVertexIndex == 3 || localVertexIndex == 8)
+        // If there is another triangle
+        if (indexTable[code * INDICES_IN_CELL + 3 * i] != -1)
         {
-            // Store vertex positions in the vertex position buffer!
-            uvec2 adjacentCorners = VERTEX_TO_CORNERS[localVertexIndex];
-            bool isLargerY = cornerDensities[adjacentCorners.x] < cornerDensities[adjacentCorners.y];
+            uint currentIndexCount = atomicAdd(drawArgument.indexCount, 3);
+            for (uint j = 0; j < 3; ++j)
+            {
+                uint offset = 3 * i + j; // Index of this vertex in the cell
+                uint localVertexIndex = indexTable[code * INDICES_IN_CELL + offset]; // 0, 1, ..., 7
+                uint globalVertexIndex = globalVertexIndices[localVertexIndex];
 
-            float density1 = isLargerY ? cornerDensities[adjacentCorners.x] : cornerDensities[adjacentCorners.y];
-            float density2 = isLargerY ? cornerDensities[adjacentCorners.y] : cornerDensities[adjacentCorners.x];
-            float weight1 = (density2 - setup.isovalue) / (density2 - density1);
-            float weight2 = (setup.isovalue - density1) / (density2 - density1);
+                // Output the result to the output index buffer.
+                // Since we will process vertex 0, 3, 8 in each cell, the vertices on the last edge for each axis will be invalid.
+                // Make triangles only for vertices not on the last edges.
+                if (notLastEdge) indices[currentIndexCount + j] = globalVertexIndex;
 
-            vec3 position1 = isLargerY ? voxelPositions[adjacentCorners.x] : voxelPositions[adjacentCorners.y];
-            vec3 position2 = isLargerY ? voxelPositions[adjacentCorners.y] : voxelPositions[adjacentCorners.x];
-            vec3 normal1 = isLargerY ? voxelNormals[adjacentCorners.x] : voxelNormals[adjacentCorners.y];
-            vec3 normal2 = isLargerY ? voxelNormals[adjacentCorners.y] : voxelNormals[adjacentCorners.x];
+                // Update the positions of vertices composing the triangle
+                if (localVertexIndex == 0 || localVertexIndex == 3 || localVertexIndex == 8)
+                {
+                    // Store vertex positions in the vertex position buffer!
+                    uvec2 adjacentCorners = VERTEX_TO_CORNERS[localVertexIndex];
+                    bool isLargerY = cornerDensities[adjacentCorners.x] < cornerDensities[adjacentCorners.y];
 
-            vertices[globalVertexIndex].pos = weight1 * position1 + weight2 * position2;
-            vertices[globalVertexIndex].normal = weight1 * normal1 + weight2 * normal2;
-            vertices[globalVertexIndex].texCoord = vec2(0.0f, 0.0f);
+                    float density1 = isLargerY ? cornerDensities[adjacentCorners.x] : cornerDensities[adjacentCorners.y];
+                    float density2 = isLargerY ? cornerDensities[adjacentCorners.y] : cornerDensities[adjacentCorners.x];
+                    float weight1 = (density2 - setup.isovalue) / (density2 - density1);
+                    float weight2 = (setup.isovalue - density1) / (density2 - density1);
+
+                    vec3 position1 = isLargerY ? voxelPositions[adjacentCorners.x] : voxelPositions[adjacentCorners.y];
+                    vec3 position2 = isLargerY ? voxelPositions[adjacentCorners.y] : voxelPositions[adjacentCorners.x];
+                    vec3 normal1 = isLargerY ? voxelNormals[adjacentCorners.x] : voxelNormals[adjacentCorners.y];
+                    vec3 normal2 = isLargerY ? voxelNormals[adjacentCorners.y] : voxelNormals[adjacentCorners.x];
+
+                    vertices[globalVertexIndex].pos = weight1 * position1 + weight2 * position2;
+                    vertices[globalVertexIndex].normal = weight1 * normal1 + weight2 * normal2;
+                    vertices[globalVertexIndex].texCoord = vec2(0.0f, 0.0f);
+                }
+            }
         }
     }
 }

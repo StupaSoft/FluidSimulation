@@ -74,7 +74,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 		{
 			auto &descriptorSets = _descriptorSetsList[i];
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
-			vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indexBuffer->Size()) / sizeof(uint32_t), 1, 0, 0, 0);
+			vkCmdDrawIndexedIndirect(commandBuffer, _drawArgumentBuffer->GetBufferHandle(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
 	}
 }
@@ -129,17 +129,21 @@ void MeshModel::LoadMesh(const std::vector<Vertex> &vertices, const std::vector<
 	VkDeviceSize indexBufferSize = sizeof(indices[0]) * indices.size();
 	_indexBuffer = CreateBuffer(indexBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-	memory->Bind({ _vertexBuffer, _indexBuffer });
+	// Create an argument buffer for draw indirect
+	_drawArgumentBuffer = CreateBuffer(sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+
+	memory->Bind({ _vertexBuffer, _indexBuffer, _drawArgumentBuffer });
 
 	// Update once
 	UpdateVertices(vertices);
 	UpdateIndices(indices);
 }
 
-void MeshModel::SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer)
+void MeshModel::LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer)
 {
 	_vertexBuffer = vertexBuffer;
 	_indexBuffer = indexBuffer;
+	_drawArgumentBuffer = drawArgumentBuffer;
 }
 
 void MeshModel::LoadPipeline(const std::wstring &vertexShaderPath, const std::wstring &fragmentShaderPath, RenderMode renderMode)
@@ -279,6 +283,16 @@ void MeshModel::UpdateIndices(const std::vector<uint32_t> &indices)
 	_indices = indices;
 	_indexBuffer->CopyFrom(indices.data());
 	UpdateTriangles(_vertices, indices);
+
+	VkDrawIndexedIndirectCommand drawCommands
+	{
+		.indexCount = static_cast<uint32_t>(indices.size()),
+		.instanceCount = 1,
+		.firstIndex = 0,
+		.vertexOffset = 0, 
+		.firstInstance = 0
+	};
+	_drawArgumentBuffer->CopyFrom(&drawCommands);
 }
 
 std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule)

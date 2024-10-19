@@ -17,8 +17,9 @@ private:
 	std::vector<Vertex> _billboardVertices;
 	std::vector<uint32_t> _billboardIndices;
 
-	Buffer _vertexBuffer{};
-	Buffer _indexBuffer{};
+	Buffer _vertexBuffer = nullptr;
+	Buffer _indexBuffer = nullptr;
+	Buffer _drawArgumentBuffer = nullptr;
 
 	// 3 2
 	// 0 1

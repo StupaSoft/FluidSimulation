@@ -5,7 +5,7 @@ MarchingCubes::MarchingCubes(const std::vector<Buffer> &inputBuffers, size_t par
 	_compute = MarchingCubesCompute::Instantiate<MarchingCubesCompute>(inputBuffers, particleCount, marchingCubesGrid);
 
 	_meshModel = MeshModel::Instantiate<MeshModel>();
-	_meshModel->SetMeshBuffers(_compute->GetVertexBuffer(), _compute->GetIndexBuffer());
+	_meshModel->LoadMesh(_compute->GetVertexBuffer(), _compute->GetIndexBuffer(), _compute->GetDrawArgumentBuffer());
 	_meshModel->LoadPipeline(L"Shaders/Rendering/StandardVertex.spv", L"Shaders/Rendering/StandardFragment.spv");
 
 	MeshModel::Material marchingCubesMat

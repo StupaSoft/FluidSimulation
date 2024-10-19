@@ -50,7 +50,6 @@ private:
 		alignas(4) uint32_t _cellCount = 0;
 
 		alignas(4) uint32_t _vertexCount = 0;
-		alignas(4) uint32_t _indexCount = 0;
 	};
 
 	// Setup
@@ -67,12 +66,18 @@ private:
 	Buffer _voxelBuffer = nullptr;
 	Buffer _indexBuffer = nullptr;
 	Buffer _vertexBuffer = nullptr; // Buffers that will be fed as the vertex buffer
+	Buffer _drawArgumentBuffer = nullptr;
 
 	// Descriptor sets
 	std::shared_ptr<DescriptorHelper> _descriptorHelper = nullptr;
 	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
 
 	// Compute pipeline
+	VkDescriptorSetLayout _initializationDescriptorSetLayout = VK_NULL_HANDLE;
+	std::vector<VkDescriptorSet> _initializationDescriptorSets;
+	VkPipeline _initializationPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _initializationPipelineLayout = VK_NULL_HANDLE;
+
 	VkDescriptorSetLayout _accumulationDescriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<VkDescriptorSet> _accumulationDescriptorSets;
 	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
@@ -82,11 +87,6 @@ private:
 	std::vector<VkDescriptorSet> _constructionDescriptorSets;
 	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
-
-	VkDescriptorSetLayout _resetVoxelDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _resetVoxelDescriptorSets;
-	VkPipeline _resetVoxelPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _resetVoxelPipelineLayout = VK_NULL_HANDLE;
 
 	// Constants
 	static const uint32_t CODES_COUNT = 256;
@@ -105,9 +105,10 @@ public:
 	const std::vector<Buffer> &GetParticleInputBuffers() { return _particlePositionInputBuffers; }
 	Buffer GetVertexBuffer() { return _vertexBuffer; }
 	Buffer GetIndexBuffer() { return _indexBuffer; }
+	Buffer GetDrawArgumentBuffer() { return _drawArgumentBuffer; }
 
 protected:
-	void InitializeGrid(const MarchingCubesGrid &parameters);
+	void InitializationGrid(const MarchingCubesGrid &parameters);
 
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
 
@@ -116,8 +117,8 @@ private:
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateInitializationDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateAccumulationDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateConstructionDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateResetVoxelDescriptors(DescriptorHelper *descriptorHelper);
 };
 

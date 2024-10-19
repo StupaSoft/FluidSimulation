@@ -17,7 +17,15 @@ struct MarchingCubesSetup
     uint cellCount;
 
     uint vertexCount;
-    uint indexCount;
+};
+
+struct DrawArgument
+{
+    uint    indexCount;
+    uint    instanceCount;
+    uint    firstIndex;
+    int     vertexOffset;
+    uint    firstInstance;
 };
 
 // ========== Inputs ==========
@@ -32,6 +40,11 @@ layout (std430, binding = 1) buffer VoxelOutSSBO
     uint voxelDensities[];
 };
 
+layout (std430, binding = 2) buffer DrawArgumentOutSSBO
+{
+    DrawArgument drawArgument;
+};
+
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
 
 void main()
@@ -42,4 +55,7 @@ void main()
     {
         voxelDensities[voxelIndex] = 0;
     }
+
+    // indexCount should be set to zero
+    drawArgument.indexCount = 0;
 }

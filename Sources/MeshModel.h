@@ -40,25 +40,28 @@ private:
 	float _lineWidth = 1.0f;
 
 	// ==================== Pipeline and shaders ====================
-	VkShaderModule _vertShaderModule;
-	VkShaderModule _fragShaderModule;
+	VkShaderModule _vertShaderModule = VK_NULL_HANDLE;
+	VkShaderModule _fragShaderModule = VK_NULL_HANDLE;
 
-	VkPipeline _graphicsPipeline;
-	VkPipelineLayout _pipelineLayout;
+	VkPipeline _graphicsPipeline = VK_NULL_HANDLE;
+	VkPipelineLayout _pipelineLayout = VK_NULL_HANDLE;
+
+	// ==================== Draw parameter ====================
+	Buffer _drawArgumentBuffer = nullptr;
 
 	// ==================== Vertex input ====================
 	std::vector<Vertex> _vertices;
-	Buffer _vertexBuffer;
+	Buffer _vertexBuffer = nullptr;
 
 	// ==================== Index input ====================
 	std::vector<uint32_t> _indices;
-	Buffer _indexBuffer;
+	Buffer _indexBuffer = nullptr;
 
 	// ==================== Triangles ====================
 	std::shared_ptr<std::vector<Triangle>> _triangles = std::make_shared<std::vector<Triangle>>(); // Triangles in the model space
 
 	// ==================== Texture ====================
-	Image _texture;
+	Image _texture = nullptr;
 	uint32_t _textureMipLevels = 0;
 
 	VkSampler _textureSampler = VK_NULL_HANDLE; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
@@ -67,8 +70,8 @@ private:
 	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
 
 	static const uint32_t MAX_SET_COUNT = 1000;
-	VkDescriptorPool _descriptorPool;
-	VkDescriptorSetLayout _descriptorSetLayout;
+	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
+	VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
 	std::vector<std::vector<VkDescriptorSet>> _descriptorSetsList; // [Mesh object count][Frames in flight]
 
 	// ==================== Light ====================
@@ -87,7 +90,7 @@ public:
 	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
-	void SetMeshBuffers(Buffer vertexBuffer, Buffer indexBuffer);
+	void LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer);
 	void LoadPipeline(const std::wstring &vertexShaderPath, const std::wstring &fragmentShaderPath, RenderMode renderMode = RenderMode::Triangle);
 	void LoadTexture(const std::wstring &texturePath);
 
