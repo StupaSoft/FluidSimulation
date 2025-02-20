@@ -33,8 +33,8 @@ UIModel::UIModel()
 		.Device = VulkanCore::Get()->GetLogicalDevice(),
 		.QueueFamily = VulkanCore::Get()->GetGraphicsFamily(),
 		.Queue = VulkanCore::Get()->GetGraphicsQueue(),
-		.PipelineCache = VK_NULL_HANDLE,
 		.DescriptorPool = _ImGuiDescriptorPool,
+		.RenderPass = VulkanCore::Get()->GetRenderPass(),
 		.MinImageCount = VulkanCore::Get()->GetMinImageCount(),
 		.ImageCount = static_cast<uint32_t>(VulkanCore::Get()->GetMinImageCount()),
 		.MSAASamples = VK_SAMPLE_COUNT_8_BIT,
@@ -42,7 +42,7 @@ UIModel::UIModel()
 		.CheckVkResultFn = nullptr
 	};
 
-	ImGui_ImplVulkan_Init(&initInfo, VulkanCore::Get()->GetRenderPass());
+	ImGui_ImplVulkan_Init(&initInfo);
 }
 
 void UIModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame)

@@ -1,0 +1,6 @@
+[submodule "Libraries/tinyobjloader"]
+	path = Libraries/tinyobjloader
+	url = https://github.com/tinyobjloader/tinyobjloader
+[submodule "Libraries/imgui"]
+	path = Libraries/imgui
+	url = https://github.com/ocornut/imgui.git
