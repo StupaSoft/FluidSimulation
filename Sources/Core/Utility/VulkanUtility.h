@@ -28,9 +28,7 @@ uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, co
 // Return min(depth sample count, color sample count)
 VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice);
 
-VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code);
-
-std::vector<char> ReadFile(const std::string &fileName);
+std::vector<char> ReadFile(const std::string &filePath);
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJFileName);
 
 std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalDevice, VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout);

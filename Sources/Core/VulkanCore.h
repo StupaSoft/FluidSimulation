@@ -150,8 +150,8 @@ private:
 public:
 	static VulkanCore *Get() 
 	{
-		static VulkanCore vulkanCore;
-		return &vulkanCore;
+		static std::unique_ptr<VulkanCore> vulkanCore(new VulkanCore());;
+		return vulkanCore.get();
 	}
 
 	VulkanCore(const VulkanCore &other) = delete;

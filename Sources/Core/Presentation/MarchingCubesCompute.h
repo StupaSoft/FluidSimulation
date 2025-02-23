@@ -14,6 +14,7 @@
 #include "DescriptorHelper.h"
 #include "Vertex.h"
 #include "SimulationParameters.h"
+#include "ShaderManager.h"
 
 struct MarchingCubesGrid
 {

@@ -15,17 +15,17 @@ MarchingCubesCompute::MarchingCubesCompute(const std::vector<Buffer> &inputBuffe
 	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
 
 	// Create compute pipeline
-	VkShaderModule initializationShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesInitialization.spv"));
+	VkShaderModule initializationShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesInitialization");
 	std::tie(_initializationDescriptorSetLayout, _initializationDescriptorSets) = CreateInitializationDescriptors(_descriptorHelper.get());
 	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShaderModule, _initializationDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), initializationShaderModule, nullptr);
 
-	VkShaderModule accumulationShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesAccumulation.spv"));
+	VkShaderModule accumulationShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesAccumulation");
 	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
 	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), accumulationShaderModule, nullptr);
 
-	VkShaderModule constructionShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Presentation/MarchingCubesConstruction.spv"));
+	VkShaderModule constructionShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesConstruction");
 	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
 	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), constructionShaderModule, nullptr);

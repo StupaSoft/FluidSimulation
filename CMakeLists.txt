@@ -42,6 +42,8 @@ add_library(Core STATIC
     ${CORE_DIR}/VulkanCore.cpp
     ${CORE_DIR}/VulkanResources.h
     ${CORE_DIR}/VulkanResources.cpp
+    ${CORE_DIR}/ShaderManager.h
+    ${CORE_DIR}/ShaderManager.cpp
 
     ${CORE_DIR}/Mesh/MeshModel.h
     ${CORE_DIR}/Mesh/MeshModel.cpp

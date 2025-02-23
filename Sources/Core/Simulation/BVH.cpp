@@ -436,7 +436,7 @@ void BVH::DrawBoundingBoxes(uint32_t nodeIndex, bool includeDescendants)
 
 		_meshModel->LoadMesh(boxVertices, boxIndices);
 		_meshModel->SetLineWidth(2.0f);
-		_meshModel->LoadPipeline("Shaders/Rendering/StandardVertex.spv", "Shaders/Rendering/StandardFragment.spv", RenderMode::Line);
+		_meshModel->LoadPipeline("StandardVertex", "StandardFragment", RenderMode::Line);
 	}
 
 	if (includeDescendants)

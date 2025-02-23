@@ -271,7 +271,7 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t
 
 void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension)
 {
-	VkShaderModule hashingShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/Hashing.spv"));
+	VkShaderModule hashingShaderModule = ShaderManager::Get()->GetShaderModule("Hashing");
 	std::tie(_hashingDescriptorSetLayout, _hashingDescriptorSets) = CreateHashingDescriptors(_descriptorHelper.get());
 	std::tie(_hashingPipeline, _hashingPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), hashingShaderModule, _hashingDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), hashingShaderModule, nullptr);
@@ -281,47 +281,47 @@ void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucke
 	_prefixSumStatePushConstant.size = sizeof(PrefixSumState);
 	_prefixSumStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	VkShaderModule prefixSumUpShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/PrefixSumUp.spv"));
+	VkShaderModule prefixSumUpShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumUp");
 	std::tie(_prefixSumUpDescriptorSetLayout, _prefixSumUpDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
 	std::tie(_prefixSumUpPipeline, _prefixSumUpPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShaderModule, _prefixSumUpDescriptorSetLayout, { _prefixSumStatePushConstant });
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShaderModule, nullptr);
 
-	VkShaderModule prefixSumTurnPhaseShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/PrefixSumTurnPhase.spv"));
+	VkShaderModule prefixSumTurnPhaseShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumTurnPhase");
 	std::tie(_prefixSumTurnPhaseDescriptorSetLayout, _prefixSumTurnPhaseDescriptorSets) = CreatePrefixSumTurnPhaseDescriptors(_descriptorHelper.get());
 	std::tie(_prefixSumTurnPhasePipeline, _prefixSumTurnPhasePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShaderModule, _prefixSumTurnPhaseDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShaderModule, nullptr);
 
-	VkShaderModule prefixSumDownShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/PrefixSumDown.spv"));
+	VkShaderModule prefixSumDownShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumDown");
 	std::tie(_prefixSumDownDescriptorSetLayout, _prefixSumDownDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
 	std::tie(_prefixSumDownPipeline, _prefixSumDownPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShaderModule, _prefixSumDownDescriptorSetLayout, { _prefixSumStatePushConstant });
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShaderModule, nullptr);
 
-	VkShaderModule countingSortShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/CountingSort.spv"));
+	VkShaderModule countingSortShaderModule = ShaderManager::Get()->GetShaderModule("CountingSort");
 	std::tie(_countingSortDescriptorSetLayout, _countingSortDescriptorSets) = CreateCountingSortDescriptors(_descriptorHelper.get());
 	std::tie(_countingSortPipeline, _countingSortPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), countingSortShaderModule, _countingSortDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), countingSortShaderModule, nullptr);
 
-	VkShaderModule updateDensityShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/UpdateDensity.spv"));
+	VkShaderModule updateDensityShaderModule = ShaderManager::Get()->GetShaderModule("UpdateDensity");
 	std::tie(_densityDescriptorSetLayout, _densityDescriptorSets) = CreateDensityDescriptors(_descriptorHelper.get());
 	std::tie(_densityPipeline, _densityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), updateDensityShaderModule, _densityDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), updateDensityShaderModule, nullptr);
 
-	VkShaderModule externalForcesShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/AccumulateExternalForces.spv"));
+	VkShaderModule externalForcesShaderModule = ShaderManager::Get()->GetShaderModule("AccumulateExternalForces");
 	std::tie(_externalForcesDescriptorSetLayout, _externalForcesDescriptorSets) = CreateExternalForcesDescriptors(_descriptorHelper.get());
 	std::tie(_externalForcesPipeline, _externalForcesPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), externalForcesShaderModule, _externalForcesDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), externalForcesShaderModule, nullptr);
 
-	VkShaderModule computePressureShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/ComputePressure.spv"));
+	VkShaderModule computePressureShaderModule = ShaderManager::Get()->GetShaderModule("ComputePressure");
 	std::tie(_computePressureDescriptorSetLayout, _computePressureDescriptorSets) = CreateComputePressureDescriptors(_descriptorHelper.get());
 	std::tie(_computePressurePipeline, _computePressurePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), computePressureShaderModule, _computePressureDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), computePressureShaderModule, nullptr);
 
-	VkShaderModule pressureAndViscosity = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/AccumulatePressureAndViscosity.spv"));
+	VkShaderModule pressureAndViscosity = ShaderManager::Get()->GetShaderModule("AccumulatePressureAndViscosity");
 	std::tie(_pressureAndViscosityDescriptorSetLayout, _pressureAndViscosityDescriptorSets) = CreatePressureForceDescriptors(_descriptorHelper.get());
 	std::tie(_pressureAndViscosityPipeline, _pressureAndViscosityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosity, _pressureAndViscosityDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosity, nullptr);
 
-	VkShaderModule timeIntegrationShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/TimeIntegration.spv"));
+	VkShaderModule timeIntegrationShaderModule = ShaderManager::Get()->GetShaderModule("TimeIntegration");
 	std::tie(_timeIntegrationDescriptorSetLayout, _timeIntegrationDescriptorSets) = CreateTimeIntegrationDescriptors(_descriptorHelper.get());
 	std::tie(_timeIntegrationPipeline, _timeIntegrationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShaderModule, _timeIntegrationDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShaderModule, nullptr);
@@ -331,12 +331,12 @@ void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucke
 	_BVHStatePushConstant.size = sizeof(uint32_t);
 	_BVHStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	VkShaderModule resolveCollisionShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/ResolveCollision.spv"));
+	VkShaderModule resolveCollisionShaderModule = ShaderManager::Get()->GetShaderModule("ResolveCollision");
 	std::tie(_resolveCollisionDescriptorSetLayout, _resolveCollisionDescriptorSets) = CreateResolveCollisionDescriptors(_descriptorHelper.get());
 	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShaderModule, _resolveCollisionDescriptorSetLayout, { _BVHStatePushConstant });
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShaderModule, nullptr);
 
-	VkShaderModule endTimeStepShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile("Shaders/Simulation/EndTimeStep.spv"));
+	VkShaderModule endTimeStepShaderModule = ShaderManager::Get()->GetShaderModule("EndTimeStep");
 	std::tie(_endTimeStepDescriptorSetLayout, _endTimeStepDescriptorSets) = CreateEndTimeStepDescriptors(_descriptorHelper.get());
 	std::tie(_endTimeStepPipeline, _endTimeStepPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShaderModule, _endTimeStepDescriptorSetLayout);
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShaderModule, nullptr);

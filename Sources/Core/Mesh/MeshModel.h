@@ -5,6 +5,7 @@
 #include "DescriptorHelper.h"
 #include "Vertex.h"
 #include "Triangle.h"
+#include "ShaderManager.h"
 
 enum class RenderMode
 {
@@ -91,8 +92,8 @@ public:
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
 	void LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer);
-	void LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode = RenderMode::Triangle);
-	void LoadTexture(const std::string &texturePath);
+	void LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, RenderMode renderMode = RenderMode::Triangle);
+	void LoadTexture(const std::string &textureName);
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);
 	void UpdateIndices(const std::vector<uint32_t> &indices);
@@ -115,5 +116,5 @@ private:
 	void ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 	void ApplyMaterialAdjustment();
 
-	std::tuple<Image, uint32_t> CreateTextureImage(const std::string &texturePath);
+	std::tuple<Image, uint32_t> CreateTextureImage(const std::string &textureName);
 };

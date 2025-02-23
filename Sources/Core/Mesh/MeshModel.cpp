@@ -102,7 +102,7 @@ void MeshModel::UpdateTriangles(const std::vector<Vertex> &vertices, const std::
 	}
 }
 
-void MeshModel::LoadTexture(const std::string &texturePath)
+void MeshModel::LoadTexture(const std::string &textureName)
 {
 	// We have to free prior images
 	if (_textureSampler != VK_NULL_HANDLE)
@@ -111,9 +111,7 @@ void MeshModel::LoadTexture(const std::string &texturePath)
 	}
 
 	// Load a texture
-	std::string targetTexturePath = texturePath;
-	if (targetTexturePath.empty()) targetTexturePath = "Textures/Fallback.png"; // Fallback texture
-	std::tie(_texture, _textureMipLevels) = CreateTextureImage(targetTexturePath);
+	std::tie(_texture, _textureMipLevels) = CreateTextureImage(textureName.empty() ? "Fallback.png" : textureName);
 	_textureSampler = CreateTextureSampler(_textureMipLevels);
 }
 
@@ -146,7 +144,7 @@ void MeshModel::LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArg
 	_drawArgumentBuffer = drawArgumentBuffer;
 }
 
-void MeshModel::LoadPipeline(const std::string &vertexShaderPath, const std::string &fragmentShaderPath, RenderMode renderMode)
+void MeshModel::LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, RenderMode renderMode)
 {
 	_renderMode = renderMode;
 	if (renderMode == RenderMode::Triangle)
@@ -166,8 +164,8 @@ void MeshModel::LoadPipeline(const std::string &vertexShaderPath, const std::str
 	}
 
 	// Create shader modules
-	_vertShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile(vertexShaderPath));
-	_fragShaderModule = CreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), ReadFile(fragmentShaderPath));
+	_vertShaderModule = ShaderManager::Get()->GetShaderModule(vertexShaderStem);
+	_fragShaderModule = ShaderManager::Get()->GetShaderModule(fragmentShaderStem);
 
 	// Create a graphics pipeline
 	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
@@ -514,8 +512,10 @@ void MeshModel::ApplyMaterialAdjustment()
 	}
 }
 
-std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::string &texturePath)
+std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::string &textureName)
 {
+	std::string texturePath = TEXTURE_DIR + textureName;
+
 	// Load a texture image
 	int width = 0;
 	int height = 0;

@@ -3,6 +3,7 @@
 #include "ComputeBase.h"
 #include "VulkanResources.h"
 #include "DescriptorHelper.h"
+#include "ShaderManager.h"
 
 class BillboardsCompute : public ComputeBase
 {

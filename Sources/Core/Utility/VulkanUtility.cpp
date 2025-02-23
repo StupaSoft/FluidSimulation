@@ -21,24 +21,6 @@ uint32_t FindMemoryType(VkPhysicalDevice physicalDevice, uint32_t typeFilter, co
 	throw std::runtime_error("Failed to find a suitable memory type.");
 }
 
-VkShaderModule CreateShaderModule(VkDevice logicalDevice, const std::vector<char> &code)
-{
-	VkShaderModuleCreateInfo createInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code.size(),
-		.pCode = reinterpret_cast<const uint32_t *>(code.data())
-	};
-
-	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create a shader module.");
-	}
-
-	return shaderModule;
-}
-
 VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) // Return min(depth sample count, color sample count)
 {
 	VkPhysicalDeviceProperties physicalDeviceProperties;
@@ -54,13 +36,13 @@ VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice) /
 	return VK_SAMPLE_COUNT_1_BIT;
 }
 
-std::vector<char> ReadFile(const std::string &fileName)
+std::vector<char> ReadFile(const std::string &filePath)
 {
-	std::ifstream file(fileName, std::ios::ate | std::ios::binary);
+	std::ifstream file(filePath, std::ios::ate | std::ios::binary);
 
 	if (!file.is_open())
 	{
-		throw std::runtime_error(std::format("Failed to open the file {0}", fileName));
+		throw std::runtime_error(std::format("Failed to open the file {0}", filePath));
 	}
 
 	size_t fileSize = (size_t)file.tellg();
@@ -76,7 +58,7 @@ std::vector<char> ReadFile(const std::string &fileName)
 
 std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string &OBJFileName)
 {
-	std::string OBJPath = MODEL_DIR + OBJPath;
+	std::string OBJPath = MODEL_DIR + OBJFileName;
 	
 	// Mimick contents of tinyobj::LoadObj to support Unicode for file names
 	tinyobj::attrib_t attribute; // Holds all of the positions, normals, and texture coordinates
