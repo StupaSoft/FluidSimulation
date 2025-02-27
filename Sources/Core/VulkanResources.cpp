@@ -32,7 +32,7 @@ void DeviceMemory::Bind(const std::vector<Buffer> &buffers)
 		VkMemoryRequirements memRequirements;
 		vkGetBufferMemoryRequirements(VulkanCore::Get()->GetLogicalDevice(), buffer->GetBufferHandle(), &memRequirements); // Query memory requirements
 
-		bufferSizes.push_back(memRequirements.size);
+		bufferSizes.push_back(RoundUp(memRequirements.size, memRequirements.alignment));
 		memoryTypeBits |= memRequirements.memoryTypeBits;
 	}
 

@@ -9,6 +9,7 @@
 #include "GLFW/glfw3.h"
 
 #include "VulkanCore.h"
+#include "MathUtil.h"
 
 // Declarations and aliases
 class DeviceMemory;

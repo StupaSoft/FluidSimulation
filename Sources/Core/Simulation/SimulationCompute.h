@@ -18,8 +18,8 @@ private:
 
 	struct GridSetup
 	{
-		alignas(16) glm::uvec4 _dimension{};
 		// _gridSpacing is equal to 2.0f * _particleRadius * _kernelRadiusFactor
+		alignas(16) glm::uvec4 _dimension{};
 	};
 
 	struct PrefixSumState
@@ -151,12 +151,11 @@ private:
 	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateHashingDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumTurnPhaseDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateCountingSortDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateDensityDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateExternalForcesDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateComputePressureDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePressureForceDescriptors(DescriptorHelper *descriptorHelper);
+	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePressureViscosityForceDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateTimeIntegrationDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateResolveCollisionDescriptors(DescriptorHelper *descriptorHelper);
 	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateEndTimeStepDescriptors(DescriptorHelper *descriptorHelper);

@@ -2,123 +2,94 @@
 
 ShaderManager::ShaderManager()
 {
-	CompileAllShaders();
-	ScanAllShaders();
-}
+	// Setup Slang environment
+	SlangGlobalSessionDesc desc{};
+	createGlobalSession(&desc, _globalSession.writeRef());
 
-VkShaderModule ShaderManager::GetShaderModule(const std::string &shaderStem)
-{
-	if (_shaderArchive.find(shaderStem) == _shaderArchive.end())
+	slang::TargetDesc targetDesc
 	{
-		throw std::runtime_error(std::format("Shader not found: {}", shaderStem));
-	}
-
-	auto code = ReadFile(_shaderArchive.at(shaderStem).string());
-
-	// std::vector<char> &code;
-	VkShaderModuleCreateInfo createInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = code.size(),
-		.pCode = reinterpret_cast<const uint32_t *>(code.data())
+		.format = SLANG_SPIRV,
+		.profile = _globalSession->findProfile("sm_6_1")
 	};
 
-	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(VulkanCore::Get()->GetLogicalDevice(), &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+	slang::SessionDesc sessionDesc
 	{
-		throw std::runtime_error("Failed to create a shader module.");
-	}
+		.targets = &targetDesc,
+		.targetCount = 1,
+		.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR
+	};
 
-	return shaderModule;
+	_globalSession->createSession(sessionDesc, _session.writeRef());
 }
 
-void ShaderManager::CompileAllShaders()
+ShaderAsset ShaderManager::GetShaderAsset(const std::string &shaderStem, const std::string &entryName)
 {
-	auto sourceDir = std::filesystem::path(SHADER_DIR) / "Sources";
-	auto outDir = std::filesystem::path(SHADER_DIR) / "Out";
-
-	std::vector<std::tuple<std::filesystem::path, std::future<bool>>> compileTasks;
-
-	// Recursively scan the source directory and compile shaders selectively
-	for (const auto &entry : std::filesystem::recursive_directory_iterator(sourceDir))
+	auto shaderPair = std::make_tuple(shaderStem, entryName);
+	if (_shaderArchive.find(shaderPair) == _shaderArchive.end())
 	{
-		if (entry.is_regular_file() && entry.path().extension() == ".slang")
+		// Cached shader not found yet - try to compile
+		std::filesystem::path shaderName(shaderStem);
+		shaderName.replace_extension(".slang");
+
+		std::filesystem::path shaderPath;
+		for (const auto &entry : std::filesystem::recursive_directory_iterator(SHADER_DIR))
 		{
-			auto shaderPath = entry.path();
-
-			// Is a Slang file
-			std::filesystem::path SPIRVName = entry.path().filename();
-			SPIRVName.replace_extension(".spv");
-
-			// Check if a precompiled SPIRV exists
-			bool needCompilation = false;
-			auto SPIRVPath = outDir / SPIRVName;
-			if (std::filesystem::exists(SPIRVPath))
+			if (entry.is_regular_file() && entry.path().filename() == shaderName)
 			{
-				// If the compiled SPIR-V has been outdated, compile the shader source once again.
-				auto lastEditTime = std::filesystem::last_write_time(shaderPath);
-				auto lastCompileTime = std::filesystem::last_write_time(SPIRVPath);
-				needCompilation = lastEditTime > lastCompileTime;
+				shaderPath = entry.path();
 			}
-			else
-			{
-				// If a compiled SPIR-V file doesn't exist, compile the shader source.
-				needCompilation = true;
-			}
-
-			std::string initMessage;
-			std::filesystem::path shaderStem = shaderPath.filename().stem();
-			if (needCompilation)
-			{
-				// Asynchronously launch a compilation task
-				std::future<bool> compileTask = std::async(std::launch::async, [this, &shaderPath, &SPIRVPath]() { return CompileShader(shaderPath, SPIRVPath); });
-				compileTasks.push_back(std::make_tuple(SPIRVPath, std::move(compileTask)));
-
-				initMessage = std::format("Compiling: {}", shaderStem.string());
-			}
-			else
-			{
-				initMessage = std::format("Shader found: {}", shaderStem.string());
-			}
-
-			std::cout << initMessage << std::endl;
 		}
-	}
 
-	for (auto &taskPair : compileTasks)
-	{
-		auto &SPIRVPath = std::get<0>(taskPair);
-		auto shaderStem = SPIRVPath.filename().stem();
-		auto &task = std::get<1>(taskPair);
-
-		bool isSuccess = task.get();
-		if (isSuccess)
+		if (shaderPath.empty())
 		{
-			std::cout << std::format("Successfully compiled: {}", shaderStem.string());
+			throw std::runtime_error(std::format("Shader does not exist: {}", shaderStem));
+		}
+
+		auto compiledShader = CompileShader(shaderPath, entryName);
+		if (compiledShader == nullptr)
+		{
+			throw std::runtime_error(std::format("Shader compilation failed: ({} | {})", shaderStem, entryName));
 		}
 		else
 		{
-			std::cout << std::format("Compilation failed: {}", shaderStem.string());
+			std::cout << std::format("Successfully compiled: ({} | {})", shaderStem, entryName) << std::endl;
+			_shaderArchive[shaderPair] = CreateShaderAsset(compiledShader);
 		}
 	}
+
+	return _shaderArchive[shaderPair];
 }
 
-bool ShaderManager::CompileShader(const std::filesystem::path &shaderPath, const std::filesystem::path &outPath)
+Slang::ComPtr<slang::IComponentType> ShaderManager::CompileShader(const std::filesystem::path &shaderPath, const std::string &entryName)
 {
-	return true;
-}
+	// Search paths for #include directive or import declaration
 
-void ShaderManager::ScanAllShaders()
-{
-	auto outDir = std::filesystem::path(SHADER_DIR) / "Out";
-	for (const auto &entry : std::filesystem::directory_iterator(outDir))
+	// Pre-defined macros
+
+	// // Load a module and capture diagnostic output
+	Slang::ComPtr<slang::IBlob> diagnostics;
+	slang::IModule *module = _session->loadModule(shaderPath.string().c_str(), diagnostics.writeRef());
+
+	if (diagnostics)
 	{
-		if (entry.is_regular_file() && entry.path().extension() == ".spv")
-		{
-			auto SPIRVPath = entry.path();
-			auto shaderStem = SPIRVPath.filename().stem();
-
-			_shaderArchive[shaderStem] = SPIRVPath;
-		}
+		std::cout << reinterpret_cast<const char *>(diagnostics->getBufferPointer()) << std::endl;
+		return nullptr;
 	}
+
+	// Find an entry point
+	Slang::ComPtr<slang::IEntryPoint> entryPoint;
+	module->findEntryPointByName(entryName.c_str(), entryPoint.writeRef());
+
+	// Composition
+	std::vector<slang::IComponentType*> components = { module, entryPoint };
+	Slang::ComPtr<slang::IComponentType> program;
+	_session->createCompositeComponentType(components.data(), components.size(), program.writeRef());
+
+	if (program == nullptr)
+	{
+		std::cout << std::format("Invalid shader program: {}", shaderPath.string()) << std::endl;
+		return nullptr;
+	}
+
+	return program;
 }

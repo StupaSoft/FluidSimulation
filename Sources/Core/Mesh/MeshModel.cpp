@@ -1,6 +1,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_WINDOWS_UTF8
-#include <stb_image.h>
+#include "stb_image.h"
 
 #include "MeshModel.h"
 #include "VulkanCore.h"
@@ -144,7 +144,7 @@ void MeshModel::LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArg
 	_drawArgumentBuffer = drawArgumentBuffer;
 }
 
-void MeshModel::LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, RenderMode renderMode)
+void MeshModel::LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, const std::string &vertexShaderEntry, const std::string &fragmentShaderEntry, RenderMode renderMode)
 {
 	_renderMode = renderMode;
 	if (renderMode == RenderMode::Triangle)
@@ -164,14 +164,11 @@ void MeshModel::LoadPipeline(const std::string &vertexShaderStem, const std::str
 	}
 
 	// Create shader modules
-	_vertShaderModule = ShaderManager::Get()->GetShaderModule(vertexShaderStem);
-	_fragShaderModule = ShaderManager::Get()->GetShaderModule(fragmentShaderStem);
+	_vertShader = ShaderManager::Get()->GetShaderAsset(vertexShaderStem, vertexShaderEntry);
+	_fragShader = ShaderManager::Get()->GetShaderAsset(fragmentShaderStem, fragmentShaderEntry);
 
 	// Create a graphics pipeline
-	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShaderModule, _fragShaderModule);
-
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _fragShaderModule, nullptr);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _vertShaderModule, nullptr);
+	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShader->GetShaderModule(), _fragShader->GetShaderModule());
 }
 
 void MeshModel::SetMaterial(const Material &material)

@@ -230,9 +230,9 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 void SimulationCompute::CreateSetupBuffers()
 {
 	Memory memory = std::make_shared<DeviceMemory>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	_simulationSetupBuffer = CreateBuffer(sizeof(SimulationSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	_gridSetupBuffer = CreateBuffer(sizeof(GridSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	_simulationParametersBuffer = CreateBuffer(sizeof(SimulationParameters), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	_simulationSetupBuffer = CreateBuffer(sizeof(SimulationSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+	_gridSetupBuffer = CreateBuffer(sizeof(GridSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+	_simulationParametersBuffer = CreateBuffer(sizeof(SimulationParameters), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 	memory->Bind({ _simulationSetupBuffer, _gridSetupBuffer, _simulationParametersBuffer });
 }
 
@@ -271,75 +271,63 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t
 
 void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension)
 {
-	VkShaderModule hashingShaderModule = ShaderManager::Get()->GetShaderModule("Hashing");
+	ShaderAsset hashingShader = ShaderManager::Get()->GetShaderAsset("Hashing");
 	std::tie(_hashingDescriptorSetLayout, _hashingDescriptorSets) = CreateHashingDescriptors(_descriptorHelper.get());
-	std::tie(_hashingPipeline, _hashingPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), hashingShaderModule, _hashingDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), hashingShaderModule, nullptr);
+	std::tie(_hashingPipeline, _hashingPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), hashingShader->GetShaderModule(), _hashingDescriptorSetLayout);
 
 	// Configure a push constant for prefix sum
 	_prefixSumStatePushConstant.offset = 0;
 	_prefixSumStatePushConstant.size = sizeof(PrefixSumState);
 	_prefixSumStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	VkShaderModule prefixSumUpShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumUp");
+	ShaderAsset prefixSumUpShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainUp");
 	std::tie(_prefixSumUpDescriptorSetLayout, _prefixSumUpDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
-	std::tie(_prefixSumUpPipeline, _prefixSumUpPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShaderModule, _prefixSumUpDescriptorSetLayout, { _prefixSumStatePushConstant });
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShaderModule, nullptr);
+	std::tie(_prefixSumUpPipeline, _prefixSumUpPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShader->GetShaderModule(), _prefixSumUpDescriptorSetLayout, { _prefixSumStatePushConstant });
 
-	VkShaderModule prefixSumTurnPhaseShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumTurnPhase");
-	std::tie(_prefixSumTurnPhaseDescriptorSetLayout, _prefixSumTurnPhaseDescriptorSets) = CreatePrefixSumTurnPhaseDescriptors(_descriptorHelper.get());
-	std::tie(_prefixSumTurnPhasePipeline, _prefixSumTurnPhasePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShaderModule, _prefixSumTurnPhaseDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShaderModule, nullptr);
+	ShaderAsset prefixSumTurnPhaseShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainTurn");
+	std::tie(_prefixSumTurnPhaseDescriptorSetLayout, _prefixSumTurnPhaseDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
+	std::tie(_prefixSumTurnPhasePipeline, _prefixSumTurnPhasePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShader->GetShaderModule(), _prefixSumTurnPhaseDescriptorSetLayout);
 
-	VkShaderModule prefixSumDownShaderModule = ShaderManager::Get()->GetShaderModule("PrefixSumDown");
+	ShaderAsset prefixSumDownShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainDown");
 	std::tie(_prefixSumDownDescriptorSetLayout, _prefixSumDownDescriptorSets) = CreatePrefixSumDescriptors(_descriptorHelper.get());
-	std::tie(_prefixSumDownPipeline, _prefixSumDownPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShaderModule, _prefixSumDownDescriptorSetLayout, { _prefixSumStatePushConstant });
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShaderModule, nullptr);
+	std::tie(_prefixSumDownPipeline, _prefixSumDownPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShader->GetShaderModule(), _prefixSumDownDescriptorSetLayout, { _prefixSumStatePushConstant });
 
-	VkShaderModule countingSortShaderModule = ShaderManager::Get()->GetShaderModule("CountingSort");
+	ShaderAsset countingSortShader = ShaderManager::Get()->GetShaderAsset("CountingSort");
 	std::tie(_countingSortDescriptorSetLayout, _countingSortDescriptorSets) = CreateCountingSortDescriptors(_descriptorHelper.get());
-	std::tie(_countingSortPipeline, _countingSortPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), countingSortShaderModule, _countingSortDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), countingSortShaderModule, nullptr);
+	std::tie(_countingSortPipeline, _countingSortPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), countingSortShader->GetShaderModule(), _countingSortDescriptorSetLayout);
 
-	VkShaderModule updateDensityShaderModule = ShaderManager::Get()->GetShaderModule("UpdateDensity");
+	ShaderAsset updateDensityShader = ShaderManager::Get()->GetShaderAsset("UpdateDensity");
 	std::tie(_densityDescriptorSetLayout, _densityDescriptorSets) = CreateDensityDescriptors(_descriptorHelper.get());
-	std::tie(_densityPipeline, _densityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), updateDensityShaderModule, _densityDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), updateDensityShaderModule, nullptr);
+	std::tie(_densityPipeline, _densityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), updateDensityShader->GetShaderModule(), _densityDescriptorSetLayout);
 
-	VkShaderModule externalForcesShaderModule = ShaderManager::Get()->GetShaderModule("AccumulateExternalForces");
+	ShaderAsset externalForcesShader = ShaderManager::Get()->GetShaderAsset("AccumulateExternalForces");
 	std::tie(_externalForcesDescriptorSetLayout, _externalForcesDescriptorSets) = CreateExternalForcesDescriptors(_descriptorHelper.get());
-	std::tie(_externalForcesPipeline, _externalForcesPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), externalForcesShaderModule, _externalForcesDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), externalForcesShaderModule, nullptr);
+	std::tie(_externalForcesPipeline, _externalForcesPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), externalForcesShader->GetShaderModule(), _externalForcesDescriptorSetLayout);
 
-	VkShaderModule computePressureShaderModule = ShaderManager::Get()->GetShaderModule("ComputePressure");
+	ShaderAsset computePressureShader = ShaderManager::Get()->GetShaderAsset("ComputePressure");
 	std::tie(_computePressureDescriptorSetLayout, _computePressureDescriptorSets) = CreateComputePressureDescriptors(_descriptorHelper.get());
-	std::tie(_computePressurePipeline, _computePressurePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), computePressureShaderModule, _computePressureDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), computePressureShaderModule, nullptr);
+	std::tie(_computePressurePipeline, _computePressurePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), computePressureShader->GetShaderModule(), _computePressureDescriptorSetLayout);
 
-	VkShaderModule pressureAndViscosity = ShaderManager::Get()->GetShaderModule("AccumulatePressureAndViscosity");
-	std::tie(_pressureAndViscosityDescriptorSetLayout, _pressureAndViscosityDescriptorSets) = CreatePressureForceDescriptors(_descriptorHelper.get());
-	std::tie(_pressureAndViscosityPipeline, _pressureAndViscosityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosity, _pressureAndViscosityDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosity, nullptr);
+	ShaderAsset pressureAndViscosityShader = ShaderManager::Get()->GetShaderAsset("AccumulatePressureAndViscosity");
+	std::tie(_pressureAndViscosityDescriptorSetLayout, _pressureAndViscosityDescriptorSets) = CreatePressureViscosityForceDescriptors(_descriptorHelper.get());
+	std::tie(_pressureAndViscosityPipeline, _pressureAndViscosityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosityShader->GetShaderModule(), _pressureAndViscosityDescriptorSetLayout);
 
-	VkShaderModule timeIntegrationShaderModule = ShaderManager::Get()->GetShaderModule("TimeIntegration");
+	ShaderAsset timeIntegrationShader = ShaderManager::Get()->GetShaderAsset("TimeIntegration");
 	std::tie(_timeIntegrationDescriptorSetLayout, _timeIntegrationDescriptorSets) = CreateTimeIntegrationDescriptors(_descriptorHelper.get());
-	std::tie(_timeIntegrationPipeline, _timeIntegrationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShaderModule, _timeIntegrationDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShaderModule, nullptr);
+	std::tie(_timeIntegrationPipeline, _timeIntegrationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShader->GetShaderModule(), _timeIntegrationDescriptorSetLayout);
 
 	// Configure a push constant for prefix sum
 	_BVHStatePushConstant.offset = 0;
 	_BVHStatePushConstant.size = sizeof(uint32_t);
 	_BVHStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	VkShaderModule resolveCollisionShaderModule = ShaderManager::Get()->GetShaderModule("ResolveCollision");
+	ShaderAsset resolveCollisionShader = ShaderManager::Get()->GetShaderAsset("ResolveCollision");
 	std::tie(_resolveCollisionDescriptorSetLayout, _resolveCollisionDescriptorSets) = CreateResolveCollisionDescriptors(_descriptorHelper.get());
-	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShaderModule, _resolveCollisionDescriptorSetLayout, { _BVHStatePushConstant });
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShaderModule, nullptr);
+	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShader->GetShaderModule(), _resolveCollisionDescriptorSetLayout, { _BVHStatePushConstant });
 
-	VkShaderModule endTimeStepShaderModule = ShaderManager::Get()->GetShaderModule("EndTimeStep");
+	ShaderAsset endTimeStepShader = ShaderManager::Get()->GetShaderAsset("EndTimeStep");
 	std::tie(_endTimeStepDescriptorSetLayout, _endTimeStepDescriptorSets) = CreateEndTimeStepDescriptors(_descriptorHelper.get());
-	std::tie(_endTimeStepPipeline, _endTimeStepPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShaderModule, _endTimeStepDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShaderModule, nullptr);
+	std::tie(_endTimeStepPipeline, _endTimeStepPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShader->GetShaderModule(), _endTimeStepDescriptorSetLayout);
 }
 
 VkDescriptorPool SimulationCompute::CreateDescriptorPool(DescriptorHelper *descriptorHelper)
@@ -356,9 +344,9 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(5, _hashResultBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -383,24 +371,7 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
-
-	// Create descriptor sets
-	descriptorHelper->BindBuffer(0, _gridSetupBuffer);
-	descriptorHelper->BindBuffer(1, _accumulationBuffer);
-	auto descriptorSets = descriptorHelper->GetDescriptorSets();
-
-	return std::make_tuple(descriptorSetLayout, descriptorSets);
-}
-
-std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationCompute::CreatePrefixSumTurnPhaseDescriptors(DescriptorHelper *descriptorHelper)
-{
-	descriptorHelper->ClearLayouts();
-
-	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(1, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
@@ -417,7 +388,7 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(1, _hashResultBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _bucketBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -438,10 +409,10 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _hashResultBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(5, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(6, _bucketBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -452,8 +423,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _simulationSetupBuffer);
 	descriptorHelper->BindBuffer(1, _gridSetupBuffer);
-	descriptorHelper->BindBuffer(2, _positionBuffer);
-	descriptorHelper->BindBuffer(3, _simulationParametersBuffer);
+	descriptorHelper->BindBuffer(2, _simulationParametersBuffer);
+	descriptorHelper->BindBuffer(3, _positionBuffer);
 	descriptorHelper->BindBuffer(4, _hashResultBuffer);
 	descriptorHelper->BindBuffer(5, _accumulationBuffer);
 	descriptorHelper->BindBuffer(6, _bucketBuffer);
@@ -469,21 +440,19 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(4, _velocityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(5, _forceBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _velocityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(4, _forceBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _simulationSetupBuffer);
-	descriptorHelper->BindBuffer(1, _gridSetupBuffer);
+	descriptorHelper->BindBuffer(1, _simulationParametersBuffer);
 	descriptorHelper->BindBuffer(2, _positionBuffer);
-	descriptorHelper->BindBuffer(3, _simulationParametersBuffer);
-	descriptorHelper->BindBuffer(4, _velocityBuffer);
-	descriptorHelper->BindBuffer(5, _forceBuffer);
+	descriptorHelper->BindBuffer(3, _velocityBuffer);
+	descriptorHelper->BindBuffer(4, _forceBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
 	return std::make_tuple(descriptorSetLayout, descriptorSets);
@@ -494,35 +463,33 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(4, _densityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(5, _pressureBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _densityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(4, _pressureBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
 
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _simulationSetupBuffer);
-	descriptorHelper->BindBuffer(1, _gridSetupBuffer);
+	descriptorHelper->BindBuffer(1, _simulationParametersBuffer);
 	descriptorHelper->BindBuffer(2, _positionBuffer);
-	descriptorHelper->BindBuffer(3, _simulationParametersBuffer);
-	descriptorHelper->BindBuffer(4, _densityBuffer);
-	descriptorHelper->BindBuffer(5, _pressureBuffer);
+	descriptorHelper->BindBuffer(3, _densityBuffer);
+	descriptorHelper->BindBuffer(4, _pressureBuffer);
 	auto descriptorSets = descriptorHelper->GetDescriptorSets();
 
 	return std::make_tuple(descriptorSetLayout, descriptorSets);
 }
 
-std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationCompute::CreatePressureForceDescriptors(DescriptorHelper *descriptorHelper)
+std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationCompute::CreatePressureViscosityForceDescriptors(DescriptorHelper *descriptorHelper)
 {
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(2, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(3, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _hashResultBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(5, _accumulationBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(6, _bucketBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -536,8 +503,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	// Create descriptor sets
 	descriptorHelper->BindBuffer(0, _simulationSetupBuffer);
 	descriptorHelper->BindBuffer(1, _gridSetupBuffer);
-	descriptorHelper->BindBuffer(2, _positionBuffer);
-	descriptorHelper->BindBuffer(3, _simulationParametersBuffer);
+	descriptorHelper->BindBuffer(2, _simulationParametersBuffer);
+	descriptorHelper->BindBuffer(3, _positionBuffer);
 	descriptorHelper->BindBuffer(4, _hashResultBuffer);
 	descriptorHelper->BindBuffer(5, _accumulationBuffer);
 	descriptorHelper->BindBuffer(6, _bucketBuffer);
@@ -556,8 +523,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _velocityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _forceBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -583,8 +550,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _simulationParametersBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _BVHNodeBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _velocityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
@@ -612,8 +579,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> SimulationComput
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _simulationSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _gridSetupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _nextVelocityBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _nextPositionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(4, _positionBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);

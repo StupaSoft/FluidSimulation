@@ -41,8 +41,8 @@ private:
 	float _lineWidth = 1.0f;
 
 	// ==================== Pipeline and shaders ====================
-	VkShaderModule _vertShaderModule = VK_NULL_HANDLE;
-	VkShaderModule _fragShaderModule = VK_NULL_HANDLE;
+	ShaderAsset _vertShader = nullptr;
+	ShaderAsset _fragShader = nullptr;
 
 	VkPipeline _graphicsPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _pipelineLayout = VK_NULL_HANDLE;
@@ -92,7 +92,7 @@ public:
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
 	void LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer);
-	void LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, RenderMode renderMode = RenderMode::Triangle);
+	void LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, const std::string &vertexShaderEntry = "main", const std::string &fragmentShaderEntry = "main", RenderMode renderMode = RenderMode::Triangle);
 	void LoadTexture(const std::string &textureName);
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);

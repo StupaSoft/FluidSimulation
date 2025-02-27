@@ -15,20 +15,17 @@ MarchingCubesCompute::MarchingCubesCompute(const std::vector<Buffer> &inputBuffe
 	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
 
 	// Create compute pipeline
-	VkShaderModule initializationShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesInitialization");
+	ShaderAsset initializationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesInitialization");
 	std::tie(_initializationDescriptorSetLayout, _initializationDescriptorSets) = CreateInitializationDescriptors(_descriptorHelper.get());
-	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShaderModule, _initializationDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), initializationShaderModule, nullptr);
+	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShader->GetShaderModule(), _initializationDescriptorSetLayout);
 
-	VkShaderModule accumulationShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesAccumulation");
+	ShaderAsset accumulationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesAccumulation");
 	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
-	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShaderModule, _accumulationDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), accumulationShaderModule, nullptr);
+	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShader->GetShaderModule(), _accumulationDescriptorSetLayout);
 
-	VkShaderModule constructionShaderModule = ShaderManager::Get()->GetShaderModule("MarchingCubesConstruction");
+	ShaderAsset constructionShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesConstruction");
 	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
-	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShaderModule, _constructionDescriptorSetLayout);
-	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), constructionShaderModule, nullptr);
+	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShader->GetShaderModule(), _constructionDescriptorSetLayout);
 }
 
 MarchingCubesCompute::~MarchingCubesCompute()
@@ -85,8 +82,8 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, s
 void MarchingCubesCompute::CreateSetupBuffers()
 {
 	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	_particlePropertyBuffer = CreateBuffer(sizeof(ParticleProperty), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-	_setupBuffer = CreateBuffer(sizeof(MarchingCubesSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
+	_particlePropertyBuffer = CreateBuffer(sizeof(ParticleProperty), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
+	_setupBuffer = CreateBuffer(sizeof(MarchingCubesSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 	_indexTableBuffer = CreateBuffer(sizeof(uint32_t) * CODES_COUNT * MAX_INDICES_IN_CELL, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	memory->Bind({ _particlePropertyBuffer, _setupBuffer, _indexTableBuffer });
 
@@ -128,7 +125,7 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(1, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _drawArgumentBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
@@ -147,8 +144,8 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _particlePropertyBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _particlePropertyBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(1, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _particlePositionInputBuffers[0]->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
@@ -168,7 +165,7 @@ std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCom
 	descriptorHelper->ClearLayouts();
 
 	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
+	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(1, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(2, _indexTableBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
 	descriptorHelper->AddBufferLayout(3, _vertexBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);

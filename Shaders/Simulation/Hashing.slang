@@ -1,80 +1,17 @@
-#version 450
+import SimulationModule;
 
-const uint OVERLAPPING_BUCKETS = 8;
+ConstantBuffer<SimulationSetup> simulationSetup;
+ConstantBuffer<GridSetup> gridSetup;
+ConstantBuffer<SimulationParameters> simulationParameters;
 
-struct SimulationSetup
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<uint> accumulations;
+RWStructuredBuffer<uint> hashResults;
+RWStructuredBuffer<uint> adjacentBuckets; // [# of particles * 8]
+
+int3 PositionToBucketIndex(float3 position, float gridSpacing)
 {
-    uint particleCount;
-};
-
-struct GridSetup
-{
-    uvec4 dimension;
-};
-
-struct SimulationParameters
-{
-	float particleRadius;
-	float particleMass;
-
-	float timeStep;
-
-	vec4 gravitiy;
-
-	float targetDensity;
-	float soundSpeed;
-	float eosExponent;
-	float kernelRadiusFactor;
-
-	float dragCoefficient;
-	float viscosityCoefficient;
-	float restitutionCoefficient;
-	float frictionCoefficient;
-};
-
-// ========== Inputs ==========
-layout (std430, binding = 0) buffer SimulationSetupInSSBO
-{
-    SimulationSetup simulationSetup;
-};
-
-layout (std430, binding = 1) buffer GridSetupInSSBO
-{
-    GridSetup gridSetup;
-};
-
-layout (std430, binding = 2) buffer SimulationParametersInSSBO
-{
-    SimulationParameters simulationParameters;
-};
-
-layout (std430, binding = 3) buffer PositionInSSBO
-{
-    vec3 positions[];
-};
-
-// ========== Outputs ==========
-layout (std430, binding = 4) buffer AccumulationOutSSBO
-{
-    uint accumulations[]; // [# of buckets]
-};
-
-layout (std430, binding = 5) buffer HashResultOutSSBO
-{
-	uint hashResults[]; // [# of particles]
-};
-
-layout (std430, binding = 6) buffer AdjacentBucketOutSSBO 
-{
-	uint adjacentBuckets[]; // [# of particles * 8]
-};
-
-// ========== Execution ==========
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
-
-ivec3 PositionToBucketIndex(vec3 position, float gridSpacing)
-{
-	ivec3 bucketIndex = ivec3
+	int3 bucketIndex = int3
 	(
 		int(floor(position.x / gridSpacing)),
 		int(floor(position.y / gridSpacing)),
@@ -84,9 +21,9 @@ ivec3 PositionToBucketIndex(vec3 position, float gridSpacing)
 	return bucketIndex;
 }
 
-uint BucketIndexToHashKey(ivec3 bucketIndex, uvec3 dimension)
+uint BucketIndexToHashKey(int3 bucketIndex, int3 dimension)
 {
-	ivec3 wrappedIndex = bucketIndex;
+	int3 wrappedIndex = bucketIndex;
 	wrappedIndex.x = bucketIndex.x % int(dimension.x);
 	wrappedIndex.y = bucketIndex.y % int(dimension.y);
 	wrappedIndex.z = bucketIndex.z % int(dimension.z);
@@ -98,10 +35,10 @@ uint BucketIndexToHashKey(ivec3 bucketIndex, uvec3 dimension)
 	return uint((wrappedIndex.z * dimension.y + wrappedIndex.y) * dimension.x + wrappedIndex.x);
 }
 
-void RecordAdjacentBuckets(uint particleIndex, ivec3 bucketIndex, vec3 position, uvec3 dimension, float gridSpacing)
+void RecordAdjacentBuckets(uint particleIndex, int3 bucketIndex, float3 position, uint3 dimension, float gridSpacing)
 {
 	// Refer to the comments in HashGrid::GetadjacentBuckets
-	ivec3 adjacentBucketIndices[8];
+	int3 adjacentBucketIndices[8];
 	for (uint i = 0; i < OVERLAPPING_BUCKETS; ++i)
 	{
 		adjacentBucketIndices[i] = bucketIndex;
@@ -159,19 +96,21 @@ void RecordAdjacentBuckets(uint particleIndex, ivec3 bucketIndex, vec3 position,
 	}
 }
 
-void main() 
+[shader("compute")]
+[numthreads(1024, 1, 1)]
+void main(uint3 globalThreadID : SV_DispatchThreadID) 
 {
-	uint particleIndex = gl_GlobalInvocationID.x;
+    uint particleIndex = globalThreadID.x;
 	if (particleIndex >= simulationSetup.particleCount) return;
 
-	vec3 particlePosition = positions[particleIndex];
+	float3 particlePosition = positions[particleIndex];
 	float gridSpacing = 2.0f * simulationParameters.particleRadius * simulationParameters.kernelRadiusFactor;
 
 	// Find the bucket index this particle belongs to
-	ivec3 bucketIndex = PositionToBucketIndex(particlePosition, gridSpacing);
+	int3 bucketIndex = PositionToBucketIndex(particlePosition, gridSpacing);
 	uint hashKey = BucketIndexToHashKey(bucketIndex, gridSetup.dimension.xyz);
 
-	atomicAdd(accumulations[hashKey], 1);
+	InterlockedAdd(accumulations[hashKey], 1);
 	hashResults[particleIndex] = hashKey;
 
 	// Find and record adjacent buckets

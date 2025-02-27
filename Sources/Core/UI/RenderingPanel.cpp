@@ -41,6 +41,7 @@ void RenderingPanel::Draw()
         ImGui::EndCombo();
     }
 
+    // Additional slider for controlling isovalue of marching cubes
     if (currentItem == MARCHING_CUBES)
     {
         auto marchingCubes = _simulatedScene->GetMarchingCubes();

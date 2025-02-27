@@ -1,59 +1,32 @@
-#version 450
+import SimulationModule;
 
-const float INF = 1.0f / 0.0f;
-const uint NONE = -1;
-const float EPSILON = 1e-10;
-
-struct SimulationSetup
-{
-    uint particleCount;
-};
-
-struct SimulationParameters
-{
-	float particleRadius;
-	float particleMass;
-
-	float timeStep;
-
-	vec4 gravitiy;
-
-	float targetDensity;
-	float soundSpeed;
-	float eosExponent;
-	float kernelRadiusFactor;
-
-	float dragCoefficient;
-	float viscosityCoefficient;
-	float restitutionCoefficient;
-	float frictionCoefficient;
-};
+static const uint NONE = -1;
 
 struct Intersection
 {
 	bool isHit;
-	vec3 point;
-	vec3 normal;
-	vec3 pointVelocity;
-};
+	float3 point;
+	float3 normal;
+	float3 pointVelocity;
+}
 
 struct Triangle
 {
-	vec4 A;
-	vec4 B;
-	vec4 C;
+	float4 A;
+	float4 B;
+	float4 C;
 
-	vec4 normalA;
-	vec4 normalB;
-	vec4 normalC;
-};
+	float4 normalA;
+	float4 normalB;
+	float4 normalC;
+}
 
 struct AABB
 {
 	Triangle triangle;
-	vec4 lowerBound;
-	vec4 upperBound;
-};
+	float4 lowerBound;
+	float4 upperBound;
+}
 
 struct BVHNode
 {
@@ -62,65 +35,26 @@ struct BVHNode
 	uint parent;
 	uint child1;
 	uint child2;
-};
+}
 
-// ========== Inputs ==========
-layout (std430, binding = 0) buffer SimulationSetupInSSBO
-{
-    SimulationSetup simulationSetup;
-};
+ConstantBuffer<SimulationSetup> simulationSetup;
+ConstantBuffer<SimulationParameters> simulationParameters;
 
-layout (std430, binding = 1) buffer SimulationParametersInSSBO
-{
-    SimulationParameters simulationParameters;
-};
+RWStructuredBuffer<BVHNode> nodes;
+RWStructuredBuffer<float3> positions;
+RWStructuredBuffer<float3> velocities;
+RWStructuredBuffer<uint> nodeStack;
+[vk::push_constant] ConstantBuffer<uint> maxLevel;
 
-layout (std430, binding = 2) buffer BVHNodeInSSBO
-{
-    BVHNode nodes[];
-};
+RWStructuredBuffer<float3> nextVelocities;
+RWStructuredBuffer<float3> nextPositions;
 
-layout (std430, binding = 3) buffer PositionInSSBO
-{
-    vec3 positions[];
-};
-
-layout (std430, binding = 4) buffer VelocityInSSBO
-{
-    vec3 velocities[];
-};
-
-layout (std430, binding = 5) buffer StackInSSBO
-{
-    uint nodeStack[];
-};
-
-layout (push_constant) uniform BVHStatePushConstant
-{
-    uint maxLevel; // == Stack size
-} 
-BVHState;
-
-// ========== Outputs ==========
-layout (std430, binding = 6) buffer NextVelocityOutSSBO
-{
-    vec3 nextVelocities[];
-};
-
-layout (std430, binding = 7) buffer NextPositionOutSSBO
-{
-    vec3 nextPositions[];
-};
-
-// ========== Execution ==========
-layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
-
-bool RayBoxIntersection(uint nodeIndex, vec3 start, vec3 end)
+bool RayBoxIntersection(uint nodeIndex, float3 start, float3 end)
 {
 	float tMin = 0.0f;
 	float tMax = INF;
 
-	vec3 ray = end - start;
+	float3 ray = end - start;
 	AABB boundingBox = nodes[nodeIndex].boundingBox;
 
 	float tx1 = (boundingBox.lowerBound.x - start.x) / ray.x;
@@ -141,17 +75,17 @@ bool RayBoxIntersection(uint nodeIndex, vec3 start, vec3 end)
 	return tMin <= tMax;
 }
 
-Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
+Intersection MollerTrumbore(Triangle triangle, float3 start, float3 end)
 {
 	Intersection intersection;
 	intersection.isHit = false;
 
 	// Moller-Trumbore alogrithm
-	vec3 ray = end - start;
+	float3 ray = end - start;
 
-	vec3 edge1 = (triangle.B - triangle.A).xyz;
-	vec3 edge2 = (triangle.C - triangle.A).xyz;
-	vec3 rayCrossEdge2 = cross(ray, edge2);
+	float3 edge1 = (triangle.B - triangle.A).xyz;
+	float3 edge2 = (triangle.C - triangle.A).xyz;
+	float3 rayCrossEdge2 = cross(ray, edge2);
 	float det = dot(edge1, rayCrossEdge2);
 
 	if (det > -EPSILON && det < EPSILON)
@@ -161,7 +95,7 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 	} 
 
 	float inverseDet = 1.0f / det;
-	vec3 s = start - triangle.A.xyz;
+	float3 s = start - triangle.A.xyz;
 	float u = inverseDet * dot(s, rayCrossEdge2);
 
 	if (u < 0.0f || u > 1.0f)
@@ -170,7 +104,7 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 		return intersection; // This ray is parallel to this triangle.
 	} 
 
-	vec3 sCrossEdge1 = cross(s, edge1);
+	float3 sCrossEdge1 = cross(s, edge1);
 	float v = inverseDet * dot(ray, sCrossEdge1);
 
 	if (v < 0.0f || u + v > 1.0f)
@@ -186,7 +120,7 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 		intersection.isHit = true;
 		intersection.point = start + t * ray;
 		intersection.normal = normalize(((1.0f - u - v) * triangle.normalA + u * triangle.normalB + v * triangle.normalC).xyz);
-		intersection.pointVelocity = vec3(0.0f, 0.0f, 0.0f); // Temp
+		intersection.pointVelocity = float3(0.0f, 0.0f, 0.0f); // Temp
 
 		return intersection;
 	}
@@ -197,7 +131,7 @@ Intersection MollerTrumbore(Triangle triangle, vec3 start, vec3 end)
 	}
 }
 
-Intersection GetIntersection(uint particleIndex, vec3 start, vec3 end)
+Intersection GetIntersection(uint particleIndex, float3 start, float3 end)
 {
 	Intersection intersection;
 	intersection.isHit = false;
@@ -205,7 +139,7 @@ Intersection GetIntersection(uint particleIndex, vec3 start, vec3 end)
 	float minDistance = INF;
 
 	// Traverse the BVH to find a collision point
-	uint stackBegin = particleIndex * BVHState.maxLevel;
+	uint stackBegin = particleIndex * maxLevel;
 	uint count = stackBegin; // # of elements in the stack
 
 	if (RayBoxIntersection(0, start, end))
@@ -257,9 +191,11 @@ Intersection GetIntersection(uint particleIndex, vec3 start, vec3 end)
 	return intersection;
 }
 
-void main() 
+[shader("compute")]
+[numthreads(1024, 1, 1)]
+void main(uint3 globalThreadID : SV_DispatchThreadID) 
 {
-	uint particleIndex = gl_GlobalInvocationID.x;
+    uint particleIndex = globalThreadID.x;
 	if (particleIndex >= simulationSetup.particleCount) return;
 
 	// Resolve collision
@@ -267,21 +203,21 @@ void main()
 	if (intersection.isHit)
 	{
 		// Target point is the closest non-penetrating position from the current position.
-		vec3 targetNormal = intersection.normal;
-		vec3 targetPoint = intersection.point + simulationParameters.particleRadius * targetNormal * 0.5f;
-		vec3 collisionPointVelocity = intersection.pointVelocity;
+		float3 targetNormal = intersection.normal;
+		float3 targetPoint = intersection.point + simulationParameters.particleRadius * targetNormal * 0.5f;
+		float3 collisionPointVelocity = intersection.pointVelocity;
 
 		// Get new candidate relative velocities from the target point
-		vec3 relativeVelocity = nextVelocities[particleIndex] - collisionPointVelocity;
+		float3 relativeVelocity = nextVelocities[particleIndex] - collisionPointVelocity;
 		float normalDotRelativeVelocity = dot(targetNormal, relativeVelocity);
-		vec3 relativeVelocityN = normalDotRelativeVelocity * targetNormal;
-		vec3 relativeVelocityT = relativeVelocity - relativeVelocityN;
+		float3 relativeVelocityN = normalDotRelativeVelocity * targetNormal;
+		float3 relativeVelocityT = relativeVelocity - relativeVelocityN;
 
 		// Check if the velocity is facing ooposite direction of the surface normal
 		if (normalDotRelativeVelocity < 0.0f)
 		{
 			// Apply restitution coefficient to the surface normal component of the velocity
-			vec3 deltaRelativeVelocityN = (-simulationParameters.restitutionCoefficient - 1.0f) * relativeVelocityN;
+			float3 deltaRelativeVelocityN = (-simulationParameters.restitutionCoefficient - 1.0f) * relativeVelocityN;
 			relativeVelocityN *= -simulationParameters.restitutionCoefficient;
 
 			// Apply friction to the tangential component of the velocity

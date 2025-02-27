@@ -8,14 +8,21 @@
 #include <future>
 #include <tuple>
 
+#include "slang.h"
+#include "slang-com-ptr.h"
+
 #include "VulkanCore.h"
 #include "VulkanUtility.h"
+#include "ShaderResource.h"
 
 class ShaderManager
 {
 private:
-	std::mutex _mtx;
-	std::map<std::filesystem::path, std::filesystem::path> _shaderArchive;
+	std::map<std::tuple<std::filesystem::path, std::string>, ShaderAsset> _shaderArchive; // (path, entry name) -> Shader asset
+
+	// Slang
+	Slang::ComPtr<slang::IGlobalSession> _globalSession;
+	Slang::ComPtr<slang::ISession> _session;
 
 public:
 	static ShaderManager *Get()
@@ -30,13 +37,9 @@ public:
 	ShaderManager &operator=(ShaderManager &&other) = delete;
 	~ShaderManager() = default;
 
-	VkShaderModule GetShaderModule(const std::string &shaderStem);
+	ShaderAsset GetShaderAsset(const std::string &shaderStem, const std::string &entryName = "main");
 
 private:
 	ShaderManager();
-
-	void CompileAllShaders();
-	bool CompileShader(const std::filesystem::path &shaderPath, const std::filesystem::path &outPath);
-
-	void ScanAllShaders();
+	Slang::ComPtr<slang::IComponentType> CompileShader(const std::filesystem::path &shaderPath, const std::string &entryName);
 };

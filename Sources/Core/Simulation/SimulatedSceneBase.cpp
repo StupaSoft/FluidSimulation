@@ -6,7 +6,7 @@ void SimulatedSceneBase::AddProp(const std::string &OBJPath, const std::string &
 
 	auto propModel = MeshModel::Instantiate<MeshModel>();
 	propModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
-	propModel->LoadPipeline("StandardVertex", "StandardFragment", renderMode);
+	propModel->LoadPipeline("StandardVertexFragment", "StandardVertexFragment", "VSMain", "PSMain", renderMode);
 	propModel->LoadTexture(textureName);
 
 	auto propObject = propModel->AddMeshObject();

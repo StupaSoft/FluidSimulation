@@ -12,6 +12,7 @@
 
 uint32_t Log(uint32_t n);
 float GetRandomValue(float lowerBound, float upperBound);
+int RoundUp(int num, int multiple);
 
 template <typename T>
 void Shuffle(const T &iter1, const T &iter2)

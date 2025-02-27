@@ -1,4 +1,5 @@
 #include "MathUtil.h"
+#include "MathUtil.h"
 
 uint32_t Log(uint32_t n)
 {
@@ -14,4 +15,16 @@ float GetRandomValue(float lowerBound, float upperBound)
 
 	std::uniform_real_distribution<> distribution(lowerBound, upperBound);
 	return static_cast<float>(distribution(generator));
+}
+
+int RoundUp(int num, int multiple) 
+{
+	if (multiple == 0)
+	{
+		return num; // Avoid division by zero
+	}
+	else
+	{
+		return ((num + multiple - 1) / multiple) * multiple;
+	}
 }

@@ -54,7 +54,7 @@ Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleC
 
 	// Presentation mesh
 	_meshModel = MeshModel::Instantiate<MeshModel>();
-	_meshModel->LoadPipeline("ParticleVertex", "ParticleFragment");
+	_meshModel->LoadPipeline("ParticleVertexFragment", "ParticleVertexFragment", "VSMain", "PSMain");
 	_meshModel->LoadMesh(_vertexBuffer, _indexBuffer, _drawArgumentBuffer);
 
 	MeshModel::Material particleMat

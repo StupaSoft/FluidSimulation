@@ -173,7 +173,7 @@ VkInstance VulkanCore::CreateInstance(bool enableValidationLayers, const std::ve
 		.applicationVersion = VK_MAKE_VERSION(1, 0, 0),
 		.pEngineName = "No Engine",
 		.engineVersion = VK_MAKE_VERSION(1, 0, 0),
-		.apiVersion = VK_API_VERSION_1_0
+		.apiVersion = VK_HEADER_VERSION_COMPLETE
 	};
 
 	// Fil in a create info
