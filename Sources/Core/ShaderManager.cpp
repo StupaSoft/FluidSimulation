@@ -12,11 +12,19 @@ ShaderManager::ShaderManager()
 		.profile = _globalSession->findProfile("sm_6_1")
 	};
 
+	// Search paths for #include directive or import declaration
+	std::vector<const char *> searchPaths
+	{
+		std::format("{}/{}", SHADER_DIR, "Modules").c_str()
+	};
+
 	slang::SessionDesc sessionDesc
 	{
 		.targets = &targetDesc,
 		.targetCount = 1,
-		.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR
+		.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR,
+		.searchPaths = searchPaths.data(),
+		.searchPathCount = static_cast<SlangInt>(searchPaths.size())
 	};
 
 	_globalSession->createSession(sessionDesc, _session.writeRef());
@@ -62,8 +70,6 @@ ShaderAsset ShaderManager::GetShaderAsset(const std::string &shaderStem, const s
 
 Slang::ComPtr<slang::IComponentType> ShaderManager::CompileShader(const std::filesystem::path &shaderPath, const std::string &entryName)
 {
-	// Search paths for #include directive or import declaration
-
 	// Pre-defined macros
 
 	// // Load a module and capture diagnostic output
