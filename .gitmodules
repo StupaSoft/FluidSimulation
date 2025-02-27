@@ -1,9 +1,3 @@
-[submodule "Libraries/tinyobjloader"]
-	path = Libraries/tinyobjloader
-	url = https://github.com/tinyobjloader/tinyobjloader
-[submodule "Libraries/imgui"]
-	path = Libraries/imgui
-	url = https://github.com/ocornut/imgui.git
 [submodule "Libraries/slang"]
 	path = Libraries/slang
 	url = https://github.com/shader-slang/slang.git
