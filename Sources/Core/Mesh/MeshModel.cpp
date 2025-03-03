@@ -9,14 +9,9 @@ MeshModel::MeshModel()
 {
 	_order = 1000; // Should be rendered before UI models
 
-	_descriptorHelper = std::make_unique<DescriptorHelper>();
-
 	// Create resources
 	_lightBuffers = CreateBuffers(sizeof(Light), VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_materialBuffers = CreateBuffers(sizeof(Material), VulkanCore::Get()->GetMaxFramesInFlight(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-	std::tie(_descriptorPool, _descriptorSetLayout) = PrepareDescriptors();
-
 	ApplyMaterialAdjustment();
 
 	// Load the fallback texture
@@ -36,9 +31,6 @@ MeshModel::~MeshModel()
 	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _pipelineLayout, nullptr);
 
 	vkDestroySampler(VulkanCore::Get()->GetLogicalDevice(), _textureSampler, nullptr);
-
-	vkDestroyDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), _descriptorPool, nullptr);
-	vkDestroyDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), _descriptorSetLayout, nullptr);
 }
 
 void MeshModel::Register()
@@ -72,7 +64,7 @@ void MeshModel::RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame
 	{
 		if (_meshObjects[i]->IsVisible())
 		{
-			auto &descriptorSets = _descriptorSetsList[i];
+			auto &descriptorSets = _descriptor->GetDescriptorSets();
 			vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &descriptorSets[currentFrame], 0, nullptr);
 			vkCmdDrawIndexedIndirect(commandBuffer, _drawArgumentBuffer->GetBufferHandle(), 0, 1, sizeof(VkDrawIndexedIndirectCommand));
 		}
@@ -167,8 +159,8 @@ void MeshModel::LoadPipeline(const std::string &vertexShaderStem, const std::str
 	_vertShader = ShaderManager::Get()->GetShaderAsset(vertexShaderStem, vertexShaderEntry);
 	_fragShader = ShaderManager::Get()->GetShaderAsset(fragmentShaderStem, fragmentShaderEntry);
 
-	// Create a graphics pipeline
-	std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptorSetLayout, _vertShader->GetShaderModule(), _fragShader->GetShaderModule());
+	// Create a descriptor set
+	_descriptor = CreateDescriptor({ _vertShader, _fragShader });
 }
 
 void MeshModel::SetMaterial(const Material &material)
@@ -190,13 +182,17 @@ std::shared_ptr<MeshObject> MeshModel::AddMeshObject()
 
 	const auto &mvpBuffers = meshObject->GetMVPBuffers();
 
-	_descriptorHelper->BindBuffers(0, mvpBuffers);
-	_descriptorHelper->BindBuffers(1, _lightBuffers);
-	_descriptorHelper->BindBuffers(2, _materialBuffers);
-	_descriptorHelper->BindSampler(3, _textureSampler, _texture);
+	_descriptor->BindBuffers("mvp", mvpBuffers);
+	_descriptor->BindBuffers("light", _lightBuffers);
+	_descriptor->BindBuffers("material", _materialBuffers);
+	_descriptor->BindSampler("texSampler", _textureSampler, _texture);
 
-	_descriptorSetsList.emplace_back(_descriptorHelper->GetDescriptorSets());
-
+	// We have to defer creation of a graphics pipeline until we know the exact layout of the descriptor
+	if (_graphicsPipeline == VK_NULL_HANDLE)
+	{
+		std::tie(_graphicsPipeline, _pipelineLayout) = CreateGraphicsPipeline(_descriptor->GetDescriptorSetLayout(), _vertShader->GetShaderModule(), _fragShader->GetShaderModule());
+	}
+	
 	return meshObject;
 }
 
@@ -205,23 +201,6 @@ void MeshModel::RemoveMeshObject(const std::shared_ptr<MeshObject> &object)
 	auto it = std::find_if(_meshObjects.begin(), _meshObjects.end(), [object](const auto &meshObject) { return meshObject == object; });
 	std::iter_swap(it, _meshObjects.end() - 1);
 	_meshObjects.pop_back();
-}
-
-// Create a descriptor pool from which we can allocate descriptor sets
-std::tuple<VkDescriptorPool, VkDescriptorSetLayout> MeshModel::PrepareDescriptors()
-{
-	// Create descriptor pool
-	_descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_SET_COUNT });
-	_descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_SET_COUNT });
-	auto descriptorPool = _descriptorHelper->GetDescriptorPool();
-
-	_descriptorHelper->AddBufferLayout(0, sizeof(MeshObject::MVP), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-	_descriptorHelper->AddBufferLayout(1, sizeof(Light), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-	_descriptorHelper->AddBufferLayout(2, sizeof(Material), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT);
-	_descriptorHelper->AddSamplerLayout(3);
-	auto descriptorSetLayout = _descriptorHelper->GetDescriptorSetLayout();
-
-	return std::make_tuple(descriptorPool, descriptorSetLayout);
 }
 
 VkSampler MeshModel::CreateTextureSampler(uint32_t textureMipLevels)
@@ -436,7 +415,7 @@ std::tuple<VkPipeline, VkPipelineLayout> MeshModel::CreateGraphicsPipeline(VkDes
 	{
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 		.setLayoutCount = 1,
-		.pSetLayouts = &_descriptorSetLayout,
+		.pSetLayouts = &descriptorSetLayout,
 		.pushConstantRangeCount = 0,
 		.pPushConstantRanges = nullptr, // A way of passing dynamic values to shaders
 	};

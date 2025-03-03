@@ -11,7 +11,7 @@
 
 #include "ComputeBase.h"
 #include "VulkanUtility.h"
-#include "DescriptorHelper.h"
+#include "Descriptor.h"
 #include "Vertex.h"
 #include "SimulationParameters.h"
 #include "ShaderManager.h"
@@ -69,23 +69,16 @@ private:
 	Buffer _vertexBuffer = nullptr; // Buffers that will be fed as the vertex buffer
 	Buffer _drawArgumentBuffer = nullptr;
 
-	// Descriptor sets
-	std::shared_ptr<DescriptorHelper> _descriptorHelper = nullptr;
-	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-
 	// Compute pipeline
-	VkDescriptorSetLayout _initializationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _initializationDescriptorSets;
+	Descriptor _initializationDescriptor = nullptr;
 	VkPipeline _initializationPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _initializationPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _accumulationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _accumulationDescriptorSets;
+	Descriptor _accumulationDescriptor = nullptr;
 	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _accumulationPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _constructionDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _constructionDescriptorSets;
+	Descriptor _constructionDescriptor = nullptr;
 	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
 
@@ -117,9 +110,8 @@ private:
 	void CreateSetupBuffers();
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
-	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateInitializationDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateAccumulationDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateConstructionDescriptors(DescriptorHelper *descriptorHelper);
+	Descriptor CreateInitializationDescriptors(const ShaderAsset &shader);
+	Descriptor CreateAccumulationDescriptors(const ShaderAsset &shader);
+	Descriptor CreateConstructionDescriptors(const ShaderAsset &shader);
 };
 

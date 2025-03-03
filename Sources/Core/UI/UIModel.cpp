@@ -2,20 +2,37 @@
 
 UIModel::UIModel()
 {
-	// Get ready
-	DescriptorHelper descriptorHelper{};
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 });
-	descriptorHelper.AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 });
-	_ImGuiDescriptorPool = descriptorHelper.GetDescriptorPool();
+	// Manually create a descriptor pool as we cannot directly set descriptor sizes with Descriptor class
+	std::vector<VkDescriptorPoolSize> poolSizes
+	{
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo
+	{
+		.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+		.maxSets = 1, // Only one descriptor set will be allocated
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+		.pPoolSizes = poolSizes.data()
+	};
+
+	VkDescriptorPool descriptorPool = VK_NULL_HANDLE;
+	if (vkCreateDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("Failed to create a descriptor pool.");
+	}
+
+	_ImGuiDescriptorPool = descriptorPool;
 
 	// Initialize ImGui
 	IMGUI_CHECKVERSION();

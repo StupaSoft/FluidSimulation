@@ -2,7 +2,7 @@
 
 #include "ModelBase.h"
 #include "MeshObject.h"
-#include "DescriptorHelper.h"
+#include "Descriptor.h"
 #include "Vertex.h"
 #include "Triangle.h"
 #include "ShaderManager.h"
@@ -68,12 +68,7 @@ private:
 	VkSampler _textureSampler = VK_NULL_HANDLE; // Textures are accessed through samplers so that filters and transformations are applied to get rid of artifacts.
 
 	// ==================== Descriptor ====================
-	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
-
-	static const uint32_t MAX_SET_COUNT = 1000;
-	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-	VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<std::vector<VkDescriptorSet>> _descriptorSetsList; // [Mesh object count][Frames in flight]
+	Descriptor _descriptor = nullptr;
 
 	// ==================== Light ====================
 	std::vector<Buffer> _lightBuffers;
@@ -108,7 +103,6 @@ public:
 private:
 	void UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
-	std::tuple<VkDescriptorPool, VkDescriptorSetLayout> PrepareDescriptors();
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
 
 	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);

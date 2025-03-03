@@ -10,22 +10,18 @@ MarchingCubesCompute::MarchingCubesCompute(const std::vector<Buffer> &inputBuffe
 	CreateSetupBuffers();
 	InitializationGrid(marchingCubesGrid);
 
-	// Create descriptor pool and sets
-	_descriptorHelper = std::make_shared<DescriptorHelper>();
-	_descriptorPool = CreateDescriptorPool(_descriptorHelper.get());
-
 	// Create compute pipeline
 	ShaderAsset initializationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesInitialization");
-	std::tie(_initializationDescriptorSetLayout, _initializationDescriptorSets) = CreateInitializationDescriptors(_descriptorHelper.get());
-	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShader->GetShaderModule(), _initializationDescriptorSetLayout);
+	_initializationDescriptor = CreateInitializationDescriptors(initializationShader);
+	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShader->GetShaderModule(), _initializationDescriptor->GetDescriptorSetLayout());
 
 	ShaderAsset accumulationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesAccumulation");
-	std::tie(_accumulationDescriptorSetLayout, _accumulationDescriptorSets) = CreateAccumulationDescriptors(_descriptorHelper.get());
-	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShader->GetShaderModule(), _accumulationDescriptorSetLayout);
+	_accumulationDescriptor = CreateAccumulationDescriptors(accumulationShader);
+	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShader->GetShaderModule(), _accumulationDescriptor->GetDescriptorSetLayout());
 
 	ShaderAsset constructionShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesConstruction");
-	std::tie(_constructionDescriptorSetLayout, _constructionDescriptorSets) = CreateConstructionDescriptors(_descriptorHelper.get());
-	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShader->GetShaderModule(), _constructionDescriptorSetLayout);
+	_constructionDescriptor = CreateConstructionDescriptors(constructionShader);
+	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShader->GetShaderModule(), _constructionDescriptor->GetDescriptorSetLayout());
 }
 
 MarchingCubesCompute::~MarchingCubesCompute()
@@ -40,12 +36,6 @@ MarchingCubesCompute::~MarchingCubesCompute()
 
 	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _initializationPipeline, nullptr);
 	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _initializationPipelineLayout, nullptr);
-
-	vkDestroyDescriptorPool(VulkanCore::Get()->GetLogicalDevice(), _descriptorPool, nullptr);
-
-	vkDestroyDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), _accumulationDescriptorSetLayout, nullptr);
-	vkDestroyDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), _constructionDescriptorSetLayout, nullptr);
-	vkDestroyDescriptorSetLayout(VulkanCore::Get()->GetLogicalDevice(), _initializationDescriptorSetLayout, nullptr);
 }
 
 void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
@@ -59,7 +49,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, s
 
 	// 1. Initialization inputs and outputs
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipelineLayout, 0, 1, &_initializationDescriptorSets[currentFrame], 0, 0);
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipelineLayout, 0, 1, &_initializationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_voxelCount, 1024), 1, 1);
 
 	// Synchronization - accumulation only after initialization
@@ -67,7 +57,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, s
 
 	// 2. Accumulate particle kernel values into voxels
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipelineLayout, 0, 1, &_accumulationDescriptorSets[currentFrame], 0, 0);
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipelineLayout, 0, 1, &_accumulationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleProperty->_particleCount, 1024), 1, 1);
 
 	// Synchronization - construction commences only after the accumulation finishes
@@ -75,7 +65,7 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, s
 
 	// 3. Construct meshes from the particles
 	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipelineLayout, 0, 1, &_constructionDescriptorSets[currentFrame], 0, 0);
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipelineLayout, 0, 1, &_constructionDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_cellCount, 1024), 1, 1);
 }
 
@@ -110,79 +100,41 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 	_drawArgumentBuffer->CopyFrom(&drawCommands);
 }
 
-VkDescriptorPool MarchingCubesCompute::CreateDescriptorPool(DescriptorHelper *descriptorHelper)
+Descriptor MarchingCubesCompute::CreateInitializationDescriptors(const ShaderAsset &shader)
 {
-	// Create descriptor pool
-	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 });
-	descriptorHelper->AddDescriptorPoolSize({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 });
-	auto descriptorPool = descriptorHelper->GetDescriptorPool();
+	auto descriptor = CreateDescriptor(shader);
 
-	return descriptorPool;
+	descriptor->BindBuffer("setup", _setupBuffer);
+	descriptor->BindBuffer("voxelDensities", _voxelBuffer);
+	descriptor->BindBuffer("drawArguments", _drawArgumentBuffer);
+
+	return descriptor;
 }
 
-std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCompute::CreateInitializationDescriptors(DescriptorHelper *descriptorHelper)
+Descriptor MarchingCubesCompute::CreateAccumulationDescriptors(const ShaderAsset &shader)
 {
-	descriptorHelper->ClearLayouts();
+	auto descriptor = CreateDescriptor(shader);
 
-	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _drawArgumentBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
+	descriptor->BindBuffer("particleProperty", _particlePropertyBuffer);
+	descriptor->BindBuffer("setup", _setupBuffer);
+	descriptor->BindBuffer("positions", _particlePositionInputBuffers[0]);
+	descriptor->BindBuffer("voxelDensities", _voxelBuffer);
 
-	// Create descriptor sets
-	descriptorHelper->BindBuffer(0, _setupBuffer);
-	descriptorHelper->BindBuffer(1, _voxelBuffer);
-	descriptorHelper->BindBuffer(2, _drawArgumentBuffer);
-	auto descriptorSets = descriptorHelper->GetDescriptorSets();
-
-	return std::make_tuple(descriptorSetLayout, descriptorSets);
+	return descriptor;
 }
 
-std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCompute::CreateAccumulationDescriptors(DescriptorHelper *descriptorHelper)
+Descriptor MarchingCubesCompute::CreateConstructionDescriptors(const ShaderAsset &shader)
 {
-	descriptorHelper->ClearLayouts();
+	auto descriptor = CreateDescriptor(shader);
 
-	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _particlePropertyBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _particlePositionInputBuffers[0]->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
+	descriptor->BindBuffer("setup", _setupBuffer);
+	descriptor->BindBuffer("voxelDensities", _voxelBuffer);
+	descriptor->BindBuffer("indexTable", _indexTableBuffer);
+	descriptor->BindBuffer("vertices", _vertexBuffer);
+	descriptor->BindBuffer("indices", _indexBuffer);
+	descriptor->BindBuffer("drawArguments", _drawArgumentBuffer);
 
-	// Create descriptor sets
-	descriptorHelper->BindBuffer(0, _particlePropertyBuffer);
-	descriptorHelper->BindBuffer(1, _setupBuffer);
-	descriptorHelper->BindBuffers(2, _particlePositionInputBuffers);
-	descriptorHelper->BindBuffer(3, _voxelBuffer);
-	auto descriptorSets = descriptorHelper->GetDescriptorSets();
-
-	return std::make_tuple(descriptorSetLayout, descriptorSets);
-}
-
-std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> MarchingCubesCompute::CreateConstructionDescriptors(DescriptorHelper *descriptorHelper)
-{
-	descriptorHelper->ClearLayouts();
-
-	// Create descriptor set layout
-	descriptorHelper->AddBufferLayout(0, _setupBuffer->Size(), VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(1, _voxelBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(2, _indexTableBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(3, _vertexBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(4, _indexBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	descriptorHelper->AddBufferLayout(5, _drawArgumentBuffer->Size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-	auto descriptorSetLayout = descriptorHelper->GetDescriptorSetLayout();
-
-	// Create descriptor sets
-	descriptorHelper->BindBuffer(0, _setupBuffer);
-	descriptorHelper->BindBuffer(1, _voxelBuffer);
-	descriptorHelper->BindBuffer(2, _indexTableBuffer);
-	descriptorHelper->BindBuffer(3, _vertexBuffer);
-	descriptorHelper->BindBuffer(4, _indexBuffer);
-	descriptorHelper->BindBuffer(5, _drawArgumentBuffer);
-	auto descriptorSets = descriptorHelper->GetDescriptorSets();
-
-	return std::make_tuple(descriptorSetLayout, descriptorSets);
+	return descriptor;
 }
 
 void MarchingCubesCompute::UpdateParticleProperty(const SimulationParameters &simulationParameters)

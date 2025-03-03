@@ -3,7 +3,7 @@
 #include <algorithm>
 
 #include "ComputeBase.h"
-#include "DescriptorHelper.h"
+#include "Descriptor.h"
 #include "SimulationParameters.h"
 #include "MathUtil.h"
 #include "BVH.h"
@@ -61,68 +61,50 @@ private:
 	// Push constants
 	VkPushConstantRange _prefixSumStatePushConstant{};
 	VkPushConstantRange _BVHStatePushConstant{};
-
-	// Descriptor sets
-	std::unique_ptr<DescriptorHelper> _descriptorHelper = nullptr;
-	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
-
-	VkDescriptorSetLayout _hashingDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _hashingDescriptorSets;
+	
+	Descriptor _hashingDescriptor = nullptr;
 	VkPipeline _hashingPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _hashingPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _prefixSumUpDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _prefixSumUpDescriptorSets;
+	Descriptor _prefixSumDescriptor = nullptr;
 	VkPipeline _prefixSumUpPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _prefixSumUpPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _prefixSumTurnPhaseDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _prefixSumTurnPhaseDescriptorSets;
 	VkPipeline _prefixSumTurnPhasePipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _prefixSumTurnPhasePipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _prefixSumDownDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _prefixSumDownDescriptorSets;
 	VkPipeline _prefixSumDownPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _prefixSumDownPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _countingSortDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _countingSortDescriptorSets;
+	Descriptor _countingSortDescriptor = nullptr;
 	VkPipeline _countingSortPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _countingSortPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _densityDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _densityDescriptorSets;
+	Descriptor _densityDescriptor = nullptr;
 	VkPipeline _densityPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _densityPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _externalForcesDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _externalForcesDescriptorSets;
+	Descriptor _externalForcesDescriptor = nullptr;
 	VkPipeline _externalForcesPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _externalForcesPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _computePressureDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _computePressureDescriptorSets;
+	Descriptor _computePressureDescriptor = nullptr;
 	VkPipeline _computePressurePipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _computePressurePipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _pressureAndViscosityDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _pressureAndViscosityDescriptorSets;
+	Descriptor _pressureAndViscosityDescriptor = nullptr;
 	VkPipeline _pressureAndViscosityPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _pressureAndViscosityPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _timeIntegrationDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _timeIntegrationDescriptorSets;
+	Descriptor _timeIntegrationDescriptor = nullptr;
 	VkPipeline _timeIntegrationPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _timeIntegrationPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _resolveCollisionDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _resolveCollisionDescriptorSets;
+	Descriptor _resolveCollisionDescriptor = nullptr;
 	VkPipeline _resolveCollisionPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _resolveCollisionPipelineLayout = VK_NULL_HANDLE;
 
-	VkDescriptorSetLayout _endTimeStepDescriptorSetLayout = VK_NULL_HANDLE;
-	std::vector<VkDescriptorSet> _endTimeStepDescriptorSets;
+	Descriptor _endTimeStepDescriptor = nullptr;
 	VkPipeline _endTimeStepPipeline = VK_NULL_HANDLE;
 	VkPipelineLayout _endTimeStepPipelineLayout = VK_NULL_HANDLE;
 
@@ -148,16 +130,15 @@ private:
 
 	void CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension);
 
-	VkDescriptorPool CreateDescriptorPool(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateHashingDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePrefixSumDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateCountingSortDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateDensityDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateExternalForcesDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateComputePressureDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreatePressureViscosityForceDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateTimeIntegrationDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateResolveCollisionDescriptors(DescriptorHelper *descriptorHelper);
-	std::tuple<VkDescriptorSetLayout, std::vector<VkDescriptorSet>> CreateEndTimeStepDescriptors(DescriptorHelper *descriptorHelper);
+	Descriptor CreateHashingDescriptors(const ShaderAsset &shader);
+	Descriptor CreatePrefixSumDescriptors(const ShaderAsset &shader);
+	Descriptor CreateCountingSortDescriptors(const ShaderAsset &shader);
+	Descriptor CreateDensityDescriptors(const ShaderAsset &shader);
+	Descriptor CreateExternalForcesDescriptors(const ShaderAsset &shader);
+	Descriptor CreateComputePressureDescriptors(const ShaderAsset &shader);
+	Descriptor CreatePressureViscosityForceDescriptors(const ShaderAsset &shader);
+	Descriptor CreateTimeIntegrationDescriptors(const ShaderAsset &shader);
+	Descriptor CreateResolveCollisionDescriptors(const ShaderAsset &shader);
+	Descriptor CreateEndTimeStepDescriptors(const ShaderAsset &shader);
 
 };

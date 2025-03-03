@@ -85,13 +85,14 @@ void DeviceMemory::Bind(ImageResource *image)
 
 // Buffer
 BufferResource::BufferResource(VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage) :
-	_size(bufferSize)
+	_size(bufferSize),
+	_bufferUsage(bufferUsage)
 {
 	VkBufferCreateInfo bufferInfo
 	{
 		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-		.size = bufferSize, // The size of the buffer in bytes
-		.usage = bufferUsage, // The purpose of the buffer
+		.size = _size, // The size of the buffer in bytes
+		.usage = _bufferUsage, // The purpose of the buffer
 		.sharingMode = VK_SHARING_MODE_EXCLUSIVE
 	};
 
@@ -179,6 +180,22 @@ void BufferResource::CopyFrom(const Buffer &source, VkDeviceSize copyOffset, VkD
 	vkCmdCopyBuffer(commandBuffer, source->GetBufferHandle(), _buffer, 1, &copyRegion);
 
 	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
+}
+
+VkDescriptorType BufferResource::GetDescriptorType()
+{
+	if (_bufferUsage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+	{
+		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	}
+	else if (_bufferUsage & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+	{
+		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	}
+	else
+	{
+		return VK_DESCRIPTOR_TYPE_MAX_ENUM;
+	}
 }
 
 void BufferResource::SetMemory(const Memory &memory, VkDeviceSize offset)

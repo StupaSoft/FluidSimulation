@@ -7,6 +7,7 @@
 #include <thread>
 #include <future>
 #include <tuple>
+#include <exception>
 
 #include "slang.h"
 #include "slang-com-ptr.h"
@@ -24,11 +25,17 @@ class ShaderResource
 private:
 	Slang::ComPtr<slang::IComponentType> _program; // For reflection
 	VkShaderModule _shaderModule = VK_NULL_HANDLE; // SPIR-V module
+	VkShaderStageFlags _shaderStage = 0;
+	std::map<std::string, uint32_t> _paramToBinding; // parameter Name -> binding
 
 public:
 	ShaderResource(const Slang::ComPtr<slang::IComponentType> &program);
 	~ShaderResource();
 
-	Slang::ComPtr<slang::IComponentType> GetProgram() { return _program; }
+	uint32_t GetBindingIndex(const std::string &variable);
 	VkShaderModule GetShaderModule() { return _shaderModule; }
+	VkShaderStageFlags GetShaderStage() { return _shaderStage; }
+
+private:
+	VkShaderStageFlagBits SlangStageToFlagBit(SlangStage slangStage);
 };

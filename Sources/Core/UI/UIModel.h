@@ -8,7 +8,7 @@
 #include <backends/imgui_impl_vulkan.h>
 
 #include "VulkanCore.h"
-#include "DescriptorHelper.h"
+#include "Descriptor.h"
 
 class UIModel : public ModelBase
 {

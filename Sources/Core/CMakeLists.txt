@@ -5,8 +5,8 @@ add_library(Core STATIC
     Camera.cpp
     ComputeBase.h
     ComputeBase.cpp
-    DescriptorHelper.h
-    DescriptorHelper.cpp
+    Descriptor.h
+    Descriptor.cpp
     DirectionalLight.h
     DirectionalLight.cpp
     ModelBase.h

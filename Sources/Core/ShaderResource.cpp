@@ -31,9 +31,50 @@ ShaderResource::ShaderResource(const Slang::ComPtr<slang::IComponentType> &progr
 	{
 		throw std::runtime_error("Failed to create a shader module.");
 	}
+
+	// Extract and store the (variable, binding) pair with the reflection API
+	auto programLayout = _program->getLayout();
+	auto globalTypeLayout = programLayout->getGlobalParamsTypeLayout();
+	auto paramCount = globalTypeLayout->getFieldCount();
+	for (int i = 0; i < paramCount; i++)
+	{
+		auto globalParam = globalTypeLayout->getFieldByIndex(i);
+		_paramToBinding[globalParam->getName()] = globalParam->getBindingIndex();
+	}
+
+	// Get the stage
+	_shaderStage |= SlangStageToFlagBit(programLayout->getEntryPointByIndex(0)->getStage());
+}
+
+uint32_t ShaderResource::GetBindingIndex(const std::string &variable)
+{
+	if (_paramToBinding.find(variable) == _paramToBinding.end())
+	{
+		return -1;
+	}
+	else
+	{
+		return _paramToBinding.at(variable);
+	}
+	
+}
+
+VkShaderStageFlagBits ShaderResource::SlangStageToFlagBit(SlangStage slangStage)
+{
+	switch (slangStage)
+	{
+	case SLANG_STAGE_VERTEX:
+		return VK_SHADER_STAGE_VERTEX_BIT;
+	case SLANG_STAGE_FRAGMENT:
+		return VK_SHADER_STAGE_FRAGMENT_BIT;
+	case SLANG_STAGE_COMPUTE:
+		return VK_SHADER_STAGE_COMPUTE_BIT;
+	default:
+		return VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+	}
 }
 
 ShaderResource::~ShaderResource()
 {
-	//vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _shaderModule, nullptr);
+	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _shaderModule, nullptr);
 }

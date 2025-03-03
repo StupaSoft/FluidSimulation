@@ -60,6 +60,8 @@ class BufferResource
 private:
 	VkBuffer _buffer = VK_NULL_HANDLE;
 
+	VkBufferUsageFlags _bufferUsage = 0;
+
 	VkDeviceSize _size = 0; // Size of the buffer itself specified during creation, not the amount of memory required to allocate the buffer.
 
 	Memory _memory = nullptr;
@@ -78,6 +80,7 @@ public:
 	auto Size() const { return _size; }
 	auto GetBufferHandle() const { return _buffer; }
 	auto GetMemory() const { return _memory; }
+	VkDescriptorType GetDescriptorType();
 	void SetMemory(const Memory &memory, VkDeviceSize offset);
 };
 

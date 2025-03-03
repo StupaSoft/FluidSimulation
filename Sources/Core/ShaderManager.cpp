@@ -13,9 +13,10 @@ ShaderManager::ShaderManager()
 	};
 
 	// Search paths for #include directive or import declaration
+	std::string searchPath = std::format("{}/{}", SHADER_DIR, "Modules");
 	std::vector<const char *> searchPaths
 	{
-		std::format("{}/{}", SHADER_DIR, "Modules").c_str()
+		searchPath.c_str()
 	};
 
 	slang::SessionDesc sessionDesc
@@ -50,7 +51,7 @@ ShaderAsset ShaderManager::GetShaderAsset(const std::string &shaderStem, const s
 
 		if (shaderPath.empty())
 		{
-			throw std::runtime_error(std::format("Shader does not exist: {}", shaderStem));
+			throw std::runtime_error(std::format("Shader does not exist: ({} | {}_", shaderStem, entryName));
 		}
 
 		auto compiledShader = CompileShader(shaderPath, entryName);
