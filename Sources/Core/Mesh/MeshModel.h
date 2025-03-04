@@ -6,6 +6,7 @@
 #include "Vertex.h"
 #include "Triangle.h"
 #include "ShaderManager.h"
+#include "Pipeline.h"
 
 enum class RenderMode
 {
@@ -36,16 +37,18 @@ private:
 
 	// ==================== Render mode ====================
 	RenderMode _renderMode = RenderMode::Triangle;
-	VkPolygonMode _polygonMode = VK_POLYGON_MODE_FILL;
-	VkPrimitiveTopology _topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	float _lineWidth = 1.0f;
+	GraphicsPipelineOptions _graphicsPipelineOptions
+	{
+		._topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		._polygonMode = VK_POLYGON_MODE_FILL,
+		._lineWidth = 1.0f
+	};
 
 	// ==================== Pipeline and shaders ====================
-	ShaderAsset _vertShader = nullptr;
-	ShaderAsset _fragShader = nullptr;
+	Shader _vertShader = nullptr;
+	Shader _fragShader = nullptr;
 
-	VkPipeline _graphicsPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _pipelineLayout = VK_NULL_HANDLE;
+	Pipeline _graphicsPipeline = nullptr;
 
 	// ==================== Draw parameter ====================
 	Buffer _drawArgumentBuffer = nullptr;
@@ -95,7 +98,7 @@ public:
 
 	void SetMaterial(const Material &material);
 	void SetMaterial(Material &&material);
-	void SetLineWidth(float lineWidth) { _lineWidth = lineWidth; }
+	void SetLineWidth(float lineWidth) { _graphicsPipelineOptions._lineWidth = lineWidth; }
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);
@@ -104,8 +107,6 @@ private:
 	void UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);
 
 	VkSampler CreateTextureSampler(uint32_t textureMipLevels);
-
-	std::tuple<VkPipeline, VkPipelineLayout> CreateGraphicsPipeline(VkDescriptorSetLayout descriptorSetLayout, VkShaderModule vertShaderModule, VkShaderModule fragShaderModule);
 
 	void ApplyLightAdjustment(glm::vec3 direction, glm::vec3 color, float intensity);
 	void ApplyMaterialAdjustment();

@@ -25,42 +25,6 @@ void SimulationCompute::Register()
 SimulationCompute::~SimulationCompute()
 {
 	vkDeviceWaitIdle(VulkanCore::Get()->GetLogicalDevice());
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _hashingPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _hashingPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _prefixSumUpPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _prefixSumUpPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _prefixSumTurnPhasePipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _prefixSumTurnPhasePipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _prefixSumDownPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _prefixSumDownPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _countingSortPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _countingSortPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _densityPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _densityPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _externalForcesPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _externalForcesPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _computePressurePipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _computePressurePipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _pressureAndViscosityPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _pressureAndViscosityPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _timeIntegrationPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _timeIntegrationPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _resolveCollisionPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _resolveCollisionPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _endTimeStepPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _endTimeStepPipelineLayout, nullptr);
 }
 
 void SimulationCompute::UpdateSimulationParameters(const SimulationParameters &simulationParameters)
@@ -102,8 +66,8 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 	};
 
 	// 1. Hash particle positions and yield counts for each bucket
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _hashingPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _hashingPipelineLayout, 0, 1, &_hashingDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _hashingPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _hashingPipeline->GetPipelineLayout(), 0, 1, &_hashingDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -118,18 +82,18 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 		uint32_t dispatchCount = bucketCount / stride;
 
 		_prefixSumState->_step = step;
-		vkCmdPushConstants(computeCommandBuffer, _prefixSumUpPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefixSumState), _prefixSumState.get());
+		vkCmdPushConstants(computeCommandBuffer, _prefixSumUpPipeline->GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefixSumState), _prefixSumState.get());
 
-		vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumUpPipeline);
-		vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumUpPipelineLayout, 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+		vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumUpPipeline->GetPipeline());
+		vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumUpPipeline->GetPipelineLayout(), 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 		vkCmdDispatch(computeCommandBuffer, DivisionCeil(dispatchCount, 1024), 1, 1);
 
 		vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 	}
 
 	// Set the last element of accumulation buffer to zero.
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumTurnPhasePipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumTurnPhasePipelineLayout, 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumTurnPhasePipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumTurnPhasePipeline->GetPipelineLayout(), 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, 1, 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -138,72 +102,72 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 	for (uint32_t step = _prefixSumIterCount - 1; step != -1; --step)
 	{
 		_prefixSumState->_step = step;
-		vkCmdPushConstants(computeCommandBuffer, _prefixSumDownPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefixSumState), _prefixSumState.get());
+		vkCmdPushConstants(computeCommandBuffer, _prefixSumDownPipeline->GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PrefixSumState), _prefixSumState.get());
 
 		uint32_t stride = 1 << (step + 1);
 		uint32_t dispatchCount = bucketCount / stride;
 
-		vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumDownPipeline);
-		vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumDownPipelineLayout, 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+		vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumDownPipeline->GetPipeline());
+		vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _prefixSumDownPipeline->GetPipelineLayout(), 0, 1, &_prefixSumDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 		vkCmdDispatch(computeCommandBuffer, DivisionCeil(dispatchCount, 1024), 1, 1);
 
 		vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 	}
 
 	// 3. Counting sort of particles with their hash keys
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _countingSortPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _countingSortPipelineLayout, 0, 1, &_countingSortDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _countingSortPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _countingSortPipeline->GetPipelineLayout(), 0, 1, &_countingSortDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 4. Update densities
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _densityPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _densityPipelineLayout, 0, 1, &_densityDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _densityPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _densityPipeline->GetPipelineLayout(), 0, 1, &_densityDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 5. Accumulate external forces
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _externalForcesPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _externalForcesPipelineLayout, 0, 1, &_externalForcesDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _externalForcesPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _externalForcesPipeline->GetPipelineLayout(), 0, 1, &_externalForcesDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 6. Compute pressures
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePressurePipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePressurePipelineLayout, 0, 1, &_computePressureDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePressurePipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _computePressurePipeline->GetPipelineLayout(), 0, 1, &_computePressureDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 7. Accumulate pressure forces
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pressureAndViscosityPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pressureAndViscosityPipelineLayout, 0, 1, &_pressureAndViscosityDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pressureAndViscosityPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _pressureAndViscosityPipeline->GetPipelineLayout(), 0, 1, &_pressureAndViscosityDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 8. Time integration
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _timeIntegrationPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _timeIntegrationPipelineLayout, 0, 1, &_timeIntegrationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _timeIntegrationPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _timeIntegrationPipeline->GetPipelineLayout(), 0, 1, &_timeIntegrationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 9. Resolve collision
-	vkCmdPushConstants(computeCommandBuffer, _resolveCollisionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &_BVHMaxLevel);
+	vkCmdPushConstants(computeCommandBuffer, _resolveCollisionPipeline->GetPipelineLayout(), VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(uint32_t), &_BVHMaxLevel);
 
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipelineLayout, 0, 1, &_resolveCollisionDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _resolveCollisionPipeline->GetPipelineLayout(), 0, 1, &_resolveCollisionDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_simulationSetup->_particleCount, 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 	
 	// 10. End a time step
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _endTimeStepPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _endTimeStepPipelineLayout, 0, 1, &_endTimeStepDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _endTimeStepPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _endTimeStepPipeline->GetPipelineLayout(), 0, 1, &_endTimeStepDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(std::max(_simulationSetup->_particleCount, bucketCount), 1024), 1, 1);
 
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
@@ -211,7 +175,7 @@ void SimulationCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size
 
 void SimulationCompute::CreateSetupBuffers()
 {
-	Memory memory = std::make_shared<DeviceMemory>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_simulationSetupBuffer = CreateBuffer(sizeof(SimulationSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 	_gridSetupBuffer = CreateBuffer(sizeof(GridSetup), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
 	_simulationParametersBuffer = CreateBuffer(sizeof(SimulationParameters), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
@@ -220,14 +184,14 @@ void SimulationCompute::CreateSetupBuffers()
 
 void SimulationCompute::CreateGridBuffers(glm::uvec3 gridDimension)
 {
-	Memory memory = std::make_shared<DeviceMemory>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_accumulationBuffer = CreateBuffer(sizeof(uint32_t) * gridDimension.x * gridDimension.y * gridDimension.z, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	memory->Bind({ _accumulationBuffer });
 }
 
 void SimulationCompute::CreateLevelBuffers(const std::vector<BVH::Node> &BVHNodes)
 {
-	Memory memory = std::make_shared<DeviceMemory>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_BVHNodeBuffer = CreateBuffer(sizeof(BVH::Node) * BVHNodes.size(), VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	memory->Bind({ _BVHNodeBuffer });
 
@@ -236,7 +200,7 @@ void SimulationCompute::CreateLevelBuffers(const std::vector<BVH::Node> &BVHNode
 
 void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t BVHMaxLevel)
 {
-	Memory memory = std::make_shared<DeviceMemory>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+	Memory memory = CreateMemory(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	_hashResultBuffer = CreateBuffer(sizeof(uint32_t) * particleCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	_adjacentBucketBuffer = CreateBuffer(sizeof(uint32_t) * particleCount * OVERLAPPING_BUCKETS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
 	_bucketBuffer = CreateBuffer(sizeof(uint32_t) * particleCount, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
@@ -253,64 +217,64 @@ void SimulationCompute::CreateSimulationBuffers(uint32_t particleCount, uint32_t
 
 void SimulationCompute::CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension)
 {
-	ShaderAsset hashingShader = ShaderManager::Get()->GetShaderAsset("Hashing");
+	Shader hashingShader = ShaderManager::Get()->GetShaderAsset("Hashing");
 	_hashingDescriptor = CreateHashingDescriptors(hashingShader);
-	std::tie(_hashingPipeline, _hashingPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), hashingShader->GetShaderModule(), _hashingDescriptor->GetDescriptorSetLayout());
+	_hashingPipeline = CreateComputePipeline(hashingShader->GetShaderModule(), _hashingDescriptor->GetDescriptorSetLayout());
 
 	// Configure a push constant for prefix sum
 	_prefixSumStatePushConstant.offset = 0;
 	_prefixSumStatePushConstant.size = sizeof(PrefixSumState);
 	_prefixSumStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	ShaderAsset prefixSumUpShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainUp");
+	Shader prefixSumUpShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainUp");
 	_prefixSumDescriptor = CreatePrefixSumDescriptors(prefixSumUpShader);
-	std::tie(_prefixSumUpPipeline, _prefixSumUpPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumUpShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout(), { _prefixSumStatePushConstant });
+	_prefixSumUpPipeline = CreateComputePipeline(prefixSumUpShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout(), { _prefixSumStatePushConstant });
 
-	ShaderAsset prefixSumTurnPhaseShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainTurn");
-	std::tie(_prefixSumTurnPhasePipeline, _prefixSumTurnPhasePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumTurnPhaseShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout());
+	Shader prefixSumTurnPhaseShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainTurn");
+	_prefixSumTurnPhasePipeline = CreateComputePipeline(prefixSumTurnPhaseShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset prefixSumDownShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainDown");
-	std::tie(_prefixSumDownPipeline, _prefixSumDownPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), prefixSumDownShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout(), { _prefixSumStatePushConstant });
+	Shader prefixSumDownShader = ShaderManager::Get()->GetShaderAsset("PrefixSum", "mainDown");
+	_prefixSumDownPipeline = CreateComputePipeline(prefixSumDownShader->GetShaderModule(), _prefixSumDescriptor->GetDescriptorSetLayout(), { _prefixSumStatePushConstant });
 
-	ShaderAsset countingSortShader = ShaderManager::Get()->GetShaderAsset("CountingSort");
+	Shader countingSortShader = ShaderManager::Get()->GetShaderAsset("CountingSort");
 	_countingSortDescriptor = CreateCountingSortDescriptors(countingSortShader);
-	std::tie(_countingSortPipeline, _countingSortPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), countingSortShader->GetShaderModule(), _countingSortDescriptor->GetDescriptorSetLayout());
+	_countingSortPipeline = CreateComputePipeline(countingSortShader->GetShaderModule(), _countingSortDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset densityShader = ShaderManager::Get()->GetShaderAsset("UpdateDensity");
+	Shader densityShader = ShaderManager::Get()->GetShaderAsset("UpdateDensity");
 	_densityDescriptor = CreateDensityDescriptors(densityShader);
-	std::tie(_densityPipeline, _densityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), densityShader->GetShaderModule(), _densityDescriptor->GetDescriptorSetLayout());
+	_densityPipeline = CreateComputePipeline(densityShader->GetShaderModule(), _densityDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset externalForcesShader = ShaderManager::Get()->GetShaderAsset("AccumulateExternalForces");
+	Shader externalForcesShader = ShaderManager::Get()->GetShaderAsset("AccumulateExternalForces");
 	_externalForcesDescriptor = CreateExternalForcesDescriptors(externalForcesShader);
-	std::tie(_externalForcesPipeline, _externalForcesPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), externalForcesShader->GetShaderModule(), _externalForcesDescriptor->GetDescriptorSetLayout());
+	_externalForcesPipeline = CreateComputePipeline(externalForcesShader->GetShaderModule(), _externalForcesDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset computePressureShader = ShaderManager::Get()->GetShaderAsset("ComputePressure");
+	Shader computePressureShader = ShaderManager::Get()->GetShaderAsset("ComputePressure");
 	_computePressureDescriptor = CreateComputePressureDescriptors(computePressureShader);
-	std::tie(_computePressurePipeline, _computePressurePipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), computePressureShader->GetShaderModule(), _computePressureDescriptor->GetDescriptorSetLayout());
+	_computePressurePipeline = CreateComputePipeline(computePressureShader->GetShaderModule(), _computePressureDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset pressureAndViscosityShader = ShaderManager::Get()->GetShaderAsset("AccumulatePressureAndViscosity");
+	Shader pressureAndViscosityShader = ShaderManager::Get()->GetShaderAsset("AccumulatePressureAndViscosity");
 	_pressureAndViscosityDescriptor = CreatePressureViscosityForceDescriptors(pressureAndViscosityShader);
-	std::tie(_pressureAndViscosityPipeline, _pressureAndViscosityPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), pressureAndViscosityShader->GetShaderModule(), _pressureAndViscosityDescriptor->GetDescriptorSetLayout());
+	_pressureAndViscosityPipeline = CreateComputePipeline(pressureAndViscosityShader->GetShaderModule(), _pressureAndViscosityDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset timeIntegrationShader = ShaderManager::Get()->GetShaderAsset("TimeIntegration");
+	Shader timeIntegrationShader = ShaderManager::Get()->GetShaderAsset("TimeIntegration");
 	_timeIntegrationDescriptor = CreateTimeIntegrationDescriptors(timeIntegrationShader);
-	std::tie(_timeIntegrationPipeline, _timeIntegrationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), timeIntegrationShader->GetShaderModule(), _timeIntegrationDescriptor->GetDescriptorSetLayout());
+	_timeIntegrationPipeline = CreateComputePipeline(timeIntegrationShader->GetShaderModule(), _timeIntegrationDescriptor->GetDescriptorSetLayout());
 
 	// Configure a push constant for prefix sum
 	_BVHStatePushConstant.offset = 0;
 	_BVHStatePushConstant.size = sizeof(uint32_t);
 	_BVHStatePushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-	ShaderAsset resolveCollisionShader = ShaderManager::Get()->GetShaderAsset("ResolveCollision");
+	Shader resolveCollisionShader = ShaderManager::Get()->GetShaderAsset("ResolveCollision");
 	_resolveCollisionDescriptor = CreateResolveCollisionDescriptors(resolveCollisionShader);
-	std::tie(_resolveCollisionPipeline, _resolveCollisionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), resolveCollisionShader->GetShaderModule(), _resolveCollisionDescriptor->GetDescriptorSetLayout(), {_BVHStatePushConstant});
+	_resolveCollisionPipeline = CreateComputePipeline(resolveCollisionShader->GetShaderModule(), _resolveCollisionDescriptor->GetDescriptorSetLayout(), {_BVHStatePushConstant});
 
-	ShaderAsset endTimeStepShader = ShaderManager::Get()->GetShaderAsset("EndTimeStep");
+	Shader endTimeStepShader = ShaderManager::Get()->GetShaderAsset("EndTimeStep");
 	_endTimeStepDescriptor = CreateEndTimeStepDescriptors(endTimeStepShader);
-	std::tie(_endTimeStepPipeline, _endTimeStepPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), endTimeStepShader->GetShaderModule(), _endTimeStepDescriptor->GetDescriptorSetLayout());
+	_endTimeStepPipeline = CreateComputePipeline(endTimeStepShader->GetShaderModule(), _endTimeStepDescriptor->GetDescriptorSetLayout());
 }
 
-Descriptor SimulationCompute::CreateHashingDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateHashingDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -325,7 +289,7 @@ Descriptor SimulationCompute::CreateHashingDescriptors(const ShaderAsset &shader
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreatePrefixSumDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreatePrefixSumDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -335,7 +299,7 @@ Descriptor SimulationCompute::CreatePrefixSumDescriptors(const ShaderAsset &shad
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateCountingSortDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateCountingSortDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -347,7 +311,7 @@ Descriptor SimulationCompute::CreateCountingSortDescriptors(const ShaderAsset &s
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateDensityDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateDensityDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -365,7 +329,7 @@ Descriptor SimulationCompute::CreateDensityDescriptors(const ShaderAsset &shader
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateExternalForcesDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateExternalForcesDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -379,7 +343,7 @@ Descriptor SimulationCompute::CreateExternalForcesDescriptors(const ShaderAsset 
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateComputePressureDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateComputePressureDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -392,7 +356,7 @@ Descriptor SimulationCompute::CreateComputePressureDescriptors(const ShaderAsset
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreatePressureViscosityForceDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreatePressureViscosityForceDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -412,7 +376,7 @@ Descriptor SimulationCompute::CreatePressureViscosityForceDescriptors(const Shad
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateTimeIntegrationDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateTimeIntegrationDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -428,7 +392,7 @@ Descriptor SimulationCompute::CreateTimeIntegrationDescriptors(const ShaderAsset
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateResolveCollisionDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateResolveCollisionDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -444,7 +408,7 @@ Descriptor SimulationCompute::CreateResolveCollisionDescriptors(const ShaderAsse
 	return descriptor;
 }
 
-Descriptor SimulationCompute::CreateEndTimeStepDescriptors(const ShaderAsset &shader)
+Descriptor SimulationCompute::CreateEndTimeStepDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 

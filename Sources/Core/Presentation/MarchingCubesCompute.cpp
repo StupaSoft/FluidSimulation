@@ -11,31 +11,22 @@ MarchingCubesCompute::MarchingCubesCompute(const std::vector<Buffer> &inputBuffe
 	InitializationGrid(marchingCubesGrid);
 
 	// Create compute pipeline
-	ShaderAsset initializationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesInitialization");
+	Shader initializationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesInitialization");
 	_initializationDescriptor = CreateInitializationDescriptors(initializationShader);
-	std::tie(_initializationPipeline, _initializationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), initializationShader->GetShaderModule(), _initializationDescriptor->GetDescriptorSetLayout());
+	_initializationPipeline = CreateComputePipeline(initializationShader->GetShaderModule(), _initializationDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset accumulationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesAccumulation");
+	Shader accumulationShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesAccumulation");
 	_accumulationDescriptor = CreateAccumulationDescriptors(accumulationShader);
-	std::tie(_accumulationPipeline, _accumulationPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), accumulationShader->GetShaderModule(), _accumulationDescriptor->GetDescriptorSetLayout());
+	_accumulationPipeline = CreateComputePipeline(accumulationShader->GetShaderModule(), _accumulationDescriptor->GetDescriptorSetLayout());
 
-	ShaderAsset constructionShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesConstruction");
+	Shader constructionShader = ShaderManager::Get()->GetShaderAsset("MarchingCubesConstruction");
 	_constructionDescriptor = CreateConstructionDescriptors(constructionShader);
-	std::tie(_constructionPipeline, _constructionPipelineLayout) = CreateComputePipeline(VulkanCore::Get()->GetLogicalDevice(), constructionShader->GetShaderModule(), _constructionDescriptor->GetDescriptorSetLayout());
+	_constructionPipeline = CreateComputePipeline(constructionShader->GetShaderModule(), _constructionDescriptor->GetDescriptorSetLayout());
 }
 
 MarchingCubesCompute::~MarchingCubesCompute()
 {
 	vkDeviceWaitIdle(VulkanCore::Get()->GetLogicalDevice());
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _accumulationPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _accumulationPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _constructionPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _constructionPipelineLayout, nullptr);
-
-	vkDestroyPipeline(VulkanCore::Get()->GetLogicalDevice(), _initializationPipeline, nullptr);
-	vkDestroyPipelineLayout(VulkanCore::Get()->GetLogicalDevice(), _initializationPipelineLayout, nullptr);
 }
 
 void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame)
@@ -48,24 +39,24 @@ void MarchingCubesCompute::RecordCommand(VkCommandBuffer computeCommandBuffer, s
 	};
 
 	// 1. Initialization inputs and outputs
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipelineLayout, 0, 1, &_initializationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _initializationPipeline->GetPipelineLayout(), 0, 1, &_initializationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_voxelCount, 1024), 1, 1);
 
 	// Synchronization - accumulation only after initialization
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 2. Accumulate particle kernel values into voxels
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipelineLayout, 0, 1, &_accumulationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _accumulationPipeline->GetPipelineLayout(), 0, 1, &_accumulationDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_particleProperty->_particleCount, 1024), 1, 1);
 
 	// Synchronization - construction commences only after the accumulation finishes
 	vkCmdPipelineBarrier(computeCommandBuffer, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &memoryBarrier, 0, nullptr, 0, nullptr);
 
 	// 3. Construct meshes from the particles
-	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipeline);
-	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipelineLayout, 0, 1, &_constructionDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
+	vkCmdBindPipeline(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipeline->GetPipeline());
+	vkCmdBindDescriptorSets(computeCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, _constructionPipeline->GetPipelineLayout(), 0, 1, &_constructionDescriptor->GetDescriptorSets()[currentFrame], 0, 0);
 	vkCmdDispatch(computeCommandBuffer, DivisionCeil(_setup->_cellCount, 1024), 1, 1);
 }
 
@@ -100,7 +91,7 @@ void MarchingCubesCompute::CreateComputeBuffers(const MarchingCubesSetup &setup)
 	_drawArgumentBuffer->CopyFrom(&drawCommands);
 }
 
-Descriptor MarchingCubesCompute::CreateInitializationDescriptors(const ShaderAsset &shader)
+Descriptor MarchingCubesCompute::CreateInitializationDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -111,7 +102,7 @@ Descriptor MarchingCubesCompute::CreateInitializationDescriptors(const ShaderAss
 	return descriptor;
 }
 
-Descriptor MarchingCubesCompute::CreateAccumulationDescriptors(const ShaderAsset &shader)
+Descriptor MarchingCubesCompute::CreateAccumulationDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 
@@ -123,7 +114,7 @@ Descriptor MarchingCubesCompute::CreateAccumulationDescriptors(const ShaderAsset
 	return descriptor;
 }
 
-Descriptor MarchingCubesCompute::CreateConstructionDescriptors(const ShaderAsset &shader)
+Descriptor MarchingCubesCompute::CreateConstructionDescriptors(const Shader &shader)
 {
 	auto descriptor = CreateDescriptor(shader);
 

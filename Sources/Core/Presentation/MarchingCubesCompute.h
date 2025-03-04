@@ -15,6 +15,7 @@
 #include "Vertex.h"
 #include "SimulationParameters.h"
 #include "ShaderManager.h"
+#include "Pipeline.h"
 
 struct MarchingCubesGrid
 {
@@ -71,16 +72,13 @@ private:
 
 	// Compute pipeline
 	Descriptor _initializationDescriptor = nullptr;
-	VkPipeline _initializationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _initializationPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _initializationPipeline = nullptr;
 
 	Descriptor _accumulationDescriptor = nullptr;
-	VkPipeline _accumulationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _accumulationPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _accumulationPipeline = nullptr;
 
 	Descriptor _constructionDescriptor = nullptr;
-	VkPipeline _constructionPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _constructionPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _constructionPipeline = nullptr;
 
 	// Constants
 	static const uint32_t CODES_COUNT = 256;
@@ -110,8 +108,8 @@ private:
 	void CreateSetupBuffers();
 	void CreateComputeBuffers(const MarchingCubesSetup &setup);
 
-	Descriptor CreateInitializationDescriptors(const ShaderAsset &shader);
-	Descriptor CreateAccumulationDescriptors(const ShaderAsset &shader);
-	Descriptor CreateConstructionDescriptors(const ShaderAsset &shader);
+	Descriptor CreateInitializationDescriptors(const Shader &shader);
+	Descriptor CreateAccumulationDescriptors(const Shader &shader);
+	Descriptor CreateConstructionDescriptors(const Shader &shader);
 };
 

@@ -63,50 +63,36 @@ private:
 	VkPushConstantRange _BVHStatePushConstant{};
 	
 	Descriptor _hashingDescriptor = nullptr;
-	VkPipeline _hashingPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _hashingPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _hashingPipeline = nullptr;
 
 	Descriptor _prefixSumDescriptor = nullptr;
-	VkPipeline _prefixSumUpPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _prefixSumUpPipelineLayout = VK_NULL_HANDLE;
-
-	VkPipeline _prefixSumTurnPhasePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _prefixSumTurnPhasePipelineLayout = VK_NULL_HANDLE;
-
-	VkPipeline _prefixSumDownPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _prefixSumDownPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _prefixSumUpPipeline = nullptr;
+	Pipeline _prefixSumTurnPhasePipeline = nullptr;
+	Pipeline _prefixSumDownPipeline = nullptr;
 
 	Descriptor _countingSortDescriptor = nullptr;
-	VkPipeline _countingSortPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _countingSortPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _countingSortPipeline = nullptr;
 
 	Descriptor _densityDescriptor = nullptr;
-	VkPipeline _densityPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _densityPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _densityPipeline = nullptr;
 
 	Descriptor _externalForcesDescriptor = nullptr;
-	VkPipeline _externalForcesPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _externalForcesPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _externalForcesPipeline = nullptr;
 
 	Descriptor _computePressureDescriptor = nullptr;
-	VkPipeline _computePressurePipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _computePressurePipelineLayout = VK_NULL_HANDLE;
+	Pipeline _computePressurePipeline = nullptr;
 
 	Descriptor _pressureAndViscosityDescriptor = nullptr;
-	VkPipeline _pressureAndViscosityPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _pressureAndViscosityPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _pressureAndViscosityPipeline = nullptr;
 
 	Descriptor _timeIntegrationDescriptor = nullptr;
-	VkPipeline _timeIntegrationPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _timeIntegrationPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _timeIntegrationPipeline = nullptr;
 
 	Descriptor _resolveCollisionDescriptor = nullptr;
-	VkPipeline _resolveCollisionPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _resolveCollisionPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _resolveCollisionPipeline = nullptr;
 
 	Descriptor _endTimeStepDescriptor = nullptr;
-	VkPipeline _endTimeStepPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _endTimeStepPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _endTimeStepPipeline = nullptr;
 
 public:
 	SimulationCompute(glm::uvec3 gridDimension);
@@ -130,15 +116,15 @@ private:
 
 	void CreatePipelines(uint32_t particleCount, glm::uvec3 bucketDimension);
 
-	Descriptor CreateHashingDescriptors(const ShaderAsset &shader);
-	Descriptor CreatePrefixSumDescriptors(const ShaderAsset &shader);
-	Descriptor CreateCountingSortDescriptors(const ShaderAsset &shader);
-	Descriptor CreateDensityDescriptors(const ShaderAsset &shader);
-	Descriptor CreateExternalForcesDescriptors(const ShaderAsset &shader);
-	Descriptor CreateComputePressureDescriptors(const ShaderAsset &shader);
-	Descriptor CreatePressureViscosityForceDescriptors(const ShaderAsset &shader);
-	Descriptor CreateTimeIntegrationDescriptors(const ShaderAsset &shader);
-	Descriptor CreateResolveCollisionDescriptors(const ShaderAsset &shader);
-	Descriptor CreateEndTimeStepDescriptors(const ShaderAsset &shader);
+	Descriptor CreateHashingDescriptors(const Shader &shader);
+	Descriptor CreatePrefixSumDescriptors(const Shader &shader);
+	Descriptor CreateCountingSortDescriptors(const Shader &shader);
+	Descriptor CreateDensityDescriptors(const Shader &shader);
+	Descriptor CreateExternalForcesDescriptors(const Shader &shader);
+	Descriptor CreateComputePressureDescriptors(const Shader &shader);
+	Descriptor CreatePressureViscosityForceDescriptors(const Shader &shader);
+	Descriptor CreateTimeIntegrationDescriptors(const Shader &shader);
+	Descriptor CreateResolveCollisionDescriptors(const Shader &shader);
+	Descriptor CreateEndTimeStepDescriptors(const Shader &shader);
 
 };

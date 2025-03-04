@@ -122,53 +122,6 @@ std::tuple<std::vector<Vertex>, std::vector<uint32_t>> LoadOBJ(const std::string
 	return std::make_tuple(std::move(vertices), std::move(indices));
 }
 
-std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalDevice, VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout)
-{
-	return CreateComputePipeline(logicalDevice, computeShaderModule, descriptorSetLayout, {});
-}
-
-std::tuple<VkPipeline, VkPipelineLayout> CreateComputePipeline(VkDevice logicalDevice, VkShaderModule computeShaderModule, VkDescriptorSetLayout descriptorSetLayout, const std::vector<VkPushConstantRange> &pushConstantRanges)
-{
-	VkPipelineShaderStageCreateInfo computeShaderStageInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-		.stage = VK_SHADER_STAGE_COMPUTE_BIT,
-		.module = computeShaderModule,
-		.pName = "main"
-	};
-
-	const VkPushConstantRange *pushConstantRangesPtr = pushConstantRanges.empty() ? nullptr : pushConstantRanges.data();
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-		.setLayoutCount = 1,
-		.pSetLayouts = &descriptorSetLayout,
-		.pushConstantRangeCount = static_cast<uint32_t>(pushConstantRanges.size()),
-		.pPushConstantRanges = pushConstantRangesPtr
-	};
-
-	VkPipelineLayout computePipelineLayout = VK_NULL_HANDLE;
-	if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &computePipelineLayout))
-	{
-		throw std::runtime_error("Failed to create a compute pipeline layout.");
-	}
-
-	VkComputePipelineCreateInfo pipelineInfo
-	{
-		.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-		.stage = computeShaderStageInfo,
-		.layout = computePipelineLayout
-	};
-
-	VkPipeline computePipeline = VK_NULL_HANDLE;
-	if (vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline))
-	{
-		throw std::runtime_error("Failed to create a compute pipeline.");
-	}
-
-	return std::make_tuple(computePipeline, computePipelineLayout);
-}
-
 uint32_t DivisionCeil(uint32_t x, uint32_t y)
 { 
 	return (x + y - 1) / y; 

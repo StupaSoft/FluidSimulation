@@ -15,12 +15,12 @@
 #include "VulkanCore.h"
 #include "VulkanUtility.h"
 
-class ShaderResource;
-using ShaderAsset = std::shared_ptr<ShaderResource>;
+class ShaderAsset;
+using Shader = std::shared_ptr<ShaderAsset>;
 
-inline ShaderAsset CreateShaderAsset(const Slang::ComPtr<slang::IComponentType> &program) { return std::make_shared<ShaderResource>(program); }
+inline Shader CreateShaderAsset(const Slang::ComPtr<slang::IComponentType> &program) { return std::make_shared<ShaderAsset>(program); }
 
-class ShaderResource
+class ShaderAsset
 {
 private:
 	Slang::ComPtr<slang::IComponentType> _program; // For reflection
@@ -29,8 +29,8 @@ private:
 	std::map<std::string, uint32_t> _paramToBinding; // parameter Name -> binding
 
 public:
-	ShaderResource(const Slang::ComPtr<slang::IComponentType> &program);
-	~ShaderResource();
+	ShaderAsset(const Slang::ComPtr<slang::IComponentType> &program);
+	~ShaderAsset();
 
 	uint32_t GetBindingIndex(const std::string &variable);
 	VkShaderModule GetShaderModule() { return _shaderModule; }

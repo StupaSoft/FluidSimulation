@@ -19,6 +19,9 @@ add_library(Core STATIC
     ShaderManager.cpp
     ShaderResource.h
     ShaderResource.cpp
+    Pipeline.h
+    Pipeline.cpp
+
 
     Mesh/MeshModel.h
     Mesh/MeshModel.cpp

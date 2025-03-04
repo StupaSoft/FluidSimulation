@@ -1,6 +1,6 @@
 #include "ShaderResource.h"
 
-ShaderResource::ShaderResource(const Slang::ComPtr<slang::IComponentType> &program) :
+ShaderAsset::ShaderAsset(const Slang::ComPtr<slang::IComponentType> &program) :
 	_program(program)
 {
 	// Now we will create a shader module from program
@@ -46,7 +46,7 @@ ShaderResource::ShaderResource(const Slang::ComPtr<slang::IComponentType> &progr
 	_shaderStage |= SlangStageToFlagBit(programLayout->getEntryPointByIndex(0)->getStage());
 }
 
-uint32_t ShaderResource::GetBindingIndex(const std::string &variable)
+uint32_t ShaderAsset::GetBindingIndex(const std::string &variable)
 {
 	if (_paramToBinding.find(variable) == _paramToBinding.end())
 	{
@@ -59,7 +59,7 @@ uint32_t ShaderResource::GetBindingIndex(const std::string &variable)
 	
 }
 
-VkShaderStageFlagBits ShaderResource::SlangStageToFlagBit(SlangStage slangStage)
+VkShaderStageFlagBits ShaderAsset::SlangStageToFlagBit(SlangStage slangStage)
 {
 	switch (slangStage)
 	{
@@ -74,7 +74,7 @@ VkShaderStageFlagBits ShaderResource::SlangStageToFlagBit(SlangStage slangStage)
 	}
 }
 
-ShaderResource::~ShaderResource()
+ShaderAsset::~ShaderAsset()
 {
 	vkDestroyShaderModule(VulkanCore::Get()->GetLogicalDevice(), _shaderModule, nullptr);
 }

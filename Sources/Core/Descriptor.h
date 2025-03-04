@@ -8,8 +8,8 @@
 
 class DescriptorResource;
 using Descriptor = std::unique_ptr<DescriptorResource>;
-inline Descriptor CreateDescriptor(const std::vector<ShaderAsset> &shaders) { return std::make_unique<DescriptorResource>(shaders); }
-inline Descriptor CreateDescriptor(const ShaderAsset &shader) { return CreateDescriptor(std::vector<ShaderAsset>{ shader }); }
+inline Descriptor CreateDescriptor(const std::vector<Shader> &shaders) { return std::make_unique<DescriptorResource>(shaders); }
+inline Descriptor CreateDescriptor(const Shader &shader) { return CreateDescriptor(std::vector<Shader>{ shader }); }
 
 class DescriptorResource
 {
@@ -28,7 +28,7 @@ private:
 		VkShaderStageFlags shaderStage = 0;
 	};
 
-	std::vector<ShaderAsset> _shaders;
+	std::vector<Shader> _shaders;
 
 	VkDescriptorPool _descriptorPool = VK_NULL_HANDLE;
 	VkDescriptorSetLayout _descriptorSetLayout = VK_NULL_HANDLE;
@@ -42,8 +42,8 @@ private:
 	std::unordered_map<uint32_t, std::tuple<VkSampler, Image>> _samplersToBind;
 
 public:
-	DescriptorResource(const std::vector<ShaderAsset> &shaders) : _shaders(shaders) {}
-	DescriptorResource(const ShaderAsset &shader) : _shaders({ shader }) {}
+	DescriptorResource(const std::vector<Shader> &shaders) : _shaders(shaders) {}
+	DescriptorResource(const Shader &shader) : _shaders({ shader }) {}
 	DescriptorResource(const DescriptorResource &other) = delete;
 	DescriptorResource &operator=(const DescriptorResource &other) = delete;
 	DescriptorResource(DescriptorResource &&other) = delete;

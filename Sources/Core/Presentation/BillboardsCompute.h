@@ -4,6 +4,7 @@
 #include "VulkanResources.h"
 #include "Descriptor.h"
 #include "ShaderManager.h"
+#include "Pipeline.h"
 
 class BillboardsCompute : public ComputeBase
 {
@@ -14,8 +15,7 @@ private:
 	std::vector<Buffer> _particlePositionInputBuffers;
 
 	Descriptor _populatingDescriptor = nullptr;
-	VkPipeline _populatingPipeline = VK_NULL_HANDLE;
-	VkPipelineLayout _populatingPipelineLayout = VK_NULL_HANDLE;
+	Pipeline _populatingPipeline = nullptr;
 
 public:
 	BillboardsCompute(const std::vector<Buffer> &inputBuffers, size_t particleCount, const Buffer &vertexOutputBuffer);
@@ -27,6 +27,6 @@ protected:
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
 
 private:
-	Descriptor CreateDescriptors(const ShaderAsset &shader, size_t particleCount, const Buffer &particleCountBuffer, const std::vector<Buffer> &particlePositionBuffers, const Buffer &vertexOutputBuffer);
+	Descriptor CreateDescriptors(const Shader &shader, size_t particleCount, const Buffer &particleCountBuffer, const std::vector<Buffer> &particlePositionBuffers, const Buffer &vertexOutputBuffer);
 };
 

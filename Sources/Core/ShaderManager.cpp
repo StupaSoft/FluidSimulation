@@ -31,7 +31,7 @@ ShaderManager::ShaderManager()
 	_globalSession->createSession(sessionDesc, _session.writeRef());
 }
 
-ShaderAsset ShaderManager::GetShaderAsset(const std::string &shaderStem, const std::string &entryName)
+Shader ShaderManager::GetShaderAsset(const std::string &shaderStem, const std::string &entryName)
 {
 	auto shaderPair = std::make_tuple(shaderStem, entryName);
 	if (_shaderArchive.find(shaderPair) == _shaderArchive.end())

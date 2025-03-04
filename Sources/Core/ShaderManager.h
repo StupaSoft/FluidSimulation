@@ -18,7 +18,7 @@
 class ShaderManager
 {
 private:
-	std::map<std::tuple<std::filesystem::path, std::string>, ShaderAsset> _shaderArchive; // (path, entry name) -> Shader asset
+	std::map<std::tuple<std::filesystem::path, std::string>, Shader> _shaderArchive; // (path, entry name) -> Shader asset
 
 	// Slang
 	Slang::ComPtr<slang::IGlobalSession> _globalSession;
@@ -37,7 +37,7 @@ public:
 	ShaderManager &operator=(ShaderManager &&other) = delete;
 	~ShaderManager() = default;
 
-	ShaderAsset GetShaderAsset(const std::string &shaderStem, const std::string &entryName = "main");
+	Shader GetShaderAsset(const std::string &shaderStem, const std::string &entryName = "main");
 
 private:
 	ShaderManager();
