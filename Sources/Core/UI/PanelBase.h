@@ -9,7 +9,7 @@
 
 #include "Delegate.h"
 
-class PanelBase : public DelegateRegistrable<PanelBase>
+class PanelBase : public DelegateRegistrable
 {
 public:
 	virtual void Draw() = 0;

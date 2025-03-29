@@ -9,7 +9,7 @@
 
 #include "VulkanCore.h"
 
-class ModelBase : public DelegateRegistrable<ModelBase>
+class ModelBase : public DelegateRegistrable
 {
 protected:
 	size_t _eventID = 0;

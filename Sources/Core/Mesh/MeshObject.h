@@ -16,7 +16,7 @@
 #include "Camera.h"
 #include "Triangle.h"
 
-class MeshObject : public DelegateRegistrable<MeshObject>
+class MeshObject : public DelegateRegistrable
 {
 public:
 	// Descriptor used in shaders

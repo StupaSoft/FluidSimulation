@@ -24,7 +24,7 @@ enum class ParticleRenderingMode
 	MarchingCubes
 };
 
-class SimulatedSceneBase : public DelegateRegistrable<SimulatedSceneBase>
+class SimulatedSceneBase : public DelegateRegistrable
 {
 protected:
 	glm::uvec3 _gridDimension = glm::uvec3(64, 64, 64);

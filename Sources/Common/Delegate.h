@@ -229,8 +229,7 @@ public:
 	}
 };
 
-template<typename T>
-class DelegateRegistrable : public std::enable_shared_from_this<DelegateRegistrable<T>>
+class DelegateRegistrable : public std::enable_shared_from_this<DelegateRegistrable>
 {
 private:
 	size_t _UID = INVALID_ID;

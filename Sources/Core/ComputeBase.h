@@ -7,7 +7,7 @@
 
 #include "VulkanCore.h"
 
-class ComputeBase : public DelegateRegistrable<ComputeBase>
+class ComputeBase : public DelegateRegistrable
 {
 protected:
 	
