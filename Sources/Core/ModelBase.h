@@ -25,7 +25,9 @@ public:
 
 	virtual void Register() override;
 
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) = 0;
 	size_t GetOrder() { return _order; }
 	void SetOrder(size_t order) { _order = order; }
+
+protected:
+	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) = 0;
 };

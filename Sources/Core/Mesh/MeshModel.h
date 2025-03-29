@@ -85,8 +85,6 @@ public:
 	virtual ~MeshModel();
 
 	virtual void Register() override;
-
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
 	
 	void LoadMesh(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);	
 	void LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer);
@@ -102,6 +100,9 @@ public:
 
 	std::shared_ptr<MeshObject> AddMeshObject();
 	void RemoveMeshObject(const std::shared_ptr<MeshObject> &object);
+
+protected:
+	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
 
 private:
 	void UpdateTriangles(const std::vector<Vertex> &vertices, const std::vector<uint32_t> &indices);

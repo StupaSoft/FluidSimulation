@@ -21,8 +21,6 @@ public:
 	UIModel();
 	virtual ~UIModel();
 
-	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
-
 	template<typename TPanel, typename... TArgs>
 	std::shared_ptr<TPanel> AddPanel(TArgs&&... args)
 	{
@@ -31,4 +29,7 @@ public:
 
 		return panel;
 	}
+
+protected:
+	virtual void RecordCommand(VkCommandBuffer commandBuffer, size_t currentFrame) override;
 };
