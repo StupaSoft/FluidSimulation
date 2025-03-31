@@ -65,6 +65,8 @@ add_library(Core STATIC
     UI/SimulationPanel.cpp
     UI/UIModel.h
     UI/UIModel.cpp
+    UI/MaterialPanel.h
+    UI/MaterialPanel.cpp
 
     Utility/MathUtil.h
     Utility/MathUtil.cpp

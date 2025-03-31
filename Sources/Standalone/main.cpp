@@ -4,7 +4,7 @@
 
 int main()
 {
-	 std::shared_ptr<WindowApplication> app = std::make_shared<WindowApplication>();;
+	 std::shared_ptr<WindowApplication> app = std::make_shared<WindowApplication>();
 
 	try
 	{

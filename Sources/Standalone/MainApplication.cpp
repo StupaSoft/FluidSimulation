@@ -11,17 +11,16 @@ void WindowApplication::Run()
 	_vulkanCore->InitVulkan(_window);
 	_vulkanCore->SetUpScene();
 
-	//_simulatedScene = CPUSimulatedScene::Instantiate<CPUSimulatedScene>();
 	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>();
-	//_simulatedScene->AddProp("Hemisphere.obj", "", true, true);
-	//_simulatedScene->AddProp("Filter.obj", "", true, true);
-	//_simulatedScene->AddProp("Bath.obj", "", true, true, RenderMode::Wireframe); // Temp
-	//_simulatedScene->AddProp("Obstacle.obj", "", true, true, RenderMode::Wireframe); // Temp
-	_simulatedScene->AddProp("Rocky.obj", "Brown.png", true, true);
+
+	auto obj = LoadOBJ("Sphere.obj");
+	auto targetModel = MeshModel::Instantiate<MeshModel>();
+	targetModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
+	targetModel->LoadPipeline("StandardVertexFragment", "StandardVertexFragment", "VSMain", "PSMain", RenderMode::Triangle);
+	targetModel->AddMeshObject();
 
 	auto interfaceModel = UIModel::Instantiate<UIModel>();
-	interfaceModel->AddPanel<SimulationPanel>(_simulatedScene);
-	interfaceModel->AddPanel<RenderingPanel>(_simulatedScene);
+	interfaceModel->AddPanel<MaterialPanel>(targetModel);
 
 	MainLoop();
 }
