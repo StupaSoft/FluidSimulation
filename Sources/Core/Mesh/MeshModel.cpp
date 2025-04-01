@@ -305,7 +305,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::string &tex
 	}
 
 	VkDeviceSize imageSize = width * height * 4; // Four bytes per pixel
-	uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1; // How many times the image can be divided by 2?
+	uint32_t mipLevels = 1; // How many times the image can be divided by 2?
 
 	// Create an image object
 	// Specify VK_IMAGE_USAGE_TRANSFER_SRC_BIT so that it can be used as a blit source

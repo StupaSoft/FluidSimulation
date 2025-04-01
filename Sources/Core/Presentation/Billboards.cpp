@@ -57,7 +57,7 @@ Billboards::Billboards(const std::vector<Buffer> &inputBuffers, size_t particleC
 	_meshModel->LoadPipeline("ParticleVertexFragment", "ParticleVertexFragment", "VSMain", "PSMain");
 	_meshModel->LoadMesh(_vertexBuffer, _indexBuffer, _drawArgumentBuffer);
 
-	MeshModel::Material particleMat
+	Material particleMat
 	{
 		._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
 		._glossiness = 1.0f

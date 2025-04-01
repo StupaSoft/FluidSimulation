@@ -31,6 +31,7 @@ add_library(Core STATIC
     Mesh/Triangle.cpp    
     Mesh/Vertex.h
     Mesh/Vertex.cpp
+    Mesh/RenderParameters.h
 
     Presentation/Billboards.h
     Presentation/Billboards.cpp
@@ -41,6 +42,8 @@ add_library(Core STATIC
     Presentation/MarchingCubesCompute.h
     Presentation/MarchingCubesCompute.cpp
     Presentation/MarchingCubesTable.cpp
+    Presentation/RayTracerCompute.h
+    Presentation/RayTracerCompute.cpp
 
     Simulation/BVH.h
     Simulation/BVH.cpp

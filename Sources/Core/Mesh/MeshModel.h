@@ -7,6 +7,7 @@
 #include "Triangle.h"
 #include "ShaderManager.h"
 #include "Pipeline.h"
+#include "RenderParameters.h"
 
 enum class RenderMode
 {
@@ -17,21 +18,6 @@ enum class RenderMode
 
 class MeshModel : public ModelBase
 {
-public:
-	struct Light
-	{
-		alignas(16) glm::vec4 _direction; // Use vec4 instead of vec3 so that it can match the shader alignment
-		alignas(16) glm::vec4 _color; // Ditto
-		alignas(4) float _intensity;
-	};
-
-	struct Material
-	{
-		alignas(16) glm::vec4 _color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-		alignas(16) glm::vec4 _specularColor = glm::vec4(0.5f, 0.5f, 0.5f, 0.5f);
-		alignas(4) float _glossiness = 10.0f;
-	};
-
 private:
 	std::vector<std::shared_ptr<MeshObject>> _meshObjects;
 
@@ -90,6 +76,8 @@ public:
 	void LoadMesh(Buffer vertexBuffer, Buffer indexBuffer, Buffer drawArgumentBuffer);
 	void LoadPipeline(const std::string &vertexShaderStem, const std::string &fragmentShaderStem, const std::string &vertexShaderEntry = "main", const std::string &fragmentShaderEntry = "main", RenderMode renderMode = RenderMode::Triangle);
 	void LoadTexture(const std::string &textureName);
+
+	Image GetTexture() const { return _texture; }
 
 	void UpdateVertices(const std::vector<Vertex> &vertices);
 	void UpdateIndices(const std::vector<uint32_t> &indices);

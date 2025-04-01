@@ -182,6 +182,31 @@ void BufferResource::CopyFrom(const Buffer &source, VkDeviceSize copyOffset, VkD
 	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
 }
 
+void BufferResource::CopyFrom(const Image &image)
+{
+	VkBufferImageCopy region
+	{
+		.bufferOffset = 0,
+		.bufferRowLength = 0, // Pixels are tightly packed
+		.bufferImageHeight = 0,
+
+		// Which part of the image is copied
+		.imageSubresource =
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.mipLevel = 0,
+			.baseArrayLayer = 0,
+			.layerCount = 1
+		},
+		.imageOffset = { 0, 0, 0 },
+		.imageExtent = { image->Width(), image->Height(), 1}
+	};
+
+	VkCommandBuffer commandBuffer = VulkanCore::Get()->BeginSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool());
+	vkCmdCopyImageToBuffer(commandBuffer, image->GetImageHandle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, _buffer, 1, &region);
+	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
+}
+
 VkDescriptorType BufferResource::GetDescriptorType()
 {
 	if (_bufferUsage & VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
@@ -202,6 +227,40 @@ void BufferResource::SetMemory(const Memory &memory, VkDeviceSize offset)
 {
 	_memory = memory;
 	_offsetWithinMemory = offset;
+}
+
+std::vector<char> BufferResource::GetBytes(VkDeviceSize copyOffset, VkDeviceSize copySize)
+{
+	size_t vectorSize = copySize == VK_WHOLE_SIZE ? _size: copySize;
+	std::vector<char> bytes(vectorSize);
+
+	if (_memory->IsDeviceLocal())
+	{
+		if (_mappedMemory == nullptr)
+		{
+			// If we haven't mapped memory with the buffer, first create a staging buffer to map.
+			_stagingBuffer = CreateBuffer(_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
+			Memory stagingMemory = CreateMemory(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+			stagingMemory->Bind({ _stagingBuffer });
+
+			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _stagingBuffer->GetMemory()->GetMemoryHandle(), 0, _size, 0, &_mappedMemory); // Map data <-> stagingBufferMemory
+		}
+
+		_stagingBuffer->CopyFrom(this, copyOffset, copySize);
+		memcpy(bytes.data(), _mappedMemory, copySize);
+	}
+	else
+	{
+		if (_mappedMemory == nullptr)
+		{
+			vkMapMemory(VulkanCore::Get()->GetLogicalDevice(), _memory->GetMemoryHandle(), _offsetWithinMemory, _size, 0, &_mappedMemory);
+		}
+
+		void *offsetData = reinterpret_cast<std::byte *>(_mappedMemory) + copyOffset;
+		memcpy(bytes.data(), offsetData, copySize);
+	}
+
+	return bytes;
 }
 
 // Image
@@ -330,4 +389,37 @@ void ImageResource::CopyFrom(const Buffer &buffer, uint32_t width, uint32_t heig
 void ImageResource::SetMemory(const Memory &memory)
 {
 	_memory = memory;
+}
+
+void ImageResource::TransitionImageLayout(VkImageLayout from, VkImageLayout to)
+{
+	// repeatedly blit a source image to a smaller one
+	VkCommandBuffer commandBuffer = VulkanCore::Get()->BeginSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool());
+	VkImageMemoryBarrier barrier
+	{
+		.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+		.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+		.image = _image,
+		.subresourceRange =
+		{
+			.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.levelCount = 1,
+			.baseArrayLayer = 0,
+			.layerCount = 1,
+		}
+	};
+
+	int32_t width = static_cast<int32_t>(_width);
+	int32_t height = static_cast<int32_t>(_height);
+
+	// Transition the last mipmap
+	barrier.oldLayout = from;
+	barrier.newLayout = to;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+
+	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), commandBuffer, VulkanCore::Get()->GetGraphicsQueue());
 }

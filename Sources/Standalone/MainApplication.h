@@ -31,11 +31,14 @@
 #include "RenderingPanel.h"
 #include "MaterialPanel.h"
 
+#include "RayTracerCompute.h"
+
 class WindowApplication
 {
 private:
 	VulkanCore *_vulkanCore;
-	std::shared_ptr<SimulatedSceneBase> _simulatedScene;
+	std::shared_ptr<SimulatedSceneBase> _simulatedScene = nullptr;
+	std::shared_ptr<RayTracerCompute> _rayTracer = nullptr;
 
 public:
 	void Run();
@@ -48,6 +51,5 @@ private:
 	GLFWwindow *InitMainWindow(int width, int height, const std::string &title);
 	void MainLoop();
 
-	void Resize();
 	static void OnFramebufferResized(GLFWwindow *window, int width, int height);
 };

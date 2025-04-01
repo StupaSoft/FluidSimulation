@@ -13,14 +13,24 @@ void WindowApplication::Run()
 
 	_simulatedScene = GPUSimulatedScene::Instantiate<GPUSimulatedScene>();
 
-	auto obj = LoadOBJ("Sphere.obj");
-	auto targetModel = MeshModel::Instantiate<MeshModel>();
-	targetModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
-	targetModel->LoadPipeline("StandardVertexFragment", "StandardVertexFragment", "VSMain", "PSMain", RenderMode::Triangle);
-	targetModel->AddMeshObject();
+	auto obj = LoadOBJ("Screen.obj");
+	auto screenModel = MeshModel::Instantiate<MeshModel>();
+	screenModel->LoadMesh(std::get<0>(obj), std::get<1>(obj));
+	screenModel->LoadTexture("WhiteScreen.png");
+	Material screenMat
+	{
+		._color = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f),
+		._specularColor = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f),
+		._glossiness = 0.0f
+	};
+	screenModel->SetMaterial(screenMat);
+	screenModel->LoadPipeline("StandardVertexFragment", "StandardVertexFragment", "VSMain", "PSFlatMain", RenderMode::Triangle);
+	screenModel->AddMeshObject();
+
+	_rayTracer = RayTracerCompute::Instantiate<RayTracerCompute>(screenModel->GetTexture());
 
 	auto interfaceModel = UIModel::Instantiate<UIModel>();
-	interfaceModel->AddPanel<MaterialPanel>(targetModel);
+	interfaceModel->AddPanel<MaterialPanel>(_rayTracer->GetMaterial());
 
 	MainLoop();
 }
@@ -55,14 +65,9 @@ void WindowApplication::MainLoop()
 	}
 }
 
-void WindowApplication::Resize()
-{
-	VulkanCore::Get()->Resize();
-}
-
 // Window resize callback
 void WindowApplication::OnFramebufferResized(GLFWwindow *window, int width, int height)
 {
 	auto app = reinterpret_cast<WindowApplication *>(glfwGetWindowUserPointer(window));
-	app->Resize();
+	VulkanCore::Get()->SetDirtyResize();
 }

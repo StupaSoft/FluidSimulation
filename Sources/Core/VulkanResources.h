@@ -70,12 +70,15 @@ public:
 
 	void CopyFrom(const void *source, VkDeviceSize copyOffset = 0, VkDeviceSize copySize = VK_WHOLE_SIZE);
 	void CopyFrom(const Buffer &source, VkDeviceSize copyOffset = 0, VkDeviceSize copySize = VK_WHOLE_SIZE);
+	void CopyFrom(const Image &image);
 
 	auto Size() const { return _size; }
 	auto GetBufferHandle() const { return _buffer; }
 	auto GetMemory() const { return _memory; }
 	VkDescriptorType GetDescriptorType();
 	void SetMemory(const Memory &memory, VkDeviceSize offset);
+
+	std::vector<char> GetBytes(VkDeviceSize copyOffset = 0, VkDeviceSize copySize = VK_WHOLE_SIZE);
 
 private:
 	BufferResource(VkDeviceSize bufferSize, VkBufferUsageFlags bufferUsage);
@@ -106,11 +109,17 @@ public:
 	void CopyFrom(const void *source, uint32_t width, uint32_t height);
 	void CopyFrom(const Buffer &buffer, uint32_t width, uint32_t height);
 
+	auto Width() const { return _width; }
+	auto Height() const { return _height; }
 	auto Size() const { return _width * _height * 4; } // Four bytes per pixel
 	auto GetImageHandle() const { return _image; }
 	auto GetImageViewHandle() const { return _imageView; }
 	auto GetMemory() const { return _memory; }
 	void SetMemory(const Memory &memory);
+
+	void TransitionImageLayout(VkImageLayout from, VkImageLayout to);
+
+	std::vector<char> GetBytes(VkDeviceSize copyOffset, VkDeviceSize copySize);
 
 private:
 	ImageResource(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, VkFormat imageFormat, VkImageTiling imageTiling, VkImageUsageFlags imageUsage, VkImageAspectFlags aspectFlags);

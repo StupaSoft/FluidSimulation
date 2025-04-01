@@ -141,11 +141,15 @@ private:
 	std::shared_ptr<DirectionalLight> _mainLight;
 
 	// ==================== Events ====================
-	Delegate<void(float, uint32_t)> _onExecuteHost;
+	Delegate<void(float, uint32_t)> _onBeginLoop;
+
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordComputeCommand;
 	Delegate<void(VkCommandBuffer, uint32_t)> _onRecordDrawCommand;
+
 	Delegate<void()> _onRecreateSwapChain;
 	Delegate<void()> _onSubmitGraphicsQueueFinishedOneShot;
+
+	Delegate<void(float, uint32_t)> _onEndLoop;
 
 public:
 	static VulkanCore *Get() 
@@ -162,7 +166,7 @@ public:
 
 	void InitVulkan(GLFWwindow *window);
 	void UpdateFrame(float deltaSecond);
-	void Resize() { _framebufferResized = true; }
+	void SetDirtyResize() { _framebufferResized = true; }
 
 	void SetUpScene(); // Temp
 
@@ -177,6 +181,7 @@ public:
 	auto GetPresentFamily() const { return FindQueueFamilies(_physicalDevice, _surface).presentFamily.value(); }
 	auto GetGraphicsQueue() const { return _graphicsQueue; }
 	auto GetMinImageCount() const { return QuerySwapChainSupport(_physicalDevice, _surface).capabilities.minImageCount; }
+	auto &GetSwapChains() const { return _swapChainImages; }
 	auto GetSwapChainImageCount() const { return _swapChainImages.size(); }
 	auto GetRenderPass() const { return _renderPass; }
 	auto GetExtent() const { return _swapChainExtent; }
@@ -188,7 +193,7 @@ public:
 	auto &GetMainCamera() const { return _mainCamera; }
 	auto &GetMainLight() const { return _mainLight; }
 
-	auto &OnExecuteHost() { return _onExecuteHost; }
+	auto &OnExecuteHost() { return _onBeginLoop; }
 	auto &OnComputeCommand() { return _onRecordComputeCommand; }
 	auto &OnDrawCommand() { return _onRecordDrawCommand; }
 	auto &OnRecreateSwapChain() { return _onRecreateSwapChain; }
@@ -198,6 +203,8 @@ public:
 	VkCommandBuffer BeginSingleTimeCommands(VkCommandPool commandPool);
 	void EndSingleTimeCommands(VkCommandPool commandPool, VkCommandBuffer commandBuffer, VkQueue submitQueue);
 	void WaitIdle() { vkDeviceWaitIdle(_logicalDevice); }
+
+	std::tuple<int, int> GetScreenSize();
 
 private:
 	// ==================== Singleton ====================

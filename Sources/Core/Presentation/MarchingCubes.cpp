@@ -8,7 +8,7 @@ MarchingCubes::MarchingCubes(const std::vector<Buffer> &inputBuffers, size_t par
 	_meshModel->LoadMesh(_compute->GetVertexBuffer(), _compute->GetIndexBuffer(), _compute->GetDrawArgumentBuffer());
 	_meshModel->LoadPipeline("StandardVertexFragment", "StandardVertexFragment", "VSMain", "PSMain");
 
-	MeshModel::Material marchingCubesMat
+	Material marchingCubesMat
 	{
 		._color = glm::vec4(0.0f, 0.2f, 1.0f, 1.0f),
 		._glossiness = 1.0f

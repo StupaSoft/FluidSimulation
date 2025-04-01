@@ -27,10 +27,3 @@ public struct VertexInput
     public float3 normal;
     public float2 texCoord;
 }
-
-public struct Vertex
-{
-	public float3 pos;
-	public float3 normal;
-	public float2 texCoord;
-}

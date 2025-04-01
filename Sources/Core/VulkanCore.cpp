@@ -39,7 +39,7 @@ void VulkanCore::InitVulkan(GLFWwindow *window)
 void VulkanCore::UpdateFrame(float deltaSecond)
 {
 	// CPU side
-	_onExecuteHost.Invoke(deltaSecond, _currentFrame);
+	_onBeginLoop.Invoke(deltaSecond, _currentFrame);
 
 	// GPU side
 	std::vector<VkSemaphore> waitSemaphores = { _imageAvailableSemaphores[_currentFrame] };
@@ -74,9 +74,6 @@ void VulkanCore::UpdateFrame(float deltaSecond)
 
 	if (_onRecordDrawCommand.GetListenerCount() > 0)
 	{
-		// Submit draw commands
-		vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX); // Wait until the previous frame has finished
-
 		uint32_t imageIndex = 0; // Index to the image in the swap chain
 		VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapChain, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex); // Get an available swap chain image that has become available
 		if (result == VK_ERROR_OUT_OF_DATE_KHR) // The swap chain has become incompatible with the surface; usually after resizing the window
@@ -148,11 +145,13 @@ void VulkanCore::UpdateFrame(float deltaSecond)
 	// Proceed to the next frame
 	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 	WaitIdle();
+
+	_onEndLoop.Invoke(deltaSecond, _currentFrame);
 }
 
 void VulkanCore::SetUpScene()
 {
-	_mainCamera = std::make_shared<Camera>(glm::vec3(7.0f, 7.0f, 7.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
+	_mainCamera = std::make_shared<Camera>(glm::vec3(0.0f, 0.0f, 4.0f), glm::vec3(0.0f, 0.0f, 0.0f), FOV_Y, _swapChainExtent.width, _swapChainExtent.height);
 	_mainLight = std::make_shared<DirectionalLight>(glm::vec3(3.0f, -3.0f, -5.0f), glm::vec3(1.0f, 1.0f, 1.0f), 2.0f);
 }
 
@@ -754,14 +753,7 @@ VkExtent2D VulkanCore::ChooseSwapExtent(GLFWwindow *window, const VkSurfaceCapab
 // Recreate swapchain-dependent objects
 void VulkanCore::RecreateSwapChain()
 {
-	int width = 0;
-	int height = 0;
-	glfwGetFramebufferSize(_window, &width, &height);
-	while (width == 0 || height == 0)
-	{
-		glfwGetFramebufferSize(_window, &width, &height);
-		glfwWaitEvents();
-	}
+	auto [width, height] = GetScreenSize();
 
 	WaitIdle();
 
@@ -1045,7 +1037,7 @@ void VulkanCore::RecordCommandBuffer(VkExtent2D swapChainExtent, VkRenderPass re
 			.depthStencil = { 1.0f, 0 } // The initial value must be the farthest depth 1.0.
 		},
 		{
-			.color = { { 0.5f, 0.5f, 0.5f, 1.0f } }
+			.color = { { 0.0f, 0.0f, 0.0f, 1.0f } }
 		}
 	};
 	renderPassBeginInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
@@ -1220,4 +1212,17 @@ void VulkanCore::EndSingleTimeCommands(VkCommandPool commandPool, VkCommandBuffe
 	vkQueueWaitIdle(submitQueue); // Wait for operations in the command queue to be finished.
 
 	vkFreeCommandBuffers(_logicalDevice, commandPool, 1, &commandBuffer);
+}
+
+std::tuple<int, int> VulkanCore::GetScreenSize()
+{
+	int width = 0;
+	int height = 0;
+	while (width == 0 || height == 0)
+	{
+		glfwGetFramebufferSize(_window, &width, &height);
+		glfwWaitEvents();
+	}
+	
+	return std::make_tuple(width, height);
 }

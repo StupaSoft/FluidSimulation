@@ -8,10 +8,9 @@
 class MaterialPanel : public PanelBase
 {
 private:
-	std::shared_ptr<MeshModel> _meshModel = nullptr;
-	MeshModel::Material _material{};
+	std::shared_ptr<Material> _material = nullptr;
 
 public:
-	MaterialPanel(const std::shared_ptr<MeshModel> &meshModel);
+	MaterialPanel(const std::shared_ptr<Material> &material);
 	virtual void Draw() override;
 };

@@ -62,3 +62,11 @@ float4 PSMain(VertexToPixel input)
     return float4(diffuse + specular, 1.0f); // View space
 }
 
+[shader("fragment")]
+float4 PSFlatMain(VertexToPixel input)
+{
+    float3 diffuse = texSampler.Sample(input.texCoord).xyz;
+    return float4(diffuse, 1.0f); // View space
+}
+
+
