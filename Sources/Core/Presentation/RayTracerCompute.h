@@ -44,7 +44,7 @@ private:
 
 	Material _material{};
 
-	float _learningRate = 0.3f;
+	float _learningRate = 0.2f;
 
 	int _screenWidth = 0;
 	int _screenHeight = 0;

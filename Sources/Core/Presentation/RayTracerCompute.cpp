@@ -30,6 +30,15 @@ RayTracerCompute::RayTracerCompute(const Image &screen) :
 	_cameraBuffer->CopyFrom(VulkanCore::Get()->GetMainCamera().get());
 	_lightBuffer->CopyFrom(VulkanCore::Get()->GetMainLight().get());
 
+	// At least set the initial material so that glossiness doesn't fall into local minimum...
+	Material initLearningMaterial
+	{
+		._color = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+		._specularColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+		._glossiness = _material._glossiness
+	};
+	_learningMaterialBuffer->CopyFrom(&initLearningMaterial);
+
 	// Spheres
 	Sphere targetSphere
 	{

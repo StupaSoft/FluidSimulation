@@ -52,7 +52,7 @@ float RaySphereIntersect(float4 rayOrigin, float4 rayDirection, float4 center, f
 [Differentiable]
 float Loss(float4 target, float4 normal, Material mat, Light light, float4 viewDirection)
 {
-    return length(target - BlinnPhong(normal, mat, light, viewDirection));
+    return pow(length(target - BlinnPhong(normal, mat, light, viewDirection)), 2.0f);
 }
 
 [Differentiable]
@@ -60,9 +60,9 @@ float4 BlinnPhong(float4 normal, Material mat, Light light, float4 viewDirection
 {
     normal = normalize(normal);
     float4 lightDirection = -light.direction;
-    float4 diffuse = (light.color * dot(normal, lightDirection) * light.intensity) * mat.color;
+    float4 diffuse = light.color * light.intensity * dot(normal, lightDirection) * mat.color;
 
-    float4 halfway = normalize(normalize(viewDirection) + normalize(lightDirection));
+    float4 halfway = normalize(normalize(viewDirection) + lightDirection);
     float highlight = pow(dot(normal, halfway), mat.glossiness) * dot(normal, lightDirection);
     float4 specular = light.color * mat.specularColor * highlight;
 
