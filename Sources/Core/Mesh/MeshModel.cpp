@@ -315,7 +315,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::string &tex
 		height,
 		mipLevels,
 		VK_SAMPLE_COUNT_1_BIT,
-		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_FORMAT_R32G32B32A32_SFLOAT,
 		VK_IMAGE_TILING_OPTIMAL,
 		// VK_IMAGE_USAGE_TRANSFER_DST_BIT - The image is going to be used as a destination for the buffer copy from the staging buffer
 		// VK_IMAGE_USAGE_TRANSFER_SRC_BIT - We will create mipmaps by transfering the image
@@ -362,7 +362,7 @@ std::tuple<Image, uint32_t> MeshModel::CreateTextureImage(const std::string &tex
 	VulkanCore::Get()->EndSingleTimeCommands(VulkanCore::Get()->GetGraphicsCommandPool(), texCommandBuffer, VulkanCore::Get()->GetGraphicsQueue());
 
 	// Now copy the buffer to the image
-	texture->CopyFrom(pixels, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
+	//texture->CopyFrom(pixels, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 	stbi_image_free(pixels); // Clean up the original pixel array
 
 	// Generate mipmaps

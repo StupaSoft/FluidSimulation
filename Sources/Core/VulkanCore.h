@@ -93,7 +93,8 @@ private:
 	VkSwapchainKHR _swapChain = VK_NULL_HANDLE;
 	const std::vector<const char *> DEVICE_EXTENSIONS =
 	{
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME
 	};
 	// Store the swap chain images
 	// Will be automatically cleaned up once the swap chain has been destroyed

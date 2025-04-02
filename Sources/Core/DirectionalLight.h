@@ -21,7 +21,7 @@ protected:
 	Delegate<void(const DirectionalLight &)> _onChanged;
 
 public:
-	DirectionalLight(glm::vec3 direction, glm::vec3 color, float intensity) : _direction(direction), _color(color), _intensity(intensity)  {}
+	DirectionalLight(glm::vec3 direction, glm::vec3 color, float intensity);
 
 	auto GetDirection() const { return _direction; }
 	auto GetColor() const { return _color; }

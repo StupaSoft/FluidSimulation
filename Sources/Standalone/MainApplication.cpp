@@ -30,7 +30,7 @@ void WindowApplication::Run()
 	_rayTracer = RayTracerCompute::Instantiate<RayTracerCompute>(screenModel->GetTexture());
 
 	auto interfaceModel = UIModel::Instantiate<UIModel>();
-	interfaceModel->AddPanel<MaterialPanel>(_rayTracer->GetMaterial());
+	interfaceModel->AddPanel<MaterialPanel>(_rayTracer);
 
 	MainLoop();
 }

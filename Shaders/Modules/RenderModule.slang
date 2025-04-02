@@ -7,18 +7,18 @@ public struct MVP
     public float4x4 proj;
 }
 
-public struct Light
+public struct Light : IDifferentiable
 {
-    public float4 lightDirection;
-    public float4 lightColor;
-    public float lightIntensity;
+    public float4 direction;
+    public float4 color;
+    public float intensity;
 }
 
-public struct Material
+public struct Material : IDifferentiable
 {
-    public float4 materialColor;
-    public float4 materialSpecularColor;
-    public float materialGlossiness;
+    public float4 color;
+    public float4 specularColor;
+    public float glossiness;
 }
 
 public struct VertexInput

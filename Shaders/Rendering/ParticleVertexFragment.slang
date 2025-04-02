@@ -12,9 +12,9 @@ struct VertexToPixel
     float3 specularColor;
     float glossiness;
 
-    float3 lightDirection; // View space
-    float3 lightColor;
-    float lightIntensity;
+    float3 direction; // View space
+    float3 color;
+    float intensity;
 
     float3 viewDirection;
 }
@@ -48,16 +48,16 @@ VertexToPixel VSMain(VertexInput input)
     float4x4 modelView = mul(mvp.view, mvp.model);
     float4 viewPosition = mul(modelView, float4(input.position, 1.0f)); 
 
-    output.color = material.materialColor.xyz;
+    output.color = material.color.xyz;
     output.normal = mul(modelView, float4(input.normal, 0.0f)).xyz; // This is a normal transformation (see normal matrix)
     output.texCoord = input.texCoord;
 
-    output.specularColor = material.materialSpecularColor.xyz;
-    output.glossiness = material.materialGlossiness;
+    output.specularColor = material.specularColor.xyz;
+    output.glossiness = material.glossiness;
 
-    output.lightDirection = normalize(mul(mvp.view, light.lightDirection).xyz);
-    output.lightColor = light.lightColor.xyz;
-    output.lightIntensity = light.lightIntensity;
+    output.direction = normalize(mul(mvp.view, light.direction).xyz);
+    output.color = light.color.xyz;
+    output.intensity = light.intensity;
 
     output.viewDirection = -viewPosition.xyz;
 
@@ -75,12 +75,12 @@ float4 PSMain(VertexToPixel input)
     float3 fragNormal = float3(input.texCoord, coordZ); // Spherical normal
 
     // Diffuse
-    float3 diffuse = input.lightIntensity * (input.lightColor * clamp(dot(fragNormal, input.lightDirection), 0.0f, 1.0f)) * input.color;
+    float3 diffuse = input.intensity * (input.color * clamp(dot(fragNormal, input.direction), 0.0f, 1.0f)) * input.color;
 
     // Specular
-    float3 halfway = normalize(normalize(input.viewDirection) + normalize(input.lightDirection));
-    float highlight = pow(clamp(dot(fragNormal, halfway), 0.0f, 1.0f), input.glossiness) * float(dot(fragNormal, input.lightDirection) > 0.0f);
-    float3 specular = (input.lightColor * input.specularColor) * highlight;
+    float3 halfway = normalize(normalize(input.viewDirection) + normalize(input.direction));
+    float highlight = pow(clamp(dot(fragNormal, halfway), 0.0f, 1.0f), input.glossiness) * float(dot(fragNormal, input.direction) > 0.0f);
+    float3 specular = (input.color * input.specularColor) * highlight;
 
     return float4(diffuse + specular, 1.0f);
 }

@@ -18,6 +18,7 @@ class RayTracerCompute : public ComputeBase
 private:
 	Image _screen = nullptr;
 
+	// Buffers
 	Buffer _screenBuffer = nullptr;
 	Buffer _cameraBuffer = nullptr;
 	Buffer _lightBuffer = nullptr;
@@ -27,14 +28,23 @@ private:
 
 	Buffer _targetSphereBuffer = nullptr;
 	Buffer _learningSphereBuffer = nullptr;
+	Buffer _gradientBuffer = nullptr;
 
 	Buffer _targetMaterialBuffer = nullptr;
 	Buffer _learningMaterialBuffer = nullptr;
 
+	Buffer _learningRateBuffer = nullptr;
+
+	// Pipelines
 	Descriptor _rayTracingDescriptor = nullptr;
 	Pipeline _rayTracingPipeline = nullptr;
 
-	std::shared_ptr<Material> _material = std::make_shared<Material>();
+	Descriptor _updaterDescriptor = nullptr;
+	Pipeline _updaterPipeline = nullptr;
+
+	Material _material{};
+
+	float _learningRate = 0.3f;
 
 	int _screenWidth = 0;
 	int _screenHeight = 0;
@@ -42,12 +52,16 @@ private:
 public:
 	RayTracerCompute(const Image &screen);
 	virtual ~RayTracerCompute();
-	auto GetMaterial() const { return _material; }
+	auto &GetMaterial() { return _material; }
+
+	float GetLearningRate() { return _learningRate; }
+	void SetLearningRate(float learningRate);
 
 protected:
 	virtual void RecordCommand(VkCommandBuffer computeCommandBuffer, size_t currentFrame) override;
 
 private:
-	Descriptor CreateDescriptors(const Shader &shader);
+	Descriptor CreateRayTracingDescriptors(const Shader &shader);
+	Descriptor CreateUpdaterDescriptors(const Shader &shader);
 };
 

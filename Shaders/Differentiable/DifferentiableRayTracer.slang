@@ -6,7 +6,7 @@ struct Sphere
     float radius;
 };
 
-ConstantBuffer<float2> screenSize;
+ConstantBuffer<uint2> screenSize;
 ConstantBuffer<float3> cameraPos;
 ConstantBuffer<Light> light;
 
@@ -14,15 +14,16 @@ ConstantBuffer<Sphere> targetSphere;
 ConstantBuffer<Sphere> learningSphere;
 
 ConstantBuffer<Material> targetMaterial;
-ConstantBuffer<Material> learningMaterial;
+RWStructuredBuffer<Material> learningMaterial;
+RWStructuredBuffer<Material> gradientMaterial; // Gradient
 
-RWStructuredBuffer<uint8_t4_packed> targetScene;
-RWStructuredBuffer<uint8_t4_packed> renderedScene;
+RWStructuredBuffer<float4> targetScene;
+RWStructuredBuffer<float4> renderedScene;
 
 // Return the travel distance to the nearest 
-float RaySphereIntersect(float3 rayOrigin, float3 rayDirection, float3 center, float radius)
+float RaySphereIntersect(float4 rayOrigin, float4 rayDirection, float4 center, float radius)
 {
-    float3 L = center - rayOrigin;
+    float4 L = center - rayOrigin;
     float tca = dot(L, rayDirection);
 
     if (tca < 0.0f) 
@@ -47,23 +48,25 @@ float RaySphereIntersect(float3 rayOrigin, float3 rayDirection, float3 center, f
     return -1.0f;
 }
 
+// Calculate a distance between a target pixel and a pixel rendered by the current material
 [Differentiable]
-float4 Loss(float4 previous, float3 color, float3 normal, float3 specularColor, float glossiness, float3 lightDirection, float3 lightColor, float3 lightIntensity, float3 viewDirection)
+float Loss(float4 target, float4 normal, Material mat, Light light, float4 viewDirection)
 {
-    return BlinnPhong(color, normal, specularColor, glossiness, lightDirection, lightColor, lightIntensity, viewDirection);
+    return length(target - BlinnPhong(normal, mat, light, viewDirection));
 }
 
 [Differentiable]
-float4 BlinnPhong(float3 color, float3 normal, float3 specularColor, float glossiness, float3 lightDirection, float3 lightColor, float3 lightIntensity, float3 viewDirection)
+float4 BlinnPhong(float4 normal, Material mat, Light light, float4 viewDirection)
 {
-    float3 normal = normalize(normal);
-    float3 diffuse = (lightColor * dot(normal, lightDirection) * lightIntensity) * color;
+    normal = normalize(normal);
+    float4 lightDirection = -light.direction;
+    float4 diffuse = (light.color * dot(normal, lightDirection) * light.intensity) * mat.color;
 
-    float3 halfway = normalize(normalize(viewDirection) + normalize(lightDirection));
-    float highlight = pow(dot(normal, halfway), glossiness) * dot(normal, lightDirection);
-    float3 specular = (lightColor * specularColor) * highlight;
+    float4 halfway = normalize(normalize(viewDirection) + normalize(lightDirection));
+    float highlight = pow(dot(normal, halfway), mat.glossiness) * dot(normal, lightDirection);
+    float4 specular = light.color * mat.specularColor * highlight;
 
-    return float4(diffuse + specular, 1.0f); // View space
+    return diffuse + specular; // View space
 }
 
 [shader("compute")]
@@ -71,26 +74,74 @@ void main(uint3 globalThreadID : SV_DispatchThreadID)
 {
     uint x = globalThreadID.x;
     uint y = globalThreadID.y;
+    uint entry = y * screenSize.x + x;
 
     // Calculate the ray
-    float3 rayOrigin = cameraPos;
-    float3 screenPoint = float3(-screenSize / 2.0f + float2(x, y), 0.0f) / 1000.0f;
-    float3 rayDirection = normalize(screenPoint - rayOrigin);
+    float4 rayOrigin = float4(cameraPos, 0.0f);
+    float4 screenPoint = float4(-(float2)screenSize / 2.0f + float2(x, y), 0.0f, 0.0f) / 1000.0f;
+    float4 rayDirection = normalize(screenPoint - rayOrigin);
 
-    // 1. Raytrace the target sphere
-    float targetSphereHit = RaySphereIntersect(rayOrigin, rayDirection, targetSphere.pos.xyz, targetSphere.radius);
+    // 1. Raytrace the target sphere to draw and store the result in the learning target buffer
+    float targetSphereHit = RaySphereIntersect(rayOrigin, rayDirection, targetSphere.pos, targetSphere.radius);
     if (targetSphereHit != -1.0f)
     {
-        uint4 color = uint4(255, 0, 0, 255);
-        renderedScene[y * 1920 + x] = pack_u8(color);
+        float4 hitPoint = rayOrigin + rayDirection * targetSphereHit;
+        float4 normal = hitPoint - targetSphere.pos;
+        float4 viewDirection = rayOrigin - hitPoint;
+        float4 pixel = BlinnPhong(normal, targetMaterial, light, viewDirection);
+        renderedScene[entry] = pixel;
+        targetScene[entry] = pixel;
     }
 
-    // 2. Raytrace the learning sphere
-    float learningSphereHit = RaySphereIntersect(rayOrigin, rayDirection, learningSphere.pos.xyz, learningSphere.radius);
+    // 2. Raytrace the learning sphere just to draw
+    float learningSphereHit = RaySphereIntersect(rayOrigin, rayDirection, learningSphere.pos, learningSphere.radius);
     if (learningSphereHit != -1.0f)
     {
-        uint4 color = uint4(0, 0, 255, 255);
-        renderedScene[y * 1920 + x] = pack_u8(color);
+        float4 hitPoint = rayOrigin + rayDirection * learningSphereHit;
+        float4 normal = hitPoint - learningSphere.pos;
+        float4 viewDirection = rayOrigin - hitPoint;
+        float4 pixel = BlinnPhong(normal, learningMaterial[0], light, viewDirection);
+        renderedScene[entry] = pixel;
+    }
+
+    // 3. Calculate gradient
+    // To compute a loss, we render a scene using the geometry of the target sphere and the learning material
+    // and then compare it with the target scene
+    float diffSphereHit = RaySphereIntersect(rayOrigin, rayDirection, targetSphere.pos, targetSphere.radius);
+    if (diffSphereHit != -1.0f)
+    {
+        float4 hitPoint = rayOrigin + rayDirection * diffSphereHit;
+        float4 normal = hitPoint - targetSphere.pos;
+        float4 viewDirection = rayOrigin - hitPoint;
+
+        DifferentialPair<float4> targetPair = diffPair(targetScene[entry]);
+        DifferentialPair<Material> matPair = diffPair(learningMaterial[0]);
+        DifferentialPair<Light> lightPair = diffPair((Light)light);
+        DifferentialPair<float4> normalPair = diffPair(normal);
+        DifferentialPair<float4> viewDirectionPair = diffPair(viewDirection);
+
+        bwd_diff(Loss)(targetPair, normalPair, matPair, lightPair, viewDirectionPair, 1.0f);
+        if (!isnan(matPair.d.color.x) && !isnan(matPair.d.color.y) && !isnan(matPair.d.color.z))
+        {
+            // Aggregate color gradients
+            InterlockedAdd(gradientMaterial[0].color.x, matPair.d.color.x);
+            InterlockedAdd(gradientMaterial[0].color.y, matPair.d.color.y);
+            InterlockedAdd(gradientMaterial[0].color.z, matPair.d.color.z);
+        }
+        
+        if (!isnan(matPair.d.specularColor.x) && !isnan(matPair.d.specularColor.y) && !isnan(matPair.d.specularColor.z))
+        {
+            // Aggregate specular color gradients
+            InterlockedAdd(gradientMaterial[0].specularColor.x, matPair.d.specularColor.x);
+            InterlockedAdd(gradientMaterial[0].specularColor.y, matPair.d.specularColor.y);
+            InterlockedAdd(gradientMaterial[0].specularColor.z, matPair.d.specularColor.z);
+        }
+
+        if (!isnan(matPair.d.glossiness))
+        {
+            // Aggregate glossiness
+            InterlockedAdd(gradientMaterial[0].glossiness, matPair.d.glossiness);
+        }
     }
 }
 
